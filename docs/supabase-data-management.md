@@ -76,3 +76,11 @@ TRUNCATE TABLE samples_item CASCADE;
 -- Lalu setup ulang data dasar
 INSERT INTO roles (name) VALUES ('admin'), ('manager'), ('operator');
 ```
+
+## Transisi dari SQL Query ke Supabase API
+
+Jika Anda mengalami error seperti `Could not find the function public.execute_sql(params, sql_query) in the schema cache`, ini terjadi karena aplikasi mencoba menjalankan query SQL langsung. 
+
+Supabase **tidak** mendukung eksekusi query SQL langsung melalui API JavaScript-nya. Sebagai gantinya, gunakan pendekatan berbasis tabel dari Supabase.
+
+Untuk informasi lebih lengkap tentang cara migrasi dari query SQL ke API Supabase, lihat [Panduan Migrasi SQL ke Supabase API](./sql-to-supabase-migration.md).

@@ -27,13 +27,9 @@ export async function executeQuery<T>(params: AnyQueryParams): Promise<T> {
   // Check if using legacy format
   if ("query" in params) {
     console.warn("Using legacy query format. Please update to the new format.");
-    // Attempt to execute a raw SQL query (limited support in Supabase)
-    const { data, error } = await supabase.rpc("execute_sql", {
-      sql_query: params.query,
-      params: params.values,
-    });
-    if (error) throw new Error(error.message);
-    return data as T;
+    throw new Error(
+      "Raw SQL queries are not supported in Supabase. Please use the db-adapter.ts module instead."
+    );
   }
 
   // Using new format
@@ -104,6 +100,5 @@ export async function executeQuery<T>(params: AnyQueryParams): Promise<T> {
   return result as T;
 }
 export function initializeDatabase(): void | PromiseLike<void> {
-    throw new Error('Function not implemented.');
+  throw new Error("Function not implemented.");
 }
-
