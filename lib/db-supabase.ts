@@ -15,8 +15,12 @@ export async function query<T = any>({
   single?: boolean
 }): Promise<T> {
   try {
+    // Make sure we're using the correct table name format with schema
+    // Supabase requires fully qualified table names with schema
+    const tableName = table.includes('.') ? table : `weightmanagementdb.${table}`;
+    
     let query = supabase
-      .from(table)
+      .from(tableName)
       .select(select);
     
     // Apply filters
@@ -50,8 +54,11 @@ export async function insert<T = any>({
   returning?: string;
 }): Promise<T> {
   try {
+    // Make sure we're using the correct table name format with schema
+    const tableName = table.includes('.') ? table : `weightmanagementdb.${table}`;
+    
     const { data: result, error } = await supabase
-      .from(table)
+      .from(tableName)
       .insert(data)
       .select(returning);
     
@@ -76,8 +83,11 @@ export async function update<T = any>({
   returning?: string;
 }): Promise<T> {
   try {
+    // Make sure we're using the correct table name format with schema
+    const tableName = table.includes('.') ? table : `weightmanagementdb.${table}`;
+    
     let query = supabase
-      .from(table)
+      .from(tableName)
       .update(data);
     
     // Apply filters
@@ -108,8 +118,11 @@ export async function remove<T = any>({
   returning?: string;
 }): Promise<T> {
   try {
+    // Make sure we're using the correct table name format with schema
+    const tableName = table.includes('.') ? table : `weightmanagementdb.${table}`;
+    
     let query = supabase
-      .from(table)
+      .from(tableName)
       .delete();
     
     // Apply filters
@@ -136,10 +149,9 @@ export async function initializeDatabase() {
   try {
     // We'll use Supabase SQL editor or migrations for table creation
     // This is just a placeholder for any initialization code we might need
-    
-    // Check if admin user exists
+      // Check if admin user exists
     const { data: users } = await supabase
-      .from('users')
+      .from('weightmanagementdb.users')
       .select('*')
       .eq('email', 'admin@example.com');
     
@@ -147,35 +159,32 @@ export async function initializeDatabase() {
     if (!users || users.length === 0) {
       const bcrypt = require('bcryptjs');
       const hashedPassword = await bcrypt.hash('admin123', 10);
-      
-      // First check if admin role exists
+        // First check if admin role exists
       const { data: roles } = await supabase
-        .from('roles')
+        .from('weightmanagementdb.roles')
         .select('*')
         .eq('name', 'admin');
       
       let adminRoleId: number;
       
       // Insert admin role if it doesn't exist
-      if (!roles || roles.length === 0) {
-        const { data: newRole } = await supabase
-          .from('roles')
+      if (!roles || roles.length === 0) {        const { data: newRole } = await supabase
+          .from('weightmanagementdb.roles')
           .insert({ name: 'admin' })
           .select();
         
         adminRoleId = newRole ? newRole[0].id : 1;
         
         // Also add other roles
-        await supabase.from('roles').insert([
+        await supabase.from('weightmanagementdb.roles').insert([
           { name: 'manager' },
           { name: 'operator' }
         ]);
       } else {
         adminRoleId = roles[0].id;
       }
-      
-      // Insert admin user
-      await supabase.from('users').insert({
+        // Insert admin user
+      await supabase.from('weightmanagementdb.users').insert({
         name: 'Admin User',
         email: 'admin@example.com',
         password: hashedPassword,

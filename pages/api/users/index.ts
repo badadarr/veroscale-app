@@ -29,9 +29,9 @@ async function getUsers(res: NextApiResponse) {
     const users = useSupabase 
       // Supabase-friendly query
       ? await executeQuery<any[]>({
-          table: 'users',
+          table: 'weightmanagementdb.users',
           action: 'select',
-          columns: 'id, name, email, created_at, role_id, roles!inner(name)'
+          columns: 'id, name, email, created_at, role_id, weightmanagementdb.roles!roles_id_fkey(name)'
         })
       // Original MySQL query
       : await executeQuery<any[]>({

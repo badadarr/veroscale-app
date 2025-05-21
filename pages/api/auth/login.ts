@@ -25,9 +25,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const users = useSupabase
       // Supabase implementation
       ? await executeQuery<any[]>({
-          table: 'users',
+          table: 'weightmanagementdb.users',
           action: 'select',
-          columns: 'id, email, name, password, roles!inner(name)',
+          columns: 'id, email, name, password, role_id, weightmanagementdb.roles!roles_id_fkey(name)',
           filters: { email },
         })
       // MySQL implementation
@@ -45,7 +45,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // Process the user object based on the database used
     const user = users[0];
+    // For Supabase, roles come as a nested object
+    if (useSupabase && user.roles) {
+      user.role = user.roles.name;
+    }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -55,11 +60,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Record user session
     await executeQuery({
-      query: `
-        INSERT INTO sessions (user_id, status)
-        VALUES (?, 'active')
-      `,
-      values: [user.id],
+      // Use table-based API for Supabase compatibility
+      table: 'sessions',
+      action: 'insert',
+      data: {
+        user_id: user.id,
+        status: 'active'
+      }
     });
 
     // Generate token

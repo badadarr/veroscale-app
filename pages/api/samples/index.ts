@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { executeQuery } from '../../../lib/db';
+import { executeQuery } from '../../../lib/db-adapter';
 import { getUserFromToken, isManagerOrAdmin } from '../../../lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -28,37 +28,86 @@ async function getSamples(req: NextApiRequest, res: NextApiResponse) {
     const itemsPerPage = parseInt(limit as string, 10);
     const offset = (currentPage - 1) * itemsPerPage;
     
-    let query = `SELECT * FROM samples_item WHERE 1=1`;
-    const queryParams: any[] = [];
+    // Check if we're using Supabase or MySQL implementation
+    const useSupabase = Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL && 
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
     
-    if (category) {
-      query += ` AND category LIKE ?`;
-      queryParams.push(`%${category}%`);
-    }
+    let totalItems = 0;
+    let samples: any[] = [];
     
-    if (item) {
-      query += ` AND item LIKE ?`;
-      queryParams.push(`%${item}%`);
-    }
+    if (useSupabase) {
+      // Supabase implementation
+      // For Supabase, we need to handle this differently since LIKE operations are special
+      
+      // First, get all samples (we'll filter in memory)
+      samples = await executeQuery<any[]>({
+        table: 'weightmanagementdb.samples_item',
+        action: 'select',
+        columns: '*'
+      });
+      
+      // Apply filters in memory
+      if (category) {
+        const categoryLower = (category as string).toLowerCase();
+        samples = samples.filter(sample => 
+          sample.category.toLowerCase().includes(categoryLower)
+        );
+      }
+      
+      if (item) {
+        const itemLower = (item as string).toLowerCase();
+        samples = samples.filter(sample => 
+          sample.item.toLowerCase().includes(itemLower)
+        );
+      }
+      
+      // Get total count for pagination
+      totalItems = samples.length;
+      
+      // Sort by created_at
+      samples.sort((a, b) => {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      
+      // Apply pagination
+      samples = samples.slice(offset, offset + itemsPerPage);
+      
+    } else {
+      // MySQL implementation (original code)
+      let query = `SELECT * FROM samples_item WHERE 1=1`;
+      const queryParams: any[] = [];
+      
+      if (category) {
+        query += ` AND category LIKE ?`;
+        queryParams.push(`%${category}%`);
+      }
+      
+      if (item) {
+        query += ` AND item LIKE ?`;
+        queryParams.push(`%${item}%`);
+      }
 
-    // Get total count for pagination
-    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as count');
-    const countResult = await executeQuery<any[]>({
-      query: countQuery,
-      values: queryParams,
-    });
-    
-    const totalItems = countResult[0].count;
-    
-    // Add pagination to main query
-    query += ` ORDER BY created_at DESC LIMIT ${itemsPerPage} OFFSET ${offset}`;
-    
-    // Using direct string interpolation for pagination
-    // This avoids the issue with prepared statements incorrectly handling numeric parameters
-    const samples = await executeQuery<any[]>({
-      query,
-      values: queryParams,
-    });
+      // Get total count for pagination
+      const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as count');
+      const countResult = await executeQuery<any[]>({
+        query: countQuery,
+        values: queryParams,
+      });
+      
+      totalItems = countResult[0].count;
+      
+      // Add pagination to main query
+      query += ` ORDER BY created_at DESC LIMIT ${itemsPerPage} OFFSET ${offset}`;
+      
+      // Using direct string interpolation for pagination
+      // This avoids the issue with prepared statements incorrectly handling numeric parameters
+      samples = await executeQuery<any[]>({
+        query,
+        values: queryParams,
+      });
+    }
     
     return res.status(200).json({
       samples,
@@ -89,16 +138,44 @@ async function addSample(req: NextApiRequest, res: NextApiResponse, user: any) {
       return res.status(400).json({ message: 'Category, item, and sample weight are required' });
     }
     
-    const result = await executeQuery<any>({
-      query: `
-        INSERT INTO samples_item (category, item, sample_weight)
-        VALUES (?, ?, ?)
-      `,
-      values: [category, item, sample_weight],
-    });
+    // Check if we're using Supabase or MySQL implementation
+    const useSupabase = Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL && 
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+    
+    let result;
+    
+    if (useSupabase) {
+      // Supabase implementation
+      result = await executeQuery<any[]>({
+        table: 'weightmanagementdb.samples_item',
+        action: 'insert',
+        data: {
+          category,
+          item,
+          sample_weight,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        },
+        returning: '*'
+      });
+      
+      // Supabase returns an array with the inserted object
+      result = result[0];
+    } else {
+      // MySQL implementation
+      result = await executeQuery<any>({
+        query: `
+          INSERT INTO samples_item (category, item, sample_weight)
+          VALUES (?, ?, ?)
+        `,
+        values: [category, item, sample_weight],
+      });
+    }
     
     const newSample = {
-      id: result.insertId,
+      id: useSupabase ? result.id : result.insertId,
       category,
       item,
       sample_weight,
