@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom base styles */
+@layer base {
+  :root {
+    --toaster-bg: #ffffff;
+    --toaster-color: #333333;
+    --text-primary: #1f2937;
+    --text-secondary: #4b5563;
+    --text-muted: #6b7280;
+    --bg-primary: #f9fafb;
+    --bg-secondary: #f3f4f6;
+    --bg-card: #ffffff;
+    --border-color: #e5e7eb;
+  }
+  
+  html {
+    @apply antialiased;
+  }
+  
+  /* Light theme styles */
+  body {
+    @apply text-gray-800 bg-gray-50 transition-colors duration-200;
+    color: var(--text-primary);
+    background-color: var(--bg-primary);
+  }
+  
+  /* Light theme defaults */
+  :root {
+    background-color: var(--bg-primary);
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold tracking-tight;
+  }
+}
+
+/* Custom animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from { 
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Animation classes */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}

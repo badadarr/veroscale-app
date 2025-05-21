@@ -1,0 +1,342 @@
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'react-hot-toast';
+import apiClient from '@/lib/api';
+import {
+  Plus,
+  Edit,
+  Trash2,
+  ArrowLeft,
+  ArrowRight,
+  AlertCircle,
+  Search,
+  UserCircle
+} from 'lucide-react';
+import DashboardLayout from '@/components/layouts/DashboardLayout';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { useAuth } from '@/contexts/AuthContext';
+import { formatDate } from '@/lib/utils';
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  created_at: string;
+}
+
+export default function Users() {
+  const { user: currentUser } = useAuth();
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    id: null as number | null,
+    name: '',
+    email: '',
+    password: '',
+    role: 'operator',
+  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Redirect if not admin
+  useEffect(() => {
+    if (currentUser && currentUser.role !== 'admin') {
+      window.location.href = '/dashboard';
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    setLoading(true);
+
+    try {
+      // Use our API client that automatically includes the auth token
+      const { data } = await apiClient.get('/api/users');
+      setUsers(data.users);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError('Failed to load users');
+      toast.error('Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredUsers = users.filter((user) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(query) ||
+      user.email.toLowerCase().includes(query) ||
+      user.role.toLowerCase().includes(query)
+    );
+  });
+
+  const openCreateForm = () => {
+    setFormData({
+      id: null,
+      name: '',
+      email: '',
+      password: '',
+      role: 'operator',
+    });
+    setFormErrors({});
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+  };
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      errors.name = 'Name is required';
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Email is invalid';
+    }
+
+    if (!formData.id && !formData.password.trim()) {
+      errors.password = 'Password is required for new users';
+    } else if (!formData.id && formData.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters';
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      const userData = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role: formData.role,
+      };
+
+      if (formData.id) {
+        // Update existing user
+        await apiClient.put(`/api/users/${formData.id}`, userData);
+        toast.success('User updated successfully');
+      } else {
+        // Create new user
+        await apiClient.post('/api/auth/register', userData);
+        toast.success('User created successfully');
+      }
+
+      // Refresh users list
+      fetchUsers();
+      closeForm();
+    } catch (err: any) {
+      console.error('Error saving user:', err);
+      const errorMessage = err.response?.data?.message || (formData.id ? 'Failed to update user' : 'Failed to create user');
+      toast.error(errorMessage);
+    }
+  };
+
+  return (
+    <DashboardLayout title="User Management">
+      <div className="space-y-6">
+        {error && (
+          <div className="bg-error-100 border border-error-300 text-error-700 px-4 py-3 rounded relative" role="alert">
+            <div className="flex">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              <span>{error}</span>
+            </div>
+          </div>
+        )}
+
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex justify-between items-center">
+              <CardTitle>User Accounts</CardTitle>
+              <Button onClick={openCreateForm}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Search input */}
+            <div className="mb-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Search users..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+
+            {/* User Form */}
+            {showForm && (
+              <div className="bg-gray-50 p-4 rounded-md mb-6 border border-gray-200">
+                <h3 className="text-lg font-medium mb-4">
+                  {formData.id ? 'Edit User' : 'Add New User'}
+                </h3>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Name"
+                      placeholder="Enter name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      error={formErrors.name}
+                    />
+                    <Input
+                      label="Email"
+                      type="email"
+                      placeholder="Enter email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      error={formErrors.email}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label={formData.id ? 'Password (leave blank to keep current)' : 'Password'}
+                      type="password"
+                      placeholder={formData.id ? 'Leave blank to keep current password' : 'Enter password'}
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      error={formErrors.password}
+                    />
+                    <div>
+                      <label htmlFor="user-role-select" className="block text-sm font-medium text-gray-700 mb-1">
+                        Role
+                      </label>
+                      <select
+                        id="user-role-select"
+                        value={formData.role}
+                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="admin">Admin</option>
+                        <option value="manager">Manager</option>
+                        <option value="operator">Operator</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button type="button" variant="outline" onClick={closeForm}>
+                      Cancel
+                    </Button>
+                    <Button type="submit">
+                      {formData.id ? 'Update User' : 'Add User'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Users table */}
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                        No users found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <TableRow key={user.id}>
+                        <TableCell>
+                          <div className="flex items-center">
+                            <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold mr-3">
+                              {user.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="font-medium">{user.name}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{user.email}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-primary-100 text-primary-800' :
+                              user.role === 'manager' ? 'bg-secondary-100 text-secondary-800' :
+                                'bg-gray-100 text-gray-800'
+                            }`}>
+                            {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                          </span>
+                        </TableCell>
+                        <TableCell>{formatDate(user.created_at)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setFormData({
+                                id: user.id,
+                                name: user.name,
+                                email: user.email,
+                                password: '',
+                                role: user.role,
+                              });
+                              setFormErrors({});
+                              setShowForm(true);
+                            }}
+                            className="mr-2"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-error-600 hover:text-error-700"
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to delete this user?')) {
+                                // Handle delete logic
+                                toast.error('User deletion is disabled for demo');
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </DashboardLayout>
+  );
+}
