@@ -78,7 +78,7 @@ export async function executeQuery<T = any>(options: {
       throw new Error('Query is required when using MySQL');
     }
     
-    return mysqlDB.executeQuery<T>({ query, values });
+    return mysqlDB.executeQuery<T>({ query, values: values ?? [] });
   }
 }
 

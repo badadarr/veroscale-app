@@ -6,6 +6,7 @@
   "framework": "nextjs",
   "outputDirectory": ".next",
   "env": {
-    "NODE_ENV": "production"
+    "NEXT_PUBLIC_SUPABASE_URL": "https://ygkskdfhbkcwvanhysbl.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlna3NrZGZoYmtjd3Zhbmh5c2JsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc3ODQxNTksImV4cCI6MjA2MzM2MDE1OX0.1KkyutIlWIb1VGJsZGoHEWOGVem6SZV8-B5Elyb8e28"
   }
 }
