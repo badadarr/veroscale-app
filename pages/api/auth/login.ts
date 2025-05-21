@@ -25,9 +25,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const users = useSupabase
       // Supabase implementation
       ? await executeQuery<any[]>({
-          table: 'weightmanagementdb.users',
+          table: 'users',
           action: 'select',
-          columns: 'id, email, name, password, role_id, weightmanagementdb.roles!roles_id_fkey(name)',
+          columns: 'id, email, name, password, role_id, roles:roles(name)',
           filters: { email },
         })
       // MySQL implementation
