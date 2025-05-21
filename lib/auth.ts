@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { NextApiRequest } from "next";
-import { supabase } from "./supabase";
+import supabase from "./supabase";
 
 export const JWT_SECRET =
   process.env.JWT_SECRET || "your-secret-key-change-in-production";
