@@ -20,11 +20,13 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: false,
   },
-  // Don't include server files in the client build
+  // Don't include server files and Vite-related files in the client build
   webpack: (config, { isServer }) => {
     // Exclude server directory files from the client-side build
     if (!isServer) {
       config.resolve.alias['server'] = {};
+      config.resolve.alias['src'] = {};
+      config.resolve.alias['vite.config'] = {};
     }
     return config;
   },

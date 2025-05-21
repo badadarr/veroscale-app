@@ -30,6 +30,8 @@
   ],
   "exclude": [
     "node_modules",
-    "server/**/*.ts"
+    "server/**/*.ts",
+    "src",
+    "vite.config.ts"
   ]
 }
