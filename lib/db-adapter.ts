@@ -73,9 +73,21 @@ export async function executeQuery<T = any>(options: {
     if (action === "select" || !action) {
       // If using a query with aggregation functions like COUNT, SUM, etc.
       // We need to pass the columns parameter as is to Supabase
+      let selectColumns = typeof columns === "string" ? columns : "*";
+      let queryOptions: any = {};
+
+      // Check if the columns string is a count operation for Supabase
+      if (
+        typeof columns === "string" &&
+        columns.toLowerCase().startsWith("count(*)")
+      ) {
+        selectColumns = "*"; // Select all columns
+        queryOptions.count = "exact"; // Specify that we want a count
+      }
+
       return supabaseDB.query<T>({
-        table: options.table,
-        select: typeof columns === "string" ? columns : "*",
+        table: options.table!,
+        select: selectColumns,
         filters: filters || {},
         single: single || false,
       });
