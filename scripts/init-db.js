@@ -21,7 +21,7 @@ async function initializeDatabase() {
     const host = process.env.DB_HOST || "localhost";
     const user = process.env.DB_USER || "root";
     const password = process.env.DB_PASSWORD || "admin1234";
-    const dbName = process.env.DB_NAME || "weightmanagementdb";
+    const dbName = process.env.DB_NAME || "public";
 
     console.log(`Connecting to database at ${host}...`);
 

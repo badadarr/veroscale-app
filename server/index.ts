@@ -28,7 +28,7 @@ export const initDb = async () => {
       host: 'localhost',
       user: 'root',
       password: 'admin1234',
-      database: 'weightmanagementdb',
+      database: 'public',
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0

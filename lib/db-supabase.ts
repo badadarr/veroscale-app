@@ -17,11 +17,12 @@ export async function query<T = any>({
 }): Promise<T> {
   try {
     // Make sure we're using the correct table name format with schema
-    // Supabase requires fully qualified table names with schema
+    // Supabase uses the public schema by default
     // We'll keep the original table name if it includes a schema already
+    // or use the public schema if no schema is specified
     const tableName = table.includes(".")
-      ? table
-      : `weightmanagementdb.${table}`;
+      ? table.replace("public.", "public.")
+      : `public.${table}`;
 
     let query = supabaseAdmin.from(tableName).select(select);
 
@@ -55,10 +56,12 @@ export async function insert<T = any>({
 }): Promise<T> {
   try {
     // Make sure we're using the correct table name format with schema
+    // Convert public schema to public or keep whatever is specified
     const tableName = table.includes(".")
-      ? table
-      : `weightmanagementdb.${table}`;
+      ? table.replace("public.", "public.")
+      : `public.${table}`;
 
+    console.log("Using table name for insert:", tableName);
     const { data: result, error } = await supabaseAdmin
       .from(tableName)
       .insert(data)
@@ -86,10 +89,12 @@ export async function update<T = any>({
 }): Promise<T> {
   try {
     // Make sure we're using the correct table name format with schema
+    // Convert public schema to public or keep whatever is specified
     const tableName = table.includes(".")
-      ? table
-      : `weightmanagementdb.${table}`;
+      ? table.replace("public.", "public.")
+      : `public.${table}`;
 
+    console.log("Using table name for update:", tableName);
     let query = supabaseAdmin.from(tableName).update(data);
 
     // Apply filters
@@ -121,10 +126,12 @@ export async function remove<T = any>({
 }): Promise<T> {
   try {
     // Make sure we're using the correct table name format with schema
+    // Convert public schema to public or keep whatever is specified
     const tableName = table.includes(".")
-      ? table
-      : `weightmanagementdb.${table}`;
+      ? table.replace("public.", "public.")
+      : `public.${table}`;
 
+    console.log("Using table name for delete:", tableName);
     let query = supabaseAdmin.from(tableName).delete();
 
     // Apply filters
@@ -150,20 +157,16 @@ export async function initializeDatabase(): Promise<void> {
 
   try {
     // We'll use Supabase SQL editor or migrations for table creation
-    // but we'll make sure default data is inserted here
-
-    // Check if admin user exists
+    // but we'll make sure default data is inserted here    // Check if admin user exists
     const { data: adminUsers } = await supabaseAdmin
-      .from("weightmanagementdb.users")
+      .from("public.users")
       .select("*")
       .eq("email", "admin@example.com");
 
     if (!adminUsers || adminUsers.length === 0) {
-      console.log("No admin user found, creating default data...");
-
-      // First check if admin role exists
+      console.log("No admin user found, creating default data..."); // First check if admin role exists
       const { data: roles } = await supabaseAdmin
-        .from("weightmanagementdb.roles")
+        .from("public.roles")
         .select("*")
         .eq("name", "admin");
 
@@ -171,25 +174,22 @@ export async function initializeDatabase(): Promise<void> {
       if (!roles || roles.length === 0) {
         console.log("Creating roles...");
         await supabaseAdmin
-          .from("weightmanagementdb.roles")
+          .from("public.roles")
           .insert([
             { name: "admin" },
             { name: "manager" },
             { name: "operator" },
           ]);
-      }
-
-      // Get the admin role ID
+      } // Get the admin role ID
       const { data: adminRole } = await supabaseAdmin
-        .from("weightmanagementdb.roles")
+        .from("public.roles")
         .select("id")
         .eq("name", "admin")
         .single();
 
       if (adminRole) {
-        console.log("Creating admin user...");
-        // Create default admin user (password needs to be hashed)
-        await supabaseAdmin.from("weightmanagementdb.users").insert({
+        console.log("Creating admin user...");        // Create default admin user (password needs to be hashed)
+        await supabaseAdmin.from("public.users").insert({
           name: "Admin User",
           email: "admin@example.com",
           // This is just a placeholder - should be properly hashed in production

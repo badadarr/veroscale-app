@@ -22,7 +22,7 @@ async function addDummyData() {
       host: 'localhost',
       user: 'root',
       password: 'admin1234',
-      database: 'weightmanagementdb'
+      database: 'public'
     });
     
     console.log('Connected to database successfully');

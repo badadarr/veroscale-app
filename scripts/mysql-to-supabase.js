@@ -30,7 +30,7 @@ async function migrateData() {
       host: process.env.DB_HOST || "localhost",
       user: process.env.DB_USER || "root",
       password: process.env.DB_PASSWORD || "admin1234",
-      database: process.env.DB_NAME || "weightmanagementdb",
+      database: process.env.DB_NAME || "public",
       ssl: process.env.NODE_ENV === "production"
         ? { rejectUnauthorized: true }
         : undefined,

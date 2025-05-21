@@ -14,7 +14,7 @@ router.post('/register', async (req, res) => {
     host: 'localhost',
     user: 'root',
     password: 'admin1234',
-    database: 'weightmanagementdb'
+    database: 'public'
   });
   
   try {
@@ -95,7 +95,7 @@ router.post('/login', async (req, res) => {
     host: 'localhost',
     user: 'root',
     password: 'admin1234',
-    database: 'weightmanagementdb'
+    database: 'public'
   });
   
   try {
@@ -166,7 +166,7 @@ router.post('/logout', async (req, res) => {
     host: 'localhost',
     user: 'root',
     password: 'admin1234',
-    database: 'weightmanagementdb'
+    database: 'public'
   });
   
   try {

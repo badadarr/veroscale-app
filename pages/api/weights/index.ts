@@ -58,7 +58,7 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
       
       // Get total count for pagination - this is a simple count of filtered records
       const countResult = await executeQuery<any[]>({
-        table: 'weightmanagementdb.weight_records',
+        table: 'public.weight_records',
         action: 'select',
         columns: 'count(*)',
         filters: filters
@@ -68,7 +68,7 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
       
       // Get the actual records with relation data
       records = await executeQuery<any[]>({
-        table: 'weightmanagementdb.weight_records',
+        table: 'public.weight_records',
         action: 'select',
         columns: `
           record_id, 
@@ -77,8 +77,8 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
           total_weight, 
           timestamp, 
           status, 
-          weightmanagementdb.ref_items!weight_records_item_id_fkey(name), 
-          weightmanagementdb.users!weight_records_user_id_fkey(name)
+          public.ref_items!weight_records_item_id_fkey(name), 
+          public.users!weight_records_user_id_fkey(name)
         `
       });
       
@@ -194,7 +194,7 @@ async function addWeightRecord(req: NextApiRequest, res: NextApiResponse, user: 
     if (useSupabase) {
       // Check if item exists using Supabase table API
       items = await executeQuery<any[]>({
-        table: 'weightmanagementdb.ref_items',
+        table: 'public.ref_items',
         action: 'select',
         columns: '*',
         filters: { id: item_id },
@@ -206,7 +206,7 @@ async function addWeightRecord(req: NextApiRequest, res: NextApiResponse, user: 
       
       // Insert record using Supabase table API
       result = await executeQuery<any>({
-        table: 'weightmanagementdb.weight_records',
+        table: 'public.weight_records',
         action: 'insert',
         data: {
           user_id: user.id,

@@ -30,11 +30,10 @@ export default async function handler(
     console.log("Using Supabase:", useSupabase);
 
     let users;
-    try {
-      users = useSupabase
+    try {      users = useSupabase
         ? // Supabase implementation
           await executeQuery<any[]>({
-            table: "weightmanagementdb.users",
+            table: "public.users",
             action: "select",
             columns: `
               id,
@@ -93,7 +92,7 @@ export default async function handler(
     // Record user session
     await executeQuery({
       // Use table-based API for Supabase compatibility
-      table: "weightmanagementdb.sessions",
+      table: "public.sessions",
       action: "insert",
       data: {
         user_id: user.id,

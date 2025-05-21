@@ -43,7 +43,7 @@ async function getSamples(req: NextApiRequest, res: NextApiResponse) {
       
       // First, get all samples (we'll filter in memory)
       samples = await executeQuery<any[]>({
-        table: 'weightmanagementdb.samples_item',
+        table: 'public.samples_item',
         action: 'select',
         columns: '*'
       });
@@ -149,7 +149,7 @@ async function addSample(req: NextApiRequest, res: NextApiResponse, user: any) {
     if (useSupabase) {
       // Supabase implementation
       result = await executeQuery<any[]>({
-        table: 'weightmanagementdb.samples_item',
+        table: 'public.samples_item',
         action: 'insert',
         data: {
           category,
