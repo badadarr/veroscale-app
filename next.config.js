@@ -13,6 +13,21 @@ const nextConfig = {
       },
     ];
   },
+  // Exclude server directory from the TypeScript compilation
+  typescript: {
+    ignoreBuildErrors: false,
+  },
+  eslint: {
+    ignoreDuringBuilds: false,
+  },
+  // Don't include server files in the client build
+  webpack: (config, { isServer }) => {
+    // Exclude server directory files from the client-side build
+    if (!isServer) {
+      config.resolve.alias['server'] = {};
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
