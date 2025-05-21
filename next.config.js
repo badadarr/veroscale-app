@@ -26,7 +26,6 @@ const nextConfig = {
     if (!isServer) {
       config.resolve.alias['server'] = {};
       config.resolve.alias['src'] = {};
-      config.resolve.alias['vite.config'] = {};
     }
     return config;
   },
