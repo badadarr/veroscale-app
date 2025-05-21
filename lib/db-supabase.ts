@@ -1,5 +1,4 @@
-// filepath: d:\Documents\Skripsi Tugas Akhir Project\project-bolt-sb1-qkqzvvpk\project\lib\db-supabase.ts
-import { supabaseAdmin } from "./supabase";
+import { supabaseAdmin } from "./supabase.js";
 
 // Helper functions for interacting with Supabase
 
