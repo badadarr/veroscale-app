@@ -14,9 +14,9 @@ export async function query<T = any>({
   filters?: Record<string, any>;
   single?: boolean
 }): Promise<T> {
-  try {
-    // Make sure we're using the correct table name format with schema
+  try {    // Make sure we're using the correct table name format with schema
     // Supabase requires fully qualified table names with schema
+    // We'll keep the original table name if it includes a schema already
     const tableName = table.includes('.') ? table : `weightmanagementdb.${table}`;
     
     let query = supabase

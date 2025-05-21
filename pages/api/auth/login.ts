@@ -25,9 +25,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const users = useSupabase
       // Supabase implementation
       ? await executeQuery<any[]>({
-          table: 'users',
+          table: 'weightmanagementdb.users',
           action: 'select',
-          columns: 'id, email, name, password, role_id, roles:roles(name)',
+          columns: 'id, email, name, password, role_id, roles:weightmanagementdb.roles(name)',
           filters: { email },
         })
       // MySQL implementation
@@ -61,7 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Record user session
     await executeQuery({
       // Use table-based API for Supabase compatibility
-      table: 'sessions',
+      table: 'weightmanagementdb.sessions',
       action: 'insert',
       data: {
         user_id: user.id,
