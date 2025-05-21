@@ -1,7 +1,7 @@
 # Ignore server directory and other non-Next.js files
+
 server/
 scripts/
-vite.config.ts
 tsconfig.node.json
 src/
 index.html

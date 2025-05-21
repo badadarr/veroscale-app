@@ -1,2 +1,4 @@
 // This is a dummy file for Next.js build compatibility
-export default {};
+module.exports = {
+  // Empty configuration to satisfy TypeScript without requiring vite module
+};

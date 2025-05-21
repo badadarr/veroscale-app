@@ -25,6 +25,7 @@
   },
   "include": [
     "next-env.d.ts",
+    "vite-types.d.ts",
     "**/*.ts",
     "**/*.tsx"
   ],
