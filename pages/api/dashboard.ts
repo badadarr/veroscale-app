@@ -42,21 +42,25 @@ async function getDashboardSummary() {
   // Get total samples count
   const samplesCount = await executeQuery<any[]>({
     query: 'SELECT COUNT(*) as count FROM samples_item',
+    values: []
   });
   
   // Get total weight records count
   const recordsCount = await executeQuery<any[]>({
     query: 'SELECT COUNT(*) as count FROM weight_records',
+    values: []
   });
   
   // Get total weight recorded
   const totalWeight = await executeQuery<any[]>({
     query: 'SELECT SUM(total_weight) as total FROM weight_records',
+    values: []
   });
   
   // Get pending weight records count
   const pendingCount = await executeQuery<any[]>({
     query: 'SELECT COUNT(*) as count FROM weight_records WHERE status = "pending"',
+    values: []
   });
   
   return {
@@ -77,6 +81,7 @@ async function getRecentWeightRecords() {
       ORDER BY wr.timestamp DESC
       LIMIT 5
     `,
+    values: []
   });
 }
 
@@ -88,6 +93,7 @@ async function getWeightByCategory() {
       GROUP BY category
       ORDER BY total_weight DESC
     `,
+    values: []
   });
 }
 
@@ -101,5 +107,6 @@ async function getTopUsers() {
       ORDER BY total_weight DESC
       LIMIT 5
     `,
+    values: []
   });
 }
