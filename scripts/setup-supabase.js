@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { supabase } from '../lib/supabase.js';
+import supabase from '../lib/supabase.js';
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';

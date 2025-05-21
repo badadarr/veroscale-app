@@ -1,5 +1,5 @@
 // Script to add dummy data to Supabase for testing features
-import { supabase } from '../lib/supabase.js';
+import supabase from '../lib/supabase.js';
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';

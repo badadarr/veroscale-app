@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import supabase from './supabase';
 
 // Helper functions for interacting with Supabase
 

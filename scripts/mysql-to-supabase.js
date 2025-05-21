@@ -4,7 +4,7 @@
  */
 
 import { createConnection } from "mysql2/promise";
-import { supabase } from "../lib/supabase.js";
+import supabase from "../lib/supabase.js";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import { fileURLToPath } from "url";
