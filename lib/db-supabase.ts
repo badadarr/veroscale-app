@@ -1,4 +1,5 @@
-import supabase from './supabase';
+// filepath: d:\Documents\Skripsi Tugas Akhir Project\project-bolt-sb1-qkqzvvpk\project\lib\db-supabase.ts
+import { supabaseAdmin } from './supabase';
 
 // Helper functions for interacting with Supabase
 
@@ -14,12 +15,13 @@ export async function query<T = any>({
   filters?: Record<string, any>;
   single?: boolean
 }): Promise<T> {
-  try {    // Make sure we're using the correct table name format with schema
+  try {
+    // Make sure we're using the correct table name format with schema
     // Supabase requires fully qualified table names with schema
     // We'll keep the original table name if it includes a schema already
     const tableName = table.includes('.') ? table : `weightmanagementdb.${table}`;
     
-    let query = supabase
+    let query = supabaseAdmin
       .from(tableName)
       .select(select);
     
@@ -57,7 +59,7 @@ export async function insert<T = any>({
     // Make sure we're using the correct table name format with schema
     const tableName = table.includes('.') ? table : `weightmanagementdb.${table}`;
     
-    const { data: result, error } = await supabase
+    const { data: result, error } = await supabaseAdmin
       .from(tableName)
       .insert(data)
       .select(returning);
@@ -86,7 +88,7 @@ export async function update<T = any>({
     // Make sure we're using the correct table name format with schema
     const tableName = table.includes('.') ? table : `weightmanagementdb.${table}`;
     
-    let query = supabase
+    let query = supabaseAdmin
       .from(tableName)
       .update(data);
     
@@ -121,7 +123,7 @@ export async function remove<T = any>({
     // Make sure we're using the correct table name format with schema
     const tableName = table.includes('.') ? table : `weightmanagementdb.${table}`;
     
-    let query = supabase
+    let query = supabaseAdmin
       .from(tableName)
       .delete();
     
@@ -148,55 +150,57 @@ export async function initializeDatabase() {
   
   try {
     // We'll use Supabase SQL editor or migrations for table creation
-    // This is just a placeholder for any initialization code we might need
-      // Check if admin user exists
-    const { data: users } = await supabase
+    // but we'll make sure default data is inserted here
+    
+    // Check if admin user exists
+    const { data: adminUsers } = await supabaseAdmin
       .from('weightmanagementdb.users')
       .select('*')
       .eq('email', 'admin@example.com');
     
-    // Add admin user if it doesn't exist
-    if (!users || users.length === 0) {
-      const bcrypt = require('bcryptjs');
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-        // First check if admin role exists
-      const { data: roles } = await supabase
+    if (!adminUsers || adminUsers.length === 0) {
+      console.log('No admin user found, creating default data...');
+      
+      // First check if admin role exists
+      const { data: roles } = await supabaseAdmin
         .from('weightmanagementdb.roles')
         .select('*')
         .eq('name', 'admin');
       
-      let adminRoleId: number;
-      
       // Insert admin role if it doesn't exist
-      if (!roles || roles.length === 0) {        const { data: newRole } = await supabase
-          .from('weightmanagementdb.roles')
-          .insert({ name: 'admin' })
-          .select();
-        
-        adminRoleId = newRole ? newRole[0].id : 1;
-        
-        // Also add other roles
-        await supabase.from('weightmanagementdb.roles').insert([
+      if (!roles || roles.length === 0) {
+        console.log('Creating roles...');
+        await supabaseAdmin.from('weightmanagementdb.roles').insert([
+          { name: 'admin' },
           { name: 'manager' },
           { name: 'operator' }
         ]);
-      } else {
-        adminRoleId = roles[0].id;
       }
-        // Insert admin user
-      await supabase.from('weightmanagementdb.users').insert({
-        name: 'Admin User',
-        email: 'admin@example.com',
-        password: hashedPassword,
-        role_id: adminRoleId
-      });
       
-      console.log('Default admin user created');
+      // Get the admin role ID
+      const { data: adminRole } = await supabaseAdmin
+        .from('weightmanagementdb.roles')
+        .select('id')
+        .eq('name', 'admin')
+        .single();
+      
+      if (adminRole) {
+        console.log('Creating admin user...');
+        // Create default admin user (password needs to be hashed)
+        await supabaseAdmin.from('weightmanagementdb.users').insert({
+          name: 'Admin User',
+          email: 'admin@example.com', 
+          // This is just a placeholder - should be properly hashed in production
+          password: '$2a$10$iqJSHD.BGr0E2IxQwYgJmeP3NvhPrXAeLSaGCj6IR/XU5QtjVu5Tm',  
+          role_id: adminRole.id
+        });
+      }
     }
     
-    console.log('Database initialization completed successfully');
+    console.log('Database setup complete!');
+    return true;
   } catch (error) {
-    console.error('Error initializing database:', error);
-    throw new Error('Failed to initialize database');
+    console.error('Error setting up database:', error);
+    return false;
   }
 }
