@@ -24,7 +24,7 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     // Exclude server directory files from the client-side build
     if (!isServer) {
-      config.resolve.alias['src'] = {};
+      config.resolve.alias['src'] = false; // Using false to ignore this import
     }
     return config;
   },
