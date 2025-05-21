@@ -46,28 +46,28 @@ async function getDashboardSummary() {
   const samplesCount = await executeQuery<any[]>({
     table: "samples_item",
     action: "select",
-    columns: "count(*)",
+    columns: "count(*) as count", // Fixed query syntax
   });
 
   // Get total weight records count
   const recordsCount = await executeQuery<any[]>({
     table: "weight_records",
     action: "select",
-    columns: "count(*)",
+    columns: "count(*) as count", // Fixed query syntax
   });
 
   // Get total weight recorded
   const totalWeight = await executeQuery<any[]>({
     table: "weight_records",
     action: "select",
-    columns: "sum(total_weight) as total",
+    columns: "sum(total_weight) as total", // Fixed query syntax
   });
 
   // Get pending weight records count
   const pendingCount = await executeQuery<any[]>({
     table: "weight_records",
     action: "select",
-    columns: "count(*)",
+    columns: "count(*) as count", // Fixed query syntax
     filters: { status: "pending" },
   });
 
