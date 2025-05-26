@@ -14,7 +14,7 @@ import {
   LogOut,
   Menu,
   X,
-  Sun,
+  User,
   Moon
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -150,13 +150,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
             </div>
 
             <div className="mt-6 flex items-center justify-between px-2">
-              <button
-                onClick={toggleTheme}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                aria-label="Toggle theme"
-              >
-                <Moon className="h-5 w-5 text-gray-500" />
-              </button>
+              <div className="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                <User className="h-5 w-5 text-gray-500 mr-2" />
+                <span className="text-sm font-medium text-gray-700">{user?.name || 'User'}</span>
+              </div>
 
               <Button
                 onClick={handleLogout}
@@ -178,6 +175,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                 <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl">
                   {title}
                 </h1>
+              </div>
+              <div className="flex items-center">
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-lg hover:bg-gray-200 transition-colors mr-2"
+                  aria-label="Toggle theme"
+                >
+                  <Moon className="h-5 w-5 text-gray-600" />
+                </button>
               </div>
             </div>
             {children}
