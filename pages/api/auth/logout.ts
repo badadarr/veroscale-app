@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { executeQuery } from '../../../lib/db';
+import { executeQuery } from '../../../lib/db-adapter';
 import { getUserFromToken } from '../../../lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -16,12 +16,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Close user sessions
     await executeQuery({
-      query: `
-        UPDATE sessions 
-        SET status = 'inactive', end_time = CURRENT_TIMESTAMP
-        WHERE user_id = ? AND status = 'active'
-      `,
-      values: [user.id],
+      table: 'public.sessions',
+      action: 'update',
+      data: {
+        status: 'inactive',
+        end_time: new Date()
+      },
+      filters: {
+        user_id: user.id,
+        status: 'active'
+      },
     });
 
     return res.status(200).json({ message: 'Logged out successfully' });

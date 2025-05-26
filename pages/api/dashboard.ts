@@ -44,28 +44,28 @@ export default async function handler(
 async function getDashboardSummary() {
   // Get total samples count
   const samplesCount = await executeQuery<any[]>({
-    table: "samples_item",
+    table: "public.samples_item",
     action: "select",
     columns: "count(*) as count", // Fixed query syntax
   });
 
   // Get total weight records count
   const recordsCount = await executeQuery<any[]>({
-    table: "weight_records",
+    table: "public.weight_records",
     action: "select",
     columns: "count(*) as count", // Fixed query syntax
   });
 
   // Get total weight recorded
   const totalWeight = await executeQuery<any[]>({
-    table: "weight_records",
+    table: "public.weight_records",
     action: "select",
     columns: "sum(total_weight) as total", // Fixed query syntax
   });
 
   // Get pending weight records count
   const pendingCount = await executeQuery<any[]>({
-    table: "weight_records",
+    table: "public.weight_records",
     action: "select",
     columns: "count(*) as count", // Fixed query syntax
     filters: { status: "pending" },
@@ -81,12 +81,12 @@ async function getDashboardSummary() {
 
 async function getRecentWeightRecords() {
   return executeQuery<any[]>({
-    table: "weight_records",
+    table: "public.weight_records",
     action: "select",
     columns: `
       *,
-      ref_items!item_id ( name as item_name ),
-      users!user_id ( name as user_name )
+      public.ref_items!item_id ( name as item_name ),
+      public.users!user_id ( name as user_name )
     `,
     // Note: OrderBy and limit need to be added to the db-adapter or passed through
     // For now, we'll need to handle sorting after getting the data
@@ -106,10 +106,8 @@ async function getRecentWeightRecords() {
 }
 
 async function getWeightByCategory() {
-  // Unfortunately, Supabase's JavaScript API doesn't directly support GROUP BY operations,
-  // So we need to use a different approach - Fetch all items and process them in memory
   const items = await executeQuery<any[]>({
-    table: "samples_item",
+    table: "public.samples_item",
     action: "select",
     columns: "category, sample_weight",
   });
@@ -135,14 +133,14 @@ async function getWeightByCategory() {
 async function getTopUsers() {
   // Fetch all users
   const users = await executeQuery<any[]>({
-    table: "users",
+    table: "public.users",
     action: "select",
     columns: "id, name",
   });
 
   // Fetch all weight records
   const weightRecords = await executeQuery<any[]>({
-    table: "weight_records",
+    table: "public.weight_records",
     action: "select",
     columns: "user_id, record_id, total_weight",
   });
