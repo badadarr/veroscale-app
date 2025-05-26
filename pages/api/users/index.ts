@@ -29,22 +29,35 @@ async function getUsers(res: NextApiResponse) {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     );
 
-    const users = useSupabase
-      ? // Supabase-friendly query
-        await executeQuery<any[]>({
-          table: "public.users",
-          action: "select",
-          columns: "id, name, email, created_at, role_id, roles:role_id(name)",
-        })
-      : // Original MySQL query
-        await executeQuery<any[]>({
-          query: `
-            SELECT u.id, u.name, u.email, r.name as role, u.created_at
-            FROM users u
-            JOIN roles r ON u.role_id = r.id
-            ORDER BY u.created_at DESC
-          `,
-        });
+    let users;
+
+    if (useSupabase) {
+      // Supabase-friendly query
+      const supabaseUsers = await executeQuery<any[]>({
+        table: "public.users",
+        action: "select",
+        columns: "id, name, email, created_at, role_id, roles:role_id(name)",
+      });
+
+      // Transform data structure to match what frontend expects
+      users = supabaseUsers.map(user => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.roles?.name || "unknown", // Extract role name from roles object
+        created_at: user.created_at
+      }));
+    } else {
+      // Original MySQL query
+      users = await executeQuery<any[]>({
+        query: `
+          SELECT u.id, u.name, u.email, r.name as role, u.created_at
+          FROM users u
+          JOIN roles r ON u.role_id = r.id
+          ORDER BY u.created_at DESC
+        `,
+      });
+    }
 
     return res.status(200).json({ users });
   } catch (error) {

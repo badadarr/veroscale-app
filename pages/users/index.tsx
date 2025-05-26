@@ -288,8 +288,8 @@ export default function Users() {
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-primary-100 text-primary-800' :
-                              user.role === 'manager' ? 'bg-secondary-100 text-secondary-800' :
-                                'bg-gray-100 text-gray-800'
+                            user.role === 'manager' ? 'bg-secondary-100 text-secondary-800' :
+                              'bg-gray-100 text-gray-800'
                             }`}>
                             {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                           </span>
