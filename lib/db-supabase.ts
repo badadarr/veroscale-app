@@ -28,12 +28,30 @@ export async function query<T = any>({
       if (value !== undefined) {
         query = query.eq(key, value);
       }
-    });
-
-    // Execute query
+    }); // Execute query
     const { data, error } = single ? await query.single() : await query;
 
     if (error) throw error;
+
+    // Check if this is aggregate result (common for count, sum, etc.)
+    if (
+      data &&
+      typeof data === "object" &&
+      !Array.isArray(data) &&
+      select !== "*"
+    ) {
+      // For aggregate functions, wrap the result in an array to match MySQL behavior
+      if (
+        select.toLowerCase().includes("count(") ||
+        select.toLowerCase().includes("sum(") ||
+        select.toLowerCase().includes("avg(") ||
+        select.toLowerCase().includes("min(") ||
+        select.toLowerCase().includes("max(")
+      ) {
+        return [data] as unknown as T;
+      }
+    }
+
     return data as T;
   } catch (error) {
     console.error("Database query error:", error);

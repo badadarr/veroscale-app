@@ -43,33 +43,65 @@ export default async function handler(
 
 async function getDashboardSummary() {
   // Get total samples count
-  const samplesCount = await executeQuery<any[]>({
-    table: "public.samples_item",
-    action: "select",
-    columns: "count(*) as count", // Fixed query syntax
-  });
+  console.log("Fetching samples count...");
+  let samplesCount;
+  try {
+    samplesCount = await executeQuery<any[]>({
+      table: "public.samples_item",
+      action: "select",
+      columns: "count(*) as count", // Fixed query syntax
+    });
+    console.log("Samples count result:", samplesCount);
+  } catch (error) {
+    console.error("Error fetching samples count:", error);
+    samplesCount = [{ count: 0 }]; // Default value if there's an error
+  }
 
   // Get total weight records count
-  const recordsCount = await executeQuery<any[]>({
-    table: "public.weight_records",
-    action: "select",
-    columns: "count(*) as count", // Fixed query syntax
-  });
+  console.log("Fetching records count...");
+  let recordsCount;
+  try {
+    recordsCount = await executeQuery<any[]>({
+      table: "public.weight_records",
+      action: "select",
+      columns: "count(*) as count", // Fixed query syntax
+    });
+    console.log("Records count result:", recordsCount);
+  } catch (error) {
+    console.error("Error fetching records count:", error);
+    recordsCount = [{ count: 0 }]; // Default value if there's an error
+  }
 
   // Get total weight recorded
-  const totalWeight = await executeQuery<any[]>({
-    table: "public.weight_records",
-    action: "select",
-    columns: "sum(total_weight) as total", // Fixed query syntax
-  });
+  console.log("Fetching total weight with aggregation...");
+  let totalWeight;
+  try {
+    totalWeight = await executeQuery<any[]>({
+      table: "public.weight_records",
+      action: "select",
+      columns: "sum(total_weight) as total", // Fixed query syntax
+    });
+    console.log("Total weight result:", totalWeight);
+  } catch (error) {
+    console.error("Error fetching total weight:", error);
+    totalWeight = [{ total: 0 }]; // Default value if there's an error
+  }
 
   // Get pending weight records count
-  const pendingCount = await executeQuery<any[]>({
-    table: "public.weight_records",
-    action: "select",
-    columns: "count(*) as count", // Fixed query syntax
-    filters: { status: "pending" },
-  });
+  console.log("Fetching pending count...");
+  let pendingCount;
+  try {
+    pendingCount = await executeQuery<any[]>({
+      table: "public.weight_records",
+      action: "select",
+      columns: "count(*) as count", // Fixed query syntax
+      filters: { status: "pending" },
+    });
+    console.log("Pending count result:", pendingCount);
+  } catch (error) {
+    console.error("Error fetching pending count:", error);
+    pendingCount = [{ count: 0 }]; // Default value if there's an error
+  }
 
   return {
     totalSamples: samplesCount[0]?.count || 0,

@@ -5,6 +5,7 @@
 
 import * as mysqlDB from "./db";
 import * as supabaseDB from "./db-supabase";
+import { supabaseAdmin } from "./supabase.js";
 
 // Determine which database implementation to use
 // Use Supabase if the environment variables are set
@@ -71,20 +72,44 @@ export async function executeQuery<T = any>(options: {
     }
 
     if (action === "select" || !action) {
-      // If using a query with aggregation functions like COUNT, SUM, etc.
-      // We need to pass the columns parameter as is to Supabase
+      // Handle aggregation functions (COUNT, SUM, etc.)
       let selectColumns = typeof columns === "string" ? columns : "*";
-      let queryOptions: any = {};
 
-      // Check if the columns string is a count operation for Supabase
+      // Check if we need to use a special approach for aggregation
       if (
         typeof columns === "string" &&
-        columns.toLowerCase().startsWith("count(*)")
+        (columns.toLowerCase().includes("sum(") ||
+          columns.toLowerCase().includes("count(") ||
+          columns.toLowerCase().includes("avg(") ||
+          columns.toLowerCase().includes("min(") ||
+          columns.toLowerCase().includes("max("))
       ) {
-        selectColumns = "*"; // Select all columns
-        queryOptions.count = "exact"; // Specify that we want a count
+        // For aggregation functions, use raw SQL via rpc call
+        // Extract column name and operation
+        const isCount = columns.toLowerCase().includes("count(");
+        const isSum = columns.toLowerCase().includes("sum(");
+
+        if (isCount || isSum) {
+          // Use a direct query approach for aggregation
+          console.log(`Using direct query for ${columns} on ${options.table}`);
+
+          // Extract table name without schema
+          const tableName = options.table.includes(".")
+            ? options.table.split(".")[1]
+            : options.table;
+
+          // For aggregations, we need to handle it differently
+          // Instead of using relations, use a direct query approach
+          const { data, error } = await supabaseAdmin
+            .from(tableName)
+            .select(columns);
+
+          if (error) throw error;
+          return data as T;
+        }
       }
 
+      // Standard query without aggregation
       return supabaseDB.query<T>({
         table: options.table!,
         select: selectColumns,
