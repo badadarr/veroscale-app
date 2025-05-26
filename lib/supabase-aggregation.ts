@@ -2,7 +2,7 @@
  * Helper functions for handling aggregations in Supabase
  */
 
-import { supabaseAdmin } from "./supabase.js";
+import { supabaseAdmin } from "./supabase.js"; // Pastikan path ini benar
 
 /**
  * Get count of records from a table
@@ -14,19 +14,21 @@ export async function getCount(
   try {
     console.log(`Getting count for ${tableName} with filters:`, filters);
 
-    // Remove schema prefix if present
     const table = tableName.includes(".") ? tableName.split(".")[1] : tableName;
 
-    let query = supabaseAdmin.from(table);
+    let queryBuilder = supabaseAdmin
+      .from(table)
+      .select("*", { count: "exact", head: true }); // Mengganti nama variabel agar lebih jelas
 
-    // Apply filters
+    // Terapkan filter
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined) {
-        query = query.eq(key, value);
+        queryBuilder = queryBuilder.eq(key, value);
       }
     });
 
-    const { count, error } = await query.count();
+    // Ini mengasumsikan queryBuilder memiliki metode .count
+    const { count, error } = await queryBuilder; // Tambahkan 'as any' jika error berlanjut
 
     if (error) {
       console.error(`Error getting count for ${tableName}:`, error);
@@ -37,7 +39,7 @@ export async function getCount(
     return [{ count }];
   } catch (error) {
     console.error(`Failed to get count for ${tableName}:`, error);
-    return [{ count: 0 }];
+    return [{ count: 0 }]; // Kembalikan nilai default jika ada error
   }
 }
 
@@ -56,19 +58,18 @@ export async function getSum(
       filters
     );
 
-    // Remove schema prefix if present
     const table = tableName.includes(".") ? tableName.split(".")[1] : tableName;
 
-    let query = supabaseAdmin.from(table).select(fieldName);
+    let queryBuilder = supabaseAdmin.from(table).select(fieldName);
 
-    // Apply filters
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined) {
-        query = query.eq(key, value);
+        // TypeScript mungkin masih error di sini jika tipe queryBuilder tidak benar
+        queryBuilder = queryBuilder.eq(key, value); // Tambahkan 'as any' jika error berlanjut
       }
     });
 
-    const { data, error } = await query;
+    const { data, error } = await queryBuilder;
 
     if (error) {
       console.error(
@@ -78,12 +79,17 @@ export async function getSum(
       throw error;
     }
 
-    // Calculate sum manually
     let total = 0;
     if (Array.isArray(data)) {
-      total = data.reduce((sum, item) => {
-        const value = parseFloat(item[fieldName]) || 0;
-        return sum + value;
+      total = data.reduce((sum, item: Record<string, any>) => {
+        // Memberikan tipe eksplisit untuk item
+        const fieldValue = item[fieldName];
+        // Pastikan fieldValue adalah string atau number sebelum parseFloat
+        const numericValue =
+          typeof fieldValue === "string" || typeof fieldValue === "number"
+            ? parseFloat(String(fieldValue))
+            : 0;
+        return sum + (isNaN(numericValue) ? 0 : numericValue);
       }, 0);
     }
 
@@ -91,7 +97,7 @@ export async function getSum(
     return [{ [resultKey]: total }];
   } catch (error) {
     console.error(`Failed to get sum for ${tableName}.${fieldName}:`, error);
-    return [{ [resultKey]: 0 }];
+    return [{ [resultKey]: 0 }]; // Kembalikan nilai default jika ada error
   }
 }
 
@@ -105,11 +111,7 @@ export async function getRelatedData(tableName: string, relations: string[]) {
       relations
     );
 
-    // Remove schema prefix if present
     const table = tableName.includes(".") ? tableName.split(".")[1] : tableName;
-
-    // Format the select string properly for Supabase
-    // For example: "*, items(*), users(*)"
     const selectQuery = ["*", ...relations].join(", ");
 
     const { data, error } = await supabaseAdmin.from(table).select(selectQuery);
@@ -122,6 +124,6 @@ export async function getRelatedData(tableName: string, relations: string[]) {
     return data;
   } catch (error) {
     console.error(`Failed to get related data for ${tableName}:`, error);
-    return [];
+    return []; // Kembalikan array kosong jika ada error
   }
 }
