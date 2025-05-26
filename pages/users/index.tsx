@@ -319,10 +319,29 @@ export default function Users() {
                             variant="ghost"
                             className="text-error-600 hover:text-error-700"
                             onClick={() => {
-                              if (window.confirm('Are you sure you want to delete this user?')) {
-                                // Handle delete logic
-                                toast.error('User deletion is disabled for demo');
-                              }
+                              toast.custom((t) => (
+                                <div className="bg-white shadow-lg rounded-lg p-4 border border-gray-200">
+                                  <h3 className="font-medium mb-2">Confirm Deletion</h3>
+                                  <p className="text-gray-600 mb-4">Are you sure you want to delete this user?</p>
+                                  <div className="flex justify-end space-x-2">
+                                    <button
+                                      onClick={() => toast.dismiss(t.id)}
+                                      className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        toast.dismiss(t.id);
+                                        toast.error('User deletion is disabled for demo');
+                                      }}
+                                      className="px-3 py-1 bg-error-500 hover:bg-error-600 text-white rounded text-sm"
+                                    >
+                                      Delete
+                                    </button>
+                                  </div>
+                                </div>
+                              ), { duration: Infinity });
                             }}
                           >
                             <Trash2 className="h-4 w-4" />

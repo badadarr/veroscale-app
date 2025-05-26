@@ -3,15 +3,15 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import apiClient from '@/lib/api';
-import { 
-  Search, 
-  Filter, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  ArrowLeft, 
+import {
+  Search,
+  Filter,
+  Plus,
+  Edit,
+  Trash2,
+  ArrowLeft,
   ArrowRight,
-  AlertCircle 
+  AlertCircle
 } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -70,16 +70,16 @@ export default function Samples() {
 
   const fetchSamples = async () => {
     setLoading(true);
-    
+
     try {
       // Use our API client with automatic auth token handling
-      const { data } = await apiClient.get('/api/samples' + 
+      const { data } = await apiClient.get('/api/samples' +
         `?page=${pagination.currentPage}` +
         `&limit=${pagination.itemsPerPage}` +
         (categoryFilter ? `&category=${encodeURIComponent(categoryFilter)}` : '') +
         (itemFilter ? `&item=${encodeURIComponent(itemFilter)}` : '')
       );
-      
+
       setSamples(data.samples);
       setPagination(data.pagination);
     } catch (err) {
@@ -137,38 +137,38 @@ export default function Samples() {
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
-    
+
     if (!formData.category.trim()) {
       errors.category = 'Category is required';
     }
-    
+
     if (!formData.item.trim()) {
       errors.item = 'Item name is required';
     }
-    
+
     const weight = parseFloat(formData.sample_weight);
     if (isNaN(weight) || weight <= 0) {
       errors.sample_weight = 'Weight must be a positive number';
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     try {
       const sampleData = {
         category: formData.category,
         item: formData.item,
         sample_weight: parseFloat(formData.sample_weight),
       };
-      
+
       if (formData.id) {
         // Update existing sample
         await apiClient.put(`/api/samples/${formData.id}`, sampleData);
@@ -178,7 +178,7 @@ export default function Samples() {
         await apiClient.post('/api/samples', sampleData);
         toast.success('Sample created successfully');
       }
-      
+
       // Refresh samples list
       fetchSamples();
       closeForm();
@@ -189,14 +189,42 @@ export default function Samples() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this sample?')) {
-      return;
-    }
-    
+    // Menggunakan toast.custom untuk konfirmasi
+    const proceed = await new Promise(resolve => {
+      toast.custom((t) => (
+        <div className="bg-white shadow-lg rounded-lg p-4 border border-gray-200">
+          <h3 className="font-medium mb-2">Confirm Deletion</h3>
+          <p className="text-gray-600 mb-4">Are you sure you want to delete this sample?</p>
+          <div className="flex justify-end space-x-2">
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                resolve(false);
+              }}
+              className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                toast.dismiss(t.id);
+                resolve(true);
+              }}
+              className="px-3 py-1 bg-error-500 hover:bg-error-600 text-white rounded text-sm"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ), { duration: Infinity });
+    });
+
+    if (!proceed) return;
+
     try {
       await apiClient.delete(`/api/samples/${id}`);
       toast.success('Sample deleted successfully');
-      
+
       // Refresh samples list
       fetchSamples();
     } catch (err) {

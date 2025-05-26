@@ -13,42 +13,40 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const router = useRouter();
   const { login } = useAuth();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
-    
+
     if (!email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(email)) {
       newErrors.email = 'Email is invalid';
     }
-    
+
     if (!password) {
       newErrors.password = 'Password is required';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
       await login(email, password);
-      toast.success('Login successful');
       router.push('/dashboard');
     } catch (error) {
-      toast.error('Login failed. Please check your credentials.');
       console.error('Login error:', error);
     } finally {
       setLoading(false);
@@ -128,7 +126,7 @@ export default function Login() {
                   <span className="px-2 bg-white text-gray-500">Default admin login</span>
                 </div>
               </div>
-              
+
               <div className="mt-6 grid grid-cols-1 gap-3">
                 <div className="text-sm text-center text-gray-600">
                   <p>Email: admin@example.com</p>

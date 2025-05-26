@@ -2,14 +2,15 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { 
-  Scale, 
-  LayoutDashboard, 
-  Users, 
-  Database, 
-  Weight, 
-  BarChart2, 
-  Settings, 
+import { toast } from 'react-hot-toast';
+import {
+  Scale,
+  LayoutDashboard,
+  Users,
+  Database,
+  Weight,
+  BarChart2,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -31,7 +32,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Samples', href: '/samples', icon: Database },
@@ -55,6 +56,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   const handleLogout = async () => {
     await logout();
+    toast.success('Logged out successfully');
     router.push('/login');
   };
 
@@ -80,9 +82,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
             </button>
           </div>
         </div>
-        
+
         {/* Sidebar */}
-        <aside 
+        <aside
           className={cn(
             "fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out transform",
             sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -95,7 +97,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                 <h1 className="text-xl font-bold text-gray-900">VeroScale</h1>
               </div>
             </div>
-            
+
             <div className="flex-1 px-4 py-6 overflow-y-auto">
               <nav className="space-y-1">
                 {navigation.map((item) => (
@@ -112,15 +114,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                     <item.icon
                       className={cn(
                         "mr-3 h-5 w-5",
-                        isActive(item.href) 
-                          ? "text-primary-500" 
+                        isActive(item.href)
+                          ? "text-primary-500"
                           : "text-gray-500 group-hover:text-gray-500"
                       )}
                     />
                     {item.name}
                   </Link>
                 ))}
-                
+
                 {/* Admin-only navigation */}
                 {user?.role === 'admin' && adminNavigation.map((item) => (
                   <Link
@@ -136,8 +138,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                     <item.icon
                       className={cn(
                         "mr-3 h-5 w-5",
-                        isActive(item.href) 
-                          ? "text-primary-500" 
+                        isActive(item.href)
+                          ? "text-primary-500"
                           : "text-gray-500 group-hover:text-gray-500"
                       )}
                     />
@@ -146,7 +148,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                 ))}
               </nav>
             </div>
-            
+
             <div className="mt-6 flex items-center justify-between px-2">
               <button
                 onClick={toggleTheme}
@@ -155,7 +157,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
               >
                 <Moon className="h-5 w-5 text-gray-500" />
               </button>
-              
+
               <Button
                 onClick={handleLogout}
                 variant="ghost"
@@ -167,7 +169,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
             </div>
           </div>
         </aside>
-        
+
         {/* Main content */}
         <div className={cn("lg:pl-64 transition-all duration-300 ease-in-out", sidebarOpen ? "pl-64" : "pl-0")}>
           <main className="py-6 px-4 sm:px-6 lg:px-8 mt-12 lg:mt-0">

@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/router';
+import { toast } from 'react-hot-toast';
 
 interface User {
   id: number;
@@ -32,11 +33,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Only access localStorage in browser environment
         if (typeof window !== 'undefined') {
           const token = localStorage.getItem('token');
-          
+
           if (token) {
             // Set default auth header for axios
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            
+
             // Fetch user data from localStorage
             const userData = localStorage.getItem('user');
             if (userData) {
@@ -54,26 +55,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setLoading(false);
       }
     };
-    
+
     initAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
-    
+
     try {
       const { data } = await axios.post('/api/auth/login', { email, password });
-      
+
       if (data.token) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        
+
         axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
-        
+
         setUser(data.user);
+        toast.success('Login successful');
       }
     } catch (error) {
       console.error('Login error:', error);
+      toast.error('Login failed. Please check your credentials.');
       throw new Error('Login failed');
     } finally {
       setLoading(false);
@@ -82,11 +85,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     setLoading(true);
-    
+
     try {
       await axios.post('/api/auth/logout');
+      toast.success('Logged out successfully');
     } catch (error) {
       console.error('Logout error:', error);
+      toast.error('Logout error occurred');
     } finally {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
@@ -114,10 +119,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  
+
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  
+
   return context;
 };
