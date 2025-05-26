@@ -1,6 +1,9 @@
+// Fixed dashboard.ts implementation for Supabase
 import { NextApiRequest, NextApiResponse } from "next";
 import { executeQuery } from "../../lib/db-adapter";
 import { getUserFromToken } from "../../lib/auth";
+import { supabaseAdmin } from "../../lib/supabase.js";
+import { getCount, getSum } from "../../lib/supabase-aggregation";
 
 export default async function handler(
   req: NextApiRequest,
@@ -44,64 +47,23 @@ export default async function handler(
 async function getDashboardSummary() {
   // Get total samples count
   console.log("Fetching samples count...");
-  let samplesCount;
-  try {
-    samplesCount = await executeQuery<any[]>({
-      table: "public.samples_item",
-      action: "select",
-      columns: "count(*) as count", // Fixed query syntax
-    });
-    console.log("Samples count result:", samplesCount);
-  } catch (error) {
-    console.error("Error fetching samples count:", error);
-    samplesCount = [{ count: 0 }]; // Default value if there's an error
-  }
+  const samplesCount = await getCount("samples_item");
+  console.log("Samples count result:", samplesCount);
 
   // Get total weight records count
   console.log("Fetching records count...");
-  let recordsCount;
-  try {
-    recordsCount = await executeQuery<any[]>({
-      table: "public.weight_records",
-      action: "select",
-      columns: "count(*) as count", // Fixed query syntax
-    });
-    console.log("Records count result:", recordsCount);
-  } catch (error) {
-    console.error("Error fetching records count:", error);
-    recordsCount = [{ count: 0 }]; // Default value if there's an error
-  }
+  const recordsCount = await getCount("weight_records");
+  console.log("Records count result:", recordsCount);
 
   // Get total weight recorded
   console.log("Fetching total weight with aggregation...");
-  let totalWeight;
-  try {
-    totalWeight = await executeQuery<any[]>({
-      table: "public.weight_records",
-      action: "select",
-      columns: "sum(total_weight) as total", // Fixed query syntax
-    });
-    console.log("Total weight result:", totalWeight);
-  } catch (error) {
-    console.error("Error fetching total weight:", error);
-    totalWeight = [{ total: 0 }]; // Default value if there's an error
-  }
+  const totalWeight = await getSum("weight_records", "total_weight", "total");
+  console.log("Total weight result:", totalWeight);
 
   // Get pending weight records count
   console.log("Fetching pending count...");
-  let pendingCount;
-  try {
-    pendingCount = await executeQuery<any[]>({
-      table: "public.weight_records",
-      action: "select",
-      columns: "count(*) as count", // Fixed query syntax
-      filters: { status: "pending" },
-    });
-    console.log("Pending count result:", pendingCount);
-  } catch (error) {
-    console.error("Error fetching pending count:", error);
-    pendingCount = [{ count: 0 }]; // Default value if there's an error
-  }
+  const pendingCount = await getCount("weight_records", { status: "pending" });
+  console.log("Pending count result:", pendingCount);
 
   return {
     totalSamples: samplesCount[0]?.count || 0,
@@ -112,101 +74,134 @@ async function getDashboardSummary() {
 }
 
 async function getRecentWeightRecords() {
-  return executeQuery<any[]>({
-    table: "public.weight_records",
-    action: "select",
-    columns: `
-      *,
-      public.ref_items!item_id ( name as item_name ),
-      public.users!user_id ( name as user_name )
-    `,
-    // Note: OrderBy and limit need to be added to the db-adapter or passed through
-    // For now, we'll need to handle sorting after getting the data
-    // This is a limitation when moving from SQL to Supabase API
-  }).then((records) => {
-    if (Array.isArray(records)) {
-      // Sort and limit the records since we can't do it in the query
-      return records
-        .sort(
-          (a, b) =>
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-        )
-        .slice(0, 5);
+  try {
+    console.log("Fetching recent weight records with relations...");
+
+    // Use direct Supabase query with proper relation syntax
+    const { data, error } = await supabaseAdmin
+      .from("weight_records")
+      .select(
+        `
+        *,
+        ref_items (name),
+        users (name)
+      `
+      )
+      .order("timestamp", { ascending: false })
+      .limit(5);
+
+    if (error) {
+      console.error("Error fetching recent records:", error);
+      return [];
     }
+
+    // Transform the data to match the expected format
+    return (data || []).map((record: any) => ({
+      ...record,
+      item_name: record.ref_items?.name,
+      user_name: record.users?.name,
+    }));
+  } catch (error) {
+    console.error("Error in getRecentWeightRecords:", error);
     return [];
-  });
+  }
 }
 
 async function getWeightByCategory() {
-  const items = await executeQuery<any[]>({
-    table: "public.samples_item",
-    action: "select",
-    columns: "category, sample_weight",
-  });
+  try {
+    console.log("Fetching weight by category...");
 
-  // Process the data to group by category
-  const categoryTotals: Record<string, number> = {};
+    // Use direct query for simplicity
+    const { data, error } = await supabaseAdmin
+      .from("samples_item")
+      .select("category, sample_weight");
 
-  if (Array.isArray(items)) {
-    items.forEach((item) => {
-      if (item.category && item.sample_weight) {
-        categoryTotals[item.category] =
-          (categoryTotals[item.category] || 0) + parseFloat(item.sample_weight);
-      }
-    });
+    if (error) {
+      console.error("Error fetching samples for category:", error);
+      return [];
+    }
+
+    // Process the data to group by category
+    const categoryTotals: Record<string, number> = {};
+
+    if (Array.isArray(data)) {
+      data.forEach((item) => {
+        if (item.category && item.sample_weight) {
+          categoryTotals[item.category] =
+            (categoryTotals[item.category] || 0) +
+            parseFloat(item.sample_weight);
+        }
+      });
+    }
+
+    // Convert to the expected format and sort
+    return Object.entries(categoryTotals)
+      .map(([category, total_weight]) => ({ category, total_weight }))
+      .sort((a, b) => b.total_weight - a.total_weight);
+  } catch (error) {
+    console.error("Error in getWeightByCategory:", error);
+    return [];
   }
-
-  // Convert to the expected format and sort
-  return Object.entries(categoryTotals)
-    .map(([category, total_weight]) => ({ category, total_weight }))
-    .sort((a, b) => b.total_weight - a.total_weight);
 }
 
 async function getTopUsers() {
-  // Fetch all users
-  const users = await executeQuery<any[]>({
-    table: "public.users",
-    action: "select",
-    columns: "id, name",
-  });
+  try {
+    console.log("Fetching top users...");
 
-  // Fetch all weight records
-  const weightRecords = await executeQuery<any[]>({
-    table: "public.weight_records",
-    action: "select",
-    columns: "user_id, record_id, total_weight",
-  });
+    // Fetch all users
+    const { data: users, error: usersError } = await supabaseAdmin
+      .from("users")
+      .select("id, name");
 
-  // Process the data to group by user
-  const userStats: Record<
-    string,
-    { id: number; name: string; record_count: number; total_weight: number }
-  > = {};
+    if (usersError) {
+      console.error("Error fetching users:", usersError);
+      return [];
+    }
 
-  if (Array.isArray(users) && Array.isArray(weightRecords)) {
-    // Initialize user stats
-    users.forEach((user) => {
-      userStats[user.id] = {
-        id: user.id,
-        name: user.name,
-        record_count: 0,
-        total_weight: 0,
-      };
-    });
+    // Fetch all weight records
+    const { data: weightRecords, error: recordsError } = await supabaseAdmin
+      .from("weight_records")
+      .select("user_id, record_id, total_weight");
 
-    // Calculate records and weight per user
-    weightRecords.forEach((record) => {
-      if (record.user_id && userStats[record.user_id]) {
-        userStats[record.user_id].record_count += 1;
-        userStats[record.user_id].total_weight += parseFloat(
-          record.total_weight || 0
-        );
-      }
-    });
+    if (recordsError) {
+      console.error("Error fetching weight records for users:", recordsError);
+      return [];
+    }
+
+    // Process the data to group by user
+    const userStats: Record<
+      string,
+      { id: number; name: string; record_count: number; total_weight: number }
+    > = {};
+
+    if (Array.isArray(users) && Array.isArray(weightRecords)) {
+      // Initialize user stats
+      users.forEach((user) => {
+        userStats[user.id] = {
+          id: user.id,
+          name: user.name,
+          record_count: 0,
+          total_weight: 0,
+        };
+      });
+
+      // Calculate records and weight per user
+      weightRecords.forEach((record) => {
+        if (record.user_id && userStats[record.user_id]) {
+          userStats[record.user_id].record_count += 1;
+          userStats[record.user_id].total_weight += parseFloat(
+            record.total_weight || 0
+          );
+        }
+      });
+    }
+
+    // Convert to array and sort by total weight
+    return Object.values(userStats)
+      .sort((a, b) => b.total_weight - a.total_weight)
+      .slice(0, 5);
+  } catch (error) {
+    console.error("Error in getTopUsers:", error);
+    return [];
   }
-
-  // Convert to array and sort by total weight
-  return Object.values(userStats)
-    .sort((a, b) => b.total_weight - a.total_weight)
-    .slice(0, 5);
 }

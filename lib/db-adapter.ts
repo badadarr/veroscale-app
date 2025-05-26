@@ -73,9 +73,7 @@ export async function executeQuery<T = any>(options: {
 
     if (action === "select" || !action) {
       // Handle aggregation functions (COUNT, SUM, etc.)
-      let selectColumns = typeof columns === "string" ? columns : "*";
-
-      // Check if we need to use a special approach for aggregation
+      let selectColumns = typeof columns === "string" ? columns : "*"; // Check if we need to use a special approach for aggregation
       if (
         typeof columns === "string" &&
         (columns.toLowerCase().includes("sum(") ||
@@ -84,28 +82,76 @@ export async function executeQuery<T = any>(options: {
           columns.toLowerCase().includes("min(") ||
           columns.toLowerCase().includes("max("))
       ) {
-        // For aggregation functions, use raw SQL via rpc call
-        // Extract column name and operation
-        const isCount = columns.toLowerCase().includes("count(");
-        const isSum = columns.toLowerCase().includes("sum(");
+        // Extract table name without schema
+        const tableName = options.table.includes(".")
+          ? options.table.split(".")[1]
+          : options.table;
 
-        if (isCount || isSum) {
-          // Use a direct query approach for aggregation
-          console.log(`Using direct query for ${columns} on ${options.table}`);
+        console.log(
+          `Using special aggregation handling for ${columns} on ${tableName}`
+        );
 
-          // Extract table name without schema
-          const tableName = options.table.includes(".")
-            ? options.table.split(".")[1]
-            : options.table;
+        // For count operations
+        if (columns.toLowerCase().includes("count(")) {
+          // Supabase has a specific API for count
+          let countQuery = supabaseAdmin.from(tableName);
 
-          // For aggregations, we need to handle it differently
-          // Instead of using relations, use a direct query approach
-          const { data, error } = await supabaseAdmin
-            .from(tableName)
-            .select(columns);
+          // Apply filters if any
+          if (filters && Object.keys(filters).length > 0) {
+            Object.entries(filters).forEach(([key, value]) => {
+              if (value !== undefined) {
+                countQuery = countQuery.eq(key, value);
+              }
+            });
+          }
 
+          const { count, error } = await countQuery.count();
           if (error) throw error;
-          return data as T;
+
+          // Format result like MySQL would return it
+          return [{ count }] as unknown as T;
+        }
+
+        // For sum operations
+        if (columns.toLowerCase().includes("sum(")) {
+          // Extract the field name from sum(fieldname)
+          const match = columns.match(/sum\s*\(\s*([^)]+)\s*\)/i);
+          if (match && match[1]) {
+            const fieldName = match[1].trim();
+            console.log(`Calculating sum of ${fieldName}`);
+
+            // Get all records
+            let sumQuery = supabaseAdmin.from(tableName).select(fieldName);
+
+            // Apply filters if any
+            if (filters && Object.keys(filters).length > 0) {
+              Object.entries(filters).forEach(([key, value]) => {
+                if (value !== undefined) {
+                  sumQuery = sumQuery.eq(key, value);
+                }
+              });
+            }
+
+            const { data, error } = await sumQuery;
+            if (error) throw error;
+
+            // Calculate sum manually
+            let total = 0;
+            if (Array.isArray(data)) {
+              total = data.reduce((sum, item) => {
+                const value = parseFloat(item[fieldName]) || 0;
+                return sum + value;
+              }, 0);
+            }
+
+            // Format result like MySQL would return it
+            const resultKey = columns.includes(" as ")
+              ? columns.split(" as ")[1].trim()
+              : "total";
+
+            const result = { [resultKey]: total };
+            return [result] as unknown as T;
+          }
         }
       }
 
