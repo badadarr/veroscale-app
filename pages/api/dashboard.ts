@@ -78,13 +78,14 @@ async function getRecentWeightRecords() {
     console.log("Fetching recent weight records with relations...");
 
     // Use direct Supabase query with proper relation syntax
+    // Specify the exact foreign key relationship to avoid ambiguity
     const { data, error } = await supabaseAdmin
       .from("weight_records")
       .select(
         `
         *,
         ref_items (name),
-        users (name)
+        users!weight_records_user_id_fkey (name)
       `
       )
       .order("timestamp", { ascending: false })
