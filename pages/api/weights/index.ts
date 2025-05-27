@@ -83,7 +83,8 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
           approved_by,
           approved_at,
           ref_items(name), 
-          users(name)
+          users!weight_records_user_id_fkey(name),
+          approver:users!fk_weight_records_approved_by(name)
         `,
         filters: filters,
       });
@@ -93,6 +94,7 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
         ...record,
         item_name: record.ref_items?.name,
         user_name: record.users?.name,
+        approved_by_name: record.approver?.name,
       }));
 
       // Manual filtering for dates since we can't do it easily in the query

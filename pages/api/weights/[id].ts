@@ -58,19 +58,19 @@ async function getWeightRecord(
           approved_by,
           approved_at,
           ref_items(name), 
-          users(name)
+          users!weight_records_user_id_fkey(name),
+          approver:users!fk_weight_records_approved_by(name)
         `,
         filters: { record_id: id },
       });
 
       if (records.length === 0) {
         return res.status(404).json({ message: "Weight record not found" });
-      }
-
-      record = {
+      }      record = {
         ...records[0],
         item_name: records[0].ref_items?.name,
         user_name: records[0].users?.name,
+        approved_by_name: records[0].approver?.name,
       };
     } else {      // MySQL implementation
       const records = await executeQuery<any[]>({
