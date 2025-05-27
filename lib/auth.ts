@@ -117,6 +117,16 @@ export function isAdmin(user: UserPayload | null): boolean {
   return user?.role === "admin";
 }
 
+// Check if user has manager role
+export function isManager(user: UserPayload | null): boolean {
+  return user?.role === "manager";
+}
+
+// Check if user has operator role
+export function isOperator(user: UserPayload | null): boolean {
+  return user?.role === "operator";
+}
+
 // Check if user has manager role or higher
 export function isManagerOrAdmin(user: UserPayload | null): boolean {
   return user?.role === "admin" || user?.role === "manager";

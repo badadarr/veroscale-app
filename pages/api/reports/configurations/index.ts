@@ -1,6 +1,11 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { executeQuery } from "../../../../lib/db-adapter";
-import { getUserFromToken, isAdmin } from "../../../../lib/auth";
+import {
+  getUserFromToken,
+  isAdmin,
+  isManager,
+  isOperator,
+} from "../../../../lib/auth";
 
 export default async function handler(
   req: NextApiRequest,
@@ -12,17 +17,28 @@ export default async function handler(
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  // Only admin can access report configurations
-  if (!isAdmin(user)) {
+  // Role-based access control
+  const isAdminUser = isAdmin(user);
+  const isManagerUser = isManager(user);
+  const isOperatorUser = isOperator(user);
+
+  // Check if user has any valid role
+  if (!isAdminUser && !isManagerUser && !isOperatorUser) {
     return res
       .status(403)
-      .json({ message: "Forbidden. Admin access required." });
+      .json({ message: "Forbidden. Insufficient permissions." });
   }
-
   switch (req.method) {
     case "GET":
+      // All roles can view report configurations
       return getReportConfigurations(req, res);
     case "POST":
+      // Only admin and manager can create report configurations
+      if (!isAdminUser && !isManagerUser) {
+        return res
+          .status(403)
+          .json({ message: "Forbidden. Admin or Manager access required." });
+      }
       return createReportConfiguration(req, res, user);
     default:
       return res.status(405).json({ message: "Method not allowed" });
