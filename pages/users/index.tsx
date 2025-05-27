@@ -25,6 +25,8 @@ interface User {
   name: string;
   email: string;
   role: string;
+  department?: string;
+  status?: 'active' | 'inactive';
   created_at: string;
 }
 
@@ -41,6 +43,8 @@ export default function Users() {
     email: '',
     password: '',
     role: 'operator',
+    department: '',
+    status: 'active' as 'active' | 'inactive'
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -87,6 +91,8 @@ export default function Users() {
       email: '',
       password: '',
       role: 'operator',
+      department: '',
+      status: 'active'
     });
     setFormErrors({});
     setShowForm(true);
@@ -132,6 +138,8 @@ export default function Users() {
         email: formData.email,
         password: formData.password,
         role: formData.role,
+        department: formData.department,
+        status: formData.status
       };
 
       if (formData.id) {
@@ -238,6 +246,45 @@ export default function Users() {
                         <option value="operator">Operator</option>
                       </select>
                     </div>
+                    <div>
+                      <label htmlFor="user-department" className="block text-sm font-medium text-gray-700 mb-1">
+                        Department
+                      </label>
+                      <select
+                        id="user-department"
+                        value={formData.department}
+                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                      >
+                        <option value="">None</option>
+                        <option value="Operations">Operations</option>
+                        <option value="Warehouse">Warehouse</option>
+                        <option value="Quality Control">Quality Control</option>
+                        <option value="Administration">Administration</option>
+                        <option value="Management">Management</option>
+                      </select>
+                    </div>
+                    {formData.id && (
+                      <div>
+                        <label htmlFor="user-status" className="block text-sm font-medium text-gray-700 mb-1">
+                          Status
+                        </label>
+                        <select
+                          id="user-status"
+                          value={formData.status}
+                          onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
+                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                        {formData.status === 'inactive' && (
+                          <p className="text-xs text-red-500 mt-1">
+                            Inactive users cannot log in but their data will be preserved.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-end space-x-2">
                     <Button type="button" variant="outline" onClick={closeForm}>
@@ -262,7 +309,9 @@ export default function Users() {
                   <TableRow>
                     <TableHead>User</TableHead>
                     <TableHead>Email</TableHead>
+                    <TableHead>Department</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -270,7 +319,7 @@ export default function Users() {
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                         No users found
                       </TableCell>
                     </TableRow>
@@ -286,12 +335,19 @@ export default function Users() {
                           </div>
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
+                        <TableCell>{user.department || '—'}</TableCell>
                         <TableCell>
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.role === 'admin' ? 'bg-primary-100 text-primary-800' :
                             user.role === 'manager' ? 'bg-secondary-100 text-secondary-800' :
                               'bg-gray-100 text-gray-800'
                             }`}>
                             {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                            {user.status || 'active'}
                           </span>
                         </TableCell>
                         <TableCell>{formatDate(user.created_at)}</TableCell>
@@ -306,6 +362,8 @@ export default function Users() {
                                 email: user.email,
                                 password: '',
                                 role: user.role,
+                                department: user.department || '',
+                                status: user.status || 'active'
                               });
                               setFormErrors({});
                               setShowForm(true);

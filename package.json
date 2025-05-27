@@ -12,7 +12,8 @@
     "add-dummy-data": "node scripts/add-dummy-data.js",
     "add-dummy-data:supabase": "node scripts/add-dummy-data-supabase.js",
     "setup-supabase": "node scripts/setup-supabase.js",
-    "migrate-to-supabase": "node scripts/mysql-to-supabase.js"
+    "migrate-to-supabase": "node scripts/mysql-to-supabase.js",
+    "run-migrations": "ts-node scripts/run-migrations.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.7",

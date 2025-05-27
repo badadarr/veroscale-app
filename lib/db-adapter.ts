@@ -25,6 +25,7 @@ export async function executeQuery<T = any>(options: {
   columns?: string | string[];
   single?: boolean;
   returning?: string;
+  range?: [number, number];
 }): Promise<T> {
   if (useSupabase) {
     let {
@@ -35,6 +36,7 @@ export async function executeQuery<T = any>(options: {
       columns,
       single,
       returning,
+      range,
     } = options;
 
     if (options.query && !operationTable) {

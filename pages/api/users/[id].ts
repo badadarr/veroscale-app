@@ -40,7 +40,9 @@ async function getUserById(res: NextApiResponse, id: string) {
       columns: `
         id, 
         name, 
-        email, 
+        email,
+        department,
+        status,
         created_at,
         roles (
           name
@@ -68,12 +70,17 @@ async function updateUser(
   id: string
 ) {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, department, status } = req.body;
 
     if (!name || !email || !role) {
       return res
         .status(400)
         .json({ message: "Name, email, and role are required" });
+    }
+
+    // Validate status if provided
+    if (status && !["active", "inactive"].includes(status)) {
+      return res.status(400).json({ message: "Status must be 'active' or 'inactive'" });
     }
 
     // Check if user exists
@@ -113,6 +120,8 @@ async function updateUser(
           email,
           password: hashedPassword,
           role_id: roleId,
+          department: department || null,
+          status: status || "active",
         },
         filters: { id },
       });
@@ -124,6 +133,8 @@ async function updateUser(
           name,
           email,
           role_id: roleId,
+          department: department || null,
+          status: status || "active",
         },
         filters: { id },
       });
