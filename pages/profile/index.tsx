@@ -96,21 +96,15 @@ export default function Profile() {
                 newPassword: formData.newPassword || undefined,
             };
 
-            const response = await apiClient.put('/api/profile', dataToSend);
-
-            // Update local user data
+            const response = await apiClient.put('/api/profile', dataToSend);            // Update local user data
             if (response.data.user) {
-                // Force relogin to update local data
+                // Just update the user data in localStorage without forcing re-login
                 const token = localStorage.getItem('token');
                 if (token) {
                     localStorage.setItem('user', JSON.stringify(response.data.user));
-                    // Update global auth state
-                    login(formData.email, formData.currentPassword || '').catch(() => {
-                        // If login fails after profile update, redirect to login page
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('user');
-                        router.push('/login');
-                    });
+                    // Directly update the global auth context with the new user data
+                    // without forcing a re-login that could cause a redirect
+                    window.location.reload(); // Refresh the page to update the user data in the UI
                 }
             }
 
