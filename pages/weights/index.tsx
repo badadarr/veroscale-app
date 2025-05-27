@@ -8,6 +8,7 @@ import StatusInfoCard from '@/components/ui/StatusInfoCard';
 import { formatDate, formatWeight } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-hot-toast';
+import apiClient from '@/lib/api';
 
 interface WeightRecord {
   id: number;
@@ -27,13 +28,14 @@ export default function WeightRecords() {
   useEffect(() => {
     fetchWeightRecords();
   }, []);
-
   // Function to fetch weight records from API
   const fetchWeightRecords = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/weights');
-      const data = await response.json(); if (data.records) {
+      const response = await apiClient.get('/api/weights');
+      const data = response.data;
+
+      if (data.records) {
         setRecords(data.records.map((record: any) => ({
           id: record.record_id || record.id,
           item_name: record.item_name,
@@ -52,33 +54,22 @@ export default function WeightRecords() {
       setLoading(false);
     }
   };
-
   // Function to update weight record status
   const updateRecordStatus = async (recordId: number, status: 'approved' | 'rejected' | 'pending') => {
     setStatusUpdating(recordId);
     try {
-      const response = await fetch(`/api/weights/${recordId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status }),
-      });
+      const response = await apiClient.put(`/api/weights/${recordId}`, { status });
+      const data = response.data;
 
-      const data = await response.json();
-
-      if (response.ok) {
-        toast.success(`Record status updated to ${status}`);
-        // Update local state
-        setRecords(records.map(record =>
-          record.id === recordId ? { ...record, status } : record
-        ));
-      } else {
-        toast.error(data.message || 'Failed to update status');
-      }
-    } catch (error) {
+      toast.success(`Record status updated to ${status}`);
+      // Update local state
+      setRecords(records.map(record =>
+        record.id === recordId ? { ...record, status } : record
+      ));
+    } catch (error: any) {
       console.error('Error updating record status:', error);
-      toast.error('Failed to update status');
+      const errorMessage = error.response?.data?.message || 'Failed to update status';
+      toast.error(errorMessage);
     } finally {
       setStatusUpdating(null);
     }

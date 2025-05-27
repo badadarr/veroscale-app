@@ -50,6 +50,7 @@ export async function getUserFromToken(
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    console.warn("No Authorization header or invalid format");
     return null;
   }
 
@@ -57,6 +58,7 @@ export async function getUserFromToken(
   const decoded = verifyToken(token);
 
   if (!decoded) {
+    console.warn("Token verification failed");
     return null;
   }
 
@@ -96,6 +98,12 @@ export async function getUserFromToken(
       (userFromDb.roles as any).name // Akses properti 'name' dari objek roles
         ? (userFromDb.roles as any).name
         : "";
+
+    console.log("User retrieved successfully:", {
+      id: userFromDb.id,
+      email: userFromDb.email,
+      role: roleName,
+    });
 
     return {
       id: userFromDb.id,
