@@ -31,16 +31,18 @@
     weight DECIMAL(10, 2) NOT NULL
   );
 
-  -- Weight records table
-  CREATE TABLE IF NOT EXISTS public.weight_records (
+  -- Weight records table  CREATE TABLE IF NOT EXISTS public.weight_records (
     record_id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     item_id INTEGER NOT NULL,
     total_weight DECIMAL(10, 2) NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(10) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+    approved_by INTEGER NULL,
+    approved_at TIMESTAMP NULL,
     FOREIGN KEY (user_id) REFERENCES public.users(id),
-    FOREIGN KEY (item_id) REFERENCES public.ref_items(id)
+    FOREIGN KEY (item_id) REFERENCES public.ref_items(id),
+    FOREIGN KEY (approved_by) REFERENCES public.users(id)
   );
 
   -- Sessions table

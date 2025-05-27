@@ -48,14 +48,15 @@ async function getWeightRecord(
       // Supabase implementation
       const records = await executeQuery<any[]>({
         table: "public.weight_records",
-        action: "select",
-        columns: `
+        action: "select",        columns: `
           record_id, 
           user_id, 
           item_id, 
           total_weight, 
           timestamp, 
-          status, 
+          status,
+          approved_by,
+          approved_at,
           ref_items(name), 
           users(name)
         `,
@@ -71,14 +72,15 @@ async function getWeightRecord(
         item_name: records[0].ref_items?.name,
         user_name: records[0].users?.name,
       };
-    } else {
-      // MySQL implementation
+    } else {      // MySQL implementation
       const records = await executeQuery<any[]>({
         query: `
-          SELECT wr.*, ri.name as item_name, u.name as user_name
+          SELECT wr.*, ri.name as item_name, u.name as user_name,
+                 approver.name as approved_by_name
           FROM weight_records wr
           JOIN ref_items ri ON wr.item_id = ri.id
           JOIN users u ON wr.user_id = u.id
+          LEFT JOIN users approver ON wr.approved_by = approver.id
           WHERE wr.id = ?
         `,
         values: [id],
@@ -139,15 +141,20 @@ async function updateWeightRecord(
 
       if (existingRecords.length === 0) {
         return res.status(404).json({ message: "Weight record not found" });
-      }
-
-      // Update record using Supabase table API
+      }      // Update record using Supabase table API
       const updateData: Record<string, any> = {};
 
       if (status) {
         updateData.status = status;
-        updateData.approved_by = user.id;
-        updateData.approved_at = new Date().toISOString();
+        // Track approval information
+        if (status === "approved") {
+          updateData.approved_by = user.id; // User ID yang melakukan approval
+          updateData.approved_at = new Date().toISOString();
+        } else if (status === "pending" || status === "rejected") {
+          // Set to null if status is changed back from approved
+          updateData.approved_by = null;
+          updateData.approved_at = null;
+        }
       }
 
       const result = await executeQuery<any>({
@@ -169,15 +176,21 @@ async function updateWeightRecord(
 
       if (existingRecords.length === 0) {
         return res.status(404).json({ message: "Weight record not found" });
-      }
-
-      // Update the record
+      }      // Update the record
       let query = "UPDATE weight_records SET ";
       const queryParams: any[] = [];
 
       if (status) {
-        query += "status = ?, approved_by = ?, approved_at = NOW()";
-        queryParams.push(status, user.id);
+        query += "status = ?";
+        queryParams.push(status);
+        // Track approval information
+        if (status === "approved") {
+          query += ", approved_by = ?, approved_at = NOW()";
+          queryParams.push(user.id); // User ID yang melakukan approval
+        } else if (status === "pending" || status === "rejected") {
+          // Set to null if status is changed back from approved
+          query += ", approved_by = NULL, approved_at = NULL";
+        }
       }
 
       query += " WHERE id = ?";
@@ -186,15 +199,15 @@ async function updateWeightRecord(
       await executeQuery({
         query,
         values: queryParams,
-      });
-
-      // Fetch the updated record
+      });      // Fetch the updated record
       const records = await executeQuery<any[]>({
         query: `
-          SELECT wr.*, ri.name as item_name, u.name as user_name
+          SELECT wr.*, ri.name as item_name, u.name as user_name,
+                 approver.name as approved_by_name
           FROM weight_records wr
           JOIN ref_items ri ON wr.item_id = ri.id
           JOIN users u ON wr.user_id = u.id
+          LEFT JOIN users approver ON wr.approved_by = approver.id
           WHERE wr.id = ?
         `,
         values: [id],

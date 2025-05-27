@@ -79,7 +79,9 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
           item_id, 
           total_weight, 
           timestamp, 
-          status, 
+          status,
+          approved_by,
+          approved_at,
           ref_items(name), 
           users(name)
         `,
@@ -115,10 +117,12 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
     } else {
       // MySQL implementation - original code
       let query = `
-        SELECT wr.*, ri.name as item_name, u.name as user_name
+        SELECT wr.*, ri.name as item_name, u.name as user_name, 
+               approver.name as approved_by_name
         FROM weight_records wr
         JOIN ref_items ri ON wr.item_id = ri.id
         JOIN users u ON wr.user_id = u.id
+        LEFT JOIN users approver ON wr.approved_by = approver.id
         WHERE 1=1
       `;
 
