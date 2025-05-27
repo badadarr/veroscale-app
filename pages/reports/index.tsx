@@ -52,15 +52,17 @@ export default function Reports() {
     recipients: '',
     includeCharts: true,
     includeRawData: false,
-  });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  }); const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Redirect if not admin or manager
+  // Operator hanya dapat melihat laporan yang tersedia, tidak dapat membuat atau mengonfigurasi
   useEffect(() => {
-    if (user && user.role !== 'admin' && user.role !== 'manager') {
-      window.location.href = '/dashboard';
+    if (user) {
+      if (user.role === 'operator' && (activeTab === 'templates' || activeTab === 'configuration')) {
+        // Jika operator mencoba mengakses tab yang tidak diizinkan, arahkan ke tab yang diizinkan
+        setActiveTab('available');
+      }
     }
-  }, [user]);
+  }, [user, activeTab]);
 
   const reports = [
     {
@@ -108,8 +110,7 @@ export default function Reports() {
     // Implement download logic here
     toast.success(`Report download started`);
     console.log(`Downloading report ${reportId}`);
-  };
-  return (
+  }; return (
     <DashboardLayout title="Reports">
       <div className="space-y-6">
         <div className="flex border-b border-gray-200">
@@ -119,18 +120,24 @@ export default function Reports() {
           >
             Available Reports
           </button>
-          <button
-            className={`px-4 py-2 font-medium text-sm ${activeTab === 'templates' ? 'border-b-2 border-primary-500 text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('templates')}
-          >
-            Report Templates
-          </button>
-          <button
-            className={`px-4 py-2 font-medium text-sm ${activeTab === 'configuration' ? 'border-b-2 border-primary-500 text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('configuration')}
-          >
-            Report Configuration
-          </button>
+
+          {/* Hanya tampilkan tab template dan konfigurasi untuk admin dan manager */}
+          {(user?.role === 'admin' || user?.role === 'manager') && (
+            <>
+              <button
+                className={`px-4 py-2 font-medium text-sm ${activeTab === 'templates' ? 'border-b-2 border-primary-500 text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('templates')}
+              >
+                Report Templates
+              </button>
+              <button
+                className={`px-4 py-2 font-medium text-sm ${activeTab === 'configuration' ? 'border-b-2 border-primary-500 text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveTab('configuration')}
+              >
+                Report Configuration
+              </button>
+            </>
+          )}
         </div>
 
         {activeTab === 'available' && (
