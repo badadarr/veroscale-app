@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
 import axios from 'axios';
 import apiClient from '@/lib/api';
-import { 
-  Scale, 
-  Clipboard, 
-  Users, 
+import {
+  Scale,
+  Clipboard,
+  Users,
   TrendingUp,
   AlertCircle,
-  ArrowUpRight
+  ArrowUpRight,
+  Package
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { formatDate, formatWeight } from '@/lib/utils';
+import { Button } from '@/components/ui/Button';
 
 interface SummaryStats {
   totalSamples: number;
@@ -30,6 +33,7 @@ interface DashboardData {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -220,11 +224,10 @@ export default function Dashboard() {
                       <TableCell>{formatWeight(record.total_weight)}</TableCell>
                       <TableCell>{formatDate(record.timestamp)}</TableCell>
                       <TableCell>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          record.status === 'approved' ? 'bg-success-100 text-success-800' :
-                          record.status === 'pending' ? 'bg-warning-100 text-warning-800' :
-                          'bg-error-100 text-error-800'
-                        }`}>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${record.status === 'approved' ? 'bg-success-100 text-success-800' :
+                            record.status === 'pending' ? 'bg-warning-100 text-warning-800' :
+                              'bg-error-100 text-error-800'
+                          }`}>
                           {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
                         </span>
                       </TableCell>
@@ -232,6 +235,68 @@ export default function Dashboard() {
                   ))}
                 </TableBody>
               </Table>
+            </CardContent>
+          </Card>
+
+          {/* Materials Overview */}
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Materials Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Material</TableHead>
+                    <TableHead>Standard Weight (kg)</TableHead>
+                    <TableHead>Usage Count</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {/* Showing sample data - this should be fetched from API */}
+                  <TableRow>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center">
+                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 mr-2">
+                          <Package className="h-4 w-4" />
+                        </div>
+                        Steel Bar
+                      </div>
+                    </TableCell>
+                    <TableCell>5.75</TableCell>
+                    <TableCell>48</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center">
+                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 mr-2">
+                          <Package className="h-4 w-4" />
+                        </div>
+                        Aluminum Sheet
+                      </div>
+                    </TableCell>
+                    <TableCell>2.30</TableCell>
+                    <TableCell>36</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center">
+                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 mr-2">
+                          <Package className="h-4 w-4" />
+                        </div>
+                        Copper Wire
+                      </div>
+                    </TableCell>
+                    <TableCell>1.25</TableCell>
+                    <TableCell>22</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+              <div className="mt-4 flex justify-end">
+                <Button size="sm" variant="outline" onClick={() => router.push('/materials')}>
+                  View All Materials
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

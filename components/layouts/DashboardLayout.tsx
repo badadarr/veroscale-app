@@ -15,7 +15,8 @@ import {
   Menu,
   X,
   User,
-  ChevronDown
+  ChevronDown,
+  Package
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '../ui/Button';
@@ -35,6 +36,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Materials', href: '/materials', icon: Package },
     { name: 'Samples', href: '/samples', icon: Database },
     { name: 'Weight Records', href: '/weights', icon: Weight },
     { name: 'Reports', href: '/reports', icon: BarChart2 },
@@ -67,7 +69,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
         setProfileMenuOpen(false);
       }
     }
-    
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -99,7 +101,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                   </div>
                   <ChevronDown className="h-4 w-4 ml-1" />
                 </button>
-                
+
                 {profileMenuOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
                     <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
@@ -114,7 +116,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                   </div>
                 )}
               </div>
-              
+
               <button
                 onClick={toggleSidebar}
                 className="text-gray-500 hover:text-gray-700 focus:outline-none"
@@ -202,7 +204,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                   {title}
                 </h1>
               </div>
-              
+
               {/* Profile dropdown for desktop */}
               <div className="hidden lg:flex items-center">
                 <div className="relative" ref={profileMenuRef}>
@@ -216,7 +218,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                     <span className="text-sm font-medium mr-1">{user?.name || 'User'}</span>
                     <ChevronDown className="h-4 w-4" />
                   </button>
-                  
+
                   {profileMenuOpen && (
                     <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
                       <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
