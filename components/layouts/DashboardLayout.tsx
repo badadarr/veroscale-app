@@ -34,18 +34,35 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  const navigation = [
+  // Define the navigation item type
+  type NavItem = {
+    name: string;
+    href: string;
+    icon: React.ElementType;
+    roles?: string[];
+  };
+
+  // Base navigation items (available to all authenticated users)
+  const baseNavigation: NavItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Materials', href: '/materials', icon: Package },
     { name: 'Samples', href: '/samples', icon: Database },
     { name: 'Weight Records', href: '/weights', icon: Weight },
-    { name: 'Reports', href: '/reports', icon: BarChart2 },
-    { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
-  // Admin-only menu items
-  const adminNavigation = [
-    { name: 'User Management', href: '/users', icon: Users },
+  // Role-specific navigation items
+  const roleBasedNavigation: NavItem[] = [
+    { name: 'Materials', href: '/materials', icon: Package, roles: ['admin', 'manager'] },
+    { name: 'Reports', href: '/reports', icon: BarChart2, roles: ['admin', 'manager', 'operator'] },
+    { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'manager'] },
+    { name: 'User Management', href: '/users', icon: Users, roles: ['admin'] },
+  ];
+
+  // Filter navigation based on user role
+  const navigation: NavItem[] = [
+    ...baseNavigation,
+    ...roleBasedNavigation.filter(item =>
+      item.roles?.includes(user?.role || '') || false
+    )
   ];
 
   const isActive = (path: string) => {
@@ -145,30 +162,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
             <div className="flex-1 px-4 py-6 overflow-y-auto">
               <nav className="space-y-1">
                 {navigation.map((item) => (
-                  <Link
-                    key={item.name}
-                    href={item.href}
-                    className={cn(
-                      "group flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
-                      isActive(item.href)
-                        ? "bg-primary-100 text-primary-700"
-                        : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                    )}
-                  >
-                    <item.icon
-                      className={cn(
-                        "mr-3 h-5 w-5",
-                        isActive(item.href)
-                          ? "text-primary-500"
-                          : "text-gray-500 group-hover:text-gray-500"
-                      )}
-                    />
-                    {item.name}
-                  </Link>
-                ))}
-
-                {/* Admin-only navigation */}
-                {user?.role === 'admin' && adminNavigation.map((item) => (
                   <Link
                     key={item.name}
                     href={item.href}
