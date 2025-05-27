@@ -31,25 +31,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initAuth = async () => {
       try {
         // Only access localStorage in browser environment
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined' && window.localStorage) {
           const token = localStorage.getItem('token');
 
           if (token) {
             // Set default auth header for axios
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            if (axios.defaults.headers.common) {
+              axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            }
 
             // Fetch user data from localStorage
             const userData = localStorage.getItem('user');
             if (userData) {
-              setUser(JSON.parse(userData));
+              try {
+                const parsedUser = JSON.parse(userData);
+                setUser(parsedUser);
+              } catch (parseError) {
+                console.error('Error parsing user data:', parseError);
+                // Clear invalid data
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+              }
             }
           }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+        // Safe cleanup for mobile
+        if (typeof window !== 'undefined' && window.localStorage) {
+          try {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          } catch (storageError) {
+            console.error('Error cleaning up localStorage:', storageError);
+          }
         }
       } finally {
         setLoading(false);
@@ -87,17 +102,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
 
     try {
-      await axios.post('/api/auth/logout');
-      toast.success('Logged out successfully');
+      // Try to call logout API, but don't fail if it errors
+      try {
+        await axios.post('/api/auth/logout');
+        console.log('Logout API call successful');
+      } catch (apiError) {
+        console.warn('Logout API call failed, proceeding with client cleanup:', apiError);
+      }
     } catch (error) {
       console.error('Logout error:', error);
-      toast.error('Logout error occurred');
     } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      delete axios.defaults.headers.common['Authorization'];
-      setUser(null);
-      router.push('/login');
+      // Always perform client-side cleanup regardless of API call result
+      try {
+        // Safe localStorage removal for mobile compatibility
+        if (typeof window !== 'undefined' && window.localStorage) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+
+        // Safe deletion of axios header
+        if (axios.defaults.headers.common) {
+          delete axios.defaults.headers.common['Authorization'];
+        }
+
+        setUser(null);
+
+        // Navigate to login page
+        router.push('/login');
+
+        // Show success message
+        toast.success('Logged out successfully');
+      } catch (cleanupError) {
+        console.error('Error during logout cleanup:', cleanupError);
+        // Even if cleanup fails, still navigate to login
+        router.push('/login');
+        toast.success('Logged out successfully');
+      }
+
       setLoading(false);
     }
   };
