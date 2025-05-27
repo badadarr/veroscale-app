@@ -191,14 +191,15 @@ export default function Profile() {
                                         type="password"
                                         value={formData.confirmPassword}
                                         onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                        error={errors.confirmPassword}
-                                    />
+                                        error={errors.confirmPassword} />
                                 </div>
 
-                                <Button type="submit" disabled={loading}>
-                                    <Save className="h-4 w-4 mr-2" />
-                                    {loading ? 'Saving...' : 'Save Changes'}
-                                </Button>
+                                <div className="mt-6">
+                                    <Button type="submit" disabled={loading}>
+                                        <Save className="h-4 w-4 mr-2" />
+                                        {loading ? 'Saving...' : 'Save Changes'}
+                                    </Button>
+                                </div>
                             </div>
                         </form>
                     </CardContent>
