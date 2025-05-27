@@ -33,9 +33,7 @@ export default function WeightRecords() {
     setLoading(true);
     try {
       const response = await fetch('/api/weights');
-      const data = await response.json();
-
-      if (data.records) {
+      const data = await response.json(); if (data.records) {
         setRecords(data.records.map((record: any) => ({
           id: record.record_id || record.id,
           item_name: record.item_name,
@@ -44,6 +42,8 @@ export default function WeightRecords() {
           status: record.status,
           user_name: record.user_name
         })));
+      } else {
+        setRecords([]);
       }
     } catch (error) {
       console.error('Error fetching weight records:', error);
@@ -91,15 +91,24 @@ export default function WeightRecords() {
       <div className="space-y-6">
         <StatusInfoCard role={user?.role} />
 
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex justify-between items-center">
-              <CardTitle>Recent Weight Records</CardTitle>
+        <Card>          <CardHeader className="pb-3">
+          <div className="flex justify-between items-center">
+            <CardTitle>Recent Weight Records</CardTitle>
+            <div className="flex items-center gap-4">
               <div className="text-sm text-gray-500">
                 Showing last 24 hours
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchWeightRecords}
+                disabled={loading}
+              >
+                {loading ? 'Loading...' : 'Refresh'}
+              </Button>
             </div>
-          </CardHeader>
+          </div>
+        </CardHeader>
           <CardContent>
             {loading ? (
               <div className="flex justify-center items-center h-64">
@@ -126,8 +135,8 @@ export default function WeightRecords() {
                       <TableCell>{formatDate(record.timestamp)}</TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${record.status === 'approved' ? 'bg-success-100 text-success-800' :
-                            record.status === 'pending' ? 'bg-warning-100 text-warning-800' :
-                              'bg-error-100 text-error-800'
+                          record.status === 'pending' ? 'bg-warning-100 text-warning-800' :
+                            'bg-error-100 text-error-800'
                           }`}>
                           {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
                         </span>

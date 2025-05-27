@@ -51,23 +51,16 @@ export default function WeightEntry() {
         }
 
         setLoading(true);
-        setError(null);
-
-        try {
-            // In production, replace with actual API call
-            // await apiClient.post('/api/weights', {
-            //   item_id: selectedMaterial,
-            //   total_weight: weight,
-            //   unit,
-            //   batch_number: batchNumber,
-            //   source,
-            //   destination
-            // });
-
-            // Mock API call for demonstration
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            setSuccess(true);
+        setError(null); try {
+            // Real API call to add weight record
+            await apiClient.post('/api/weights', {
+                item_id: selectedMaterial,
+                total_weight: weight,
+                unit,
+                batch_number: batchNumber,
+                source,
+                destination
+            }); setSuccess(true);
 
             // Reset form after successful submission
             setTimeout(() => {
@@ -77,7 +70,10 @@ export default function WeightEntry() {
                 setBatchNumber('');
                 setSource('');
                 setDestination('');
-            }, 3000);
+
+                // Navigate to weight records page to see the added record
+                router.push('/weights');
+            }, 2000);
 
         } catch (err) {
             console.error('Error submitting weight record:', err);
@@ -109,23 +105,16 @@ export default function WeightEntry() {
         }
 
         setLoading(true);
-        setError(null);
-
-        try {
-            // In production, replace with actual API call
-            // await apiClient.post('/api/weights/batch', {
-            //   item_id: selectedMaterial,
-            //   batch_items: batchItems,
-            //   unit,
-            //   batch_number: batchNumber,
-            //   source,
-            //   destination
-            // });
-
-            // Mock API call for demonstration
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            setSuccess(true);
+        setError(null); try {
+            // Real API call to add batch records
+            await apiClient.post('/api/weights/batch', {
+                item_id: selectedMaterial,
+                batch_items: batchItems,
+                unit,
+                batch_number: batchNumber,
+                source,
+                destination
+            }); setSuccess(true);
 
             // Reset form after successful submission
             setTimeout(() => {
@@ -135,7 +124,10 @@ export default function WeightEntry() {
                 setBatchNumber('');
                 setSource('');
                 setDestination('');
-            }, 3000);
+
+                // Navigate to weight records page to see the added records
+                router.push('/weights');
+            }, 2000);
 
         } catch (err) {
             console.error('Error submitting batch records:', err);
