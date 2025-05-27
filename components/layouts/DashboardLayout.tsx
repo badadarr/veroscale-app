@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -15,10 +15,9 @@ import {
   Menu,
   X,
   User,
-  Moon
+  ChevronDown
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { Button } from '../ui/Button';
 import { cn } from '@/lib/utils';
 
@@ -29,9 +28,10 @@ interface DashboardLayoutProps {
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) => {
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -60,6 +60,20 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
     router.push('/login');
   };
 
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    }
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [profileMenuRef]);
+
   return (
     <>
       <Head>
@@ -74,12 +88,40 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
               <Scale className="h-6 w-6 text-primary-600 mr-2" />
               <span className="text-lg font-semibold">VeroScale</span>
             </div>
-            <button
-              onClick={toggleSidebar}
-              className="text-gray-500 hover:text-gray-700 focus:outline-none"
-            >
-              {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
+            <div className="flex items-center">
+              <div className="relative" ref={profileMenuRef}>
+                <button
+                  onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                  className="flex items-center text-gray-700 mr-2"
+                >
+                  <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                  <ChevronDown className="h-4 w-4 ml-1" />
+                </button>
+                
+                {profileMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
+                    <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                      My Profile
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              <button
+                onClick={toggleSidebar}
+                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -148,22 +190,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                 ))}
               </nav>
             </div>
-
-            <div className="mt-6 flex items-center justify-between px-2">
-              <div className="flex items-center p-2 rounded-lg hover:bg-gray-100 transition-colors">
-                <User className="h-5 w-5 text-gray-500 mr-2" />
-                <span className="text-sm font-medium text-gray-700">{user?.name || 'User'}</span>
-              </div>
-
-              <Button
-                onClick={handleLogout}
-                variant="ghost"
-                className="flex items-center text-gray-700"
-              >
-                <LogOut className="h-5 w-5 mr-2" />
-                Logout
-              </Button>
-            </div>
           </div>
         </aside>
 
@@ -176,14 +202,35 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                   {title}
                 </h1>
               </div>
-              <div className="flex items-center">
-                <button
-                  onClick={toggleTheme}
-                  className="p-2 rounded-lg hover:bg-gray-200 transition-colors mr-2"
-                  aria-label="Toggle theme"
-                >
-                  <Moon className="h-5 w-5 text-gray-600" />
-                </button>
+              
+              {/* Profile dropdown for desktop */}
+              <div className="hidden lg:flex items-center">
+                <div className="relative" ref={profileMenuRef}>
+                  <button
+                    onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                    className="flex items-center text-gray-700 bg-white rounded-full py-1 px-2 border border-gray-200 hover:bg-gray-50"
+                  >
+                    <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold mr-2">
+                      {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                    <span className="text-sm font-medium mr-1">{user?.name || 'User'}</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  
+                  {profileMenuOpen && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
+                      <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                        My Profile
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             {children}
