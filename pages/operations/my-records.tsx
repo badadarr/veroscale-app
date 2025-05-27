@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import StatusInfoCard from '@/components/ui/StatusInfoCard';
 import { formatDate, formatWeight } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api';
@@ -210,11 +211,11 @@ export default function MyRecords() {
         setSelectedStatus('all');
         setStartDate('');
         setEndDate('');
-    };
-
-    return (
+    }; return (
         <DashboardLayout title="My Records">
             <div className="max-w-6xl mx-auto">
+                <StatusInfoCard role={user?.role} />
+
                 <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
                     <h1 className="text-2xl font-bold text-gray-900 mb-2 md:mb-0">My Weight Records</h1>
                     <div className="flex space-x-2">

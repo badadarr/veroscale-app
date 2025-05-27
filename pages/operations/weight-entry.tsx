@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import { Scale, PackagePlus, Layers } from 'lucide-react';
+import { Scale, PackagePlus, Layers, Info } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import StatusInfoCard from '@/components/ui/StatusInfoCard';
 import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api';
 
@@ -142,11 +143,11 @@ export default function WeightEntry() {
         } finally {
             setLoading(false);
         }
-    };
-
-    return (
+    }; return (
         <DashboardLayout title="Weight Entry">
             <div className="max-w-4xl mx-auto">
+                <StatusInfoCard role={user?.role} />
+
                 <div className="mb-6 flex justify-between items-center">
                     <h1 className="text-2xl font-bold text-gray-900">Material Weight Entry</h1>
                     <div className="flex space-x-2">

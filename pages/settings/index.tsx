@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import StatusWorkflowGuide from '@/components/ui/StatusWorkflowGuide';
 
 export default function Settings() {
   const [formData, setFormData] = useState({
@@ -19,10 +20,11 @@ export default function Settings() {
     // Implement settings update logic here
     toast.success('Settings updated successfully');
   };
-
   return (
     <DashboardLayout title="Settings">
       <div className="space-y-6">
+        <StatusWorkflowGuide />
+
         <Card>
           <CardHeader>
             <CardTitle>General Settings</CardTitle>

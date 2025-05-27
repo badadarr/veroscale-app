@@ -1,11 +1,12 @@
 import { BookOpen, Scale, Barcode, ClipboardList, AlertOctagon } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import ApprovalStatusGuide from '@/components/ui/ApprovalStatusGuide';
 import { useRouter } from 'next/router';
 
 export default function OperatorGuide() {
   const router = useRouter();
-  
+
   return (
     <DashboardLayout title="Operator Guide">
       <div className="max-w-4xl mx-auto space-y-8 animate-fade-in">
@@ -44,7 +45,7 @@ export default function OperatorGuide() {
               <p className="text-gray-700">
                 Navigate to <span className="text-primary-600 font-medium">"Operations" → "Weight Entry"</span>
               </p>
-              <button 
+              <button
                 onClick={() => router.push('/operations/weight-entry')}
                 className="px-3 py-1 bg-primary-100 text-primary-700 rounded-md text-sm hover:bg-primary-200 transition-colors"
               >
@@ -93,8 +94,8 @@ export default function OperatorGuide() {
               <li>Enter the weight and additional details</li>
               <li>Click "Save Record"</li>
             </ol>
-            
-            <button 
+
+            <button
               onClick={() => router.push('/operations/scan-entry')}
               className="px-3 py-1 bg-primary-100 text-primary-700 rounded-md text-sm hover:bg-primary-200 transition-colors"
             >
@@ -117,15 +118,16 @@ export default function OperatorGuide() {
               <li>Filter by date, material, or status</li>
               <li>Click on any record to view details or make corrections (if allowed)</li>
             </ol>
-            
-            <button 
+
+            <button
               onClick={() => router.push('/operations/my-records')}
               className="px-3 py-1 bg-primary-100 text-primary-700 rounded-md text-sm hover:bg-primary-200 transition-colors"
             >
               View My Records
-            </button>
-          </CardContent>
+            </button>          </CardContent>
         </Card>
+
+        <ApprovalStatusGuide />
 
         <Card className="shadow-md">
           <CardHeader className="bg-primary-50">

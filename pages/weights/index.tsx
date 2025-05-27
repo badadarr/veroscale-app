@@ -1,9 +1,13 @@
-import { useState } from 'react';
-import { AlertCircle, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { AlertCircle, CheckCircle, XCircle, Clock } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { Button } from '@/components/ui/Button';
+import StatusInfoCard from '@/components/ui/StatusInfoCard';
 import { formatDate, formatWeight } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'react-hot-toast';
 
 interface WeightRecord {
   id: number;
@@ -15,39 +19,78 @@ interface WeightRecord {
 }
 
 export default function WeightRecords() {
-  const [loading] = useState(false);
-  
-  // Dummy data for demonstration
-  const records: WeightRecord[] = [
-    {
-      id: 1,
-      item_name: "Metal Sheet",
-      total_weight: 125.5,
-      timestamp: "2025-05-21T09:30:00",
-      status: "approved",
-      user_name: "John Doe"
-    },
-    {
-      id: 2,
-      item_name: "Steel Rod Bundle",
-      total_weight: 355.0,
-      timestamp: "2025-05-21T10:15:00",
-      status: "pending",
-      user_name: "Jane Smith"
-    },
-    {
-      id: 3,
-      item_name: "Concrete Block",
-      total_weight: 227.3,
-      timestamp: "2025-05-21T11:00:00",
-      status: "rejected",
-      user_name: "Mike Johnson"
-    }
-  ];
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [records, setRecords] = useState<WeightRecord[]>([]);
+  const [statusUpdating, setStatusUpdating] = useState<number | null>(null);
 
+  useEffect(() => {
+    fetchWeightRecords();
+  }, []);
+
+  // Function to fetch weight records from API
+  const fetchWeightRecords = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/weights');
+      const data = await response.json();
+
+      if (data.records) {
+        setRecords(data.records.map((record: any) => ({
+          id: record.record_id || record.id,
+          item_name: record.item_name,
+          total_weight: record.total_weight,
+          timestamp: record.timestamp,
+          status: record.status,
+          user_name: record.user_name
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching weight records:', error);
+      toast.error('Failed to load weight records');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to update weight record status
+  const updateRecordStatus = async (recordId: number, status: 'approved' | 'rejected' | 'pending') => {
+    setStatusUpdating(recordId);
+    try {
+      const response = await fetch(`/api/weights/${recordId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success(`Record status updated to ${status}`);
+        // Update local state
+        setRecords(records.map(record =>
+          record.id === recordId ? { ...record, status } : record
+        ));
+      } else {
+        toast.error(data.message || 'Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating record status:', error);
+      toast.error('Failed to update status');
+    } finally {
+      setStatusUpdating(null);
+    }
+  };
+
+  // Determine if the user can change status
+  const canChangeStatus = user?.role === 'admin' || user?.role === 'manager';
   return (
     <DashboardLayout title="Weight Records">
       <div className="space-y-6">
+        <StatusInfoCard role={user?.role} />
+
         <Card>
           <CardHeader className="pb-3">
             <div className="flex justify-between items-center">
@@ -65,13 +108,13 @@ export default function WeightRecords() {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
+                  <TableRow>                    <TableHead>ID</TableHead>
                     <TableHead>Item</TableHead>
                     <TableHead>Weight</TableHead>
                     <TableHead>Timestamp</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Operator</TableHead>
+                    {canChangeStatus && <TableHead>Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -82,15 +125,58 @@ export default function WeightRecords() {
                       <TableCell>{formatWeight(record.total_weight)}</TableCell>
                       <TableCell>{formatDate(record.timestamp)}</TableCell>
                       <TableCell>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          record.status === 'approved' ? 'bg-success-100 text-success-800' :
-                          record.status === 'pending' ? 'bg-warning-100 text-warning-800' :
-                          'bg-error-100 text-error-800'
-                        }`}>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${record.status === 'approved' ? 'bg-success-100 text-success-800' :
+                            record.status === 'pending' ? 'bg-warning-100 text-warning-800' :
+                              'bg-error-100 text-error-800'
+                          }`}>
                           {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
                         </span>
                       </TableCell>
                       <TableCell>{record.user_name}</TableCell>
+                      {canChangeStatus && (
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            {record.status !== 'approved' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="px-2 py-1 h-8 text-xs text-success-700 border-success-200 hover:bg-success-50"
+                                onClick={() => updateRecordStatus(record.id, 'approved')}
+                                disabled={statusUpdating === record.id}
+                              >
+                                <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                Approve
+                              </Button>
+                            )}
+
+                            {record.status !== 'pending' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="px-2 py-1 h-8 text-xs text-warning-700 border-warning-200 hover:bg-warning-50"
+                                onClick={() => updateRecordStatus(record.id, 'pending')}
+                                disabled={statusUpdating === record.id}
+                              >
+                                <Clock className="h-3.5 w-3.5 mr-1" />
+                                Pending
+                              </Button>
+                            )}
+
+                            {record.status !== 'rejected' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="px-2 py-1 h-8 text-xs text-error-700 border-error-200 hover:bg-error-50"
+                                onClick={() => updateRecordStatus(record.id, 'rejected')}
+                                disabled={statusUpdating === record.id}
+                              >
+                                <XCircle className="h-3.5 w-3.5 mr-1" />
+                                Reject
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
