@@ -44,7 +44,6 @@ async function getWeightRecord(
     );
 
     let record;
-
     if (useSupabase) {
       // Supabase implementation
       const records = await executeQuery<any[]>({
@@ -57,8 +56,8 @@ async function getWeightRecord(
           total_weight, 
           timestamp, 
           status, 
-          public.ref_items!weight_records_item_id_fkey(name), 
-          public.users!weight_records_user_id_fkey(name)
+          ref_items(name), 
+          users(name)
         `,
         filters: { record_id: id },
       });
