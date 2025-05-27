@@ -296,9 +296,13 @@ export default function Dashboard() {
               </Table>
               <div className="mt-4 flex justify-end">
                 {/* Only show the "View All Materials" button for admin and manager roles */}
-                {user?.role !== 'operator' && (
+                {user?.role !== 'operator' ? (
                   <Button size="sm" variant="outline" onClick={() => router.push('/materials')}>
                     View All Materials
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={() => router.push('/operator-guide')}>
+                    View Operator Guide
                   </Button>
                 )}
               </div>

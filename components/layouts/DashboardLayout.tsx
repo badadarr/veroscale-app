@@ -16,7 +16,9 @@ import {
   X,
   User,
   ChevronDown,
-  Package
+  Package,
+  Clipboard,
+  BookOpen
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '../ui/Button';
@@ -49,17 +51,26 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
     { name: 'Weight Records', href: '/weights', icon: Weight },
   ];
 
+  // Operations navigation items (mainly for operators)
+  const operationsNavigation: NavItem[] = [
+    { name: 'Weight Entry', href: '/operations/weight-entry', icon: Scale },
+    { name: 'Scan Entry', href: '/operations/scan-entry', icon: Clipboard },
+    { name: 'My Records', href: '/operations/my-records', icon: Database },
+  ];
+
   // Role-specific navigation items
   const roleBasedNavigation: NavItem[] = [
     { name: 'Materials', href: '/materials', icon: Package, roles: ['admin', 'manager'] },
     { name: 'Reports', href: '/reports', icon: BarChart2, roles: ['admin', 'manager', 'operator'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'manager'] },
     { name: 'User Management', href: '/users', icon: Users, roles: ['admin'] },
+    { name: 'Operator Guide', href: '/operator-guide', icon: BookOpen, roles: ['operator'] },
   ];
 
   // Filter navigation based on user role
   const navigation: NavItem[] = [
     ...baseNavigation,
+    ...(user?.role === 'operator' ? operationsNavigation : []),
     ...roleBasedNavigation.filter(item =>
       item.roles?.includes(user?.role || '') || false
     )
