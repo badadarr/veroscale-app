@@ -83,8 +83,9 @@ export default async function handler(
       if (result) {
         const recordId =
           result.record_id || (result[0] ? result[0].record_id : null);
+        // Update insertedRecords to use record_id instead of id
         insertedRecords.push({
-          id: recordId,
+          record_id: recordId, // Use record_id to match the database schema
           materialId,
           materialName: material.name,
           weight,
