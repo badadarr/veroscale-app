@@ -37,21 +37,42 @@ export async function executeQuery<T = any>(options: {
       single,
       returning,
       range,
-    } = options;
-
+    } = options; // Handle direct SQL execution for Supabase using RPC
     if (options.query && !operationTable) {
-      console.warn(
-        "SQL query detected while using Supabase. Converting to table-based API if possible, but functionality may be limited."
-      );
-      const sqlLower = options.query.toLowerCase();
-      const tableMatch = sqlLower.match(/from\s+(\w+)/);
-      if (tableMatch && tableMatch[1]) {
-        console.log(`Extracted table name from SQL: ${tableMatch[1]}`);
-        operationTable = tableMatch[1];
-      } else {
-        throw new Error(
-          "Cannot determine table name from SQL query. Please use the table-based API with Supabase."
-        );
+      console.log("Executing SQL query directly via Supabase RPC...");
+      try {
+        let sqlQuery = options.query;
+
+        // Handle parameter substitution for MySQL-style queries
+        if (options.values && options.values.length > 0) {
+          // Replace ? placeholders with actual values for PostgreSQL
+          // Note: This is a simple replacement - for production use a proper SQL parameter library
+          let paramIndex = 0;
+          sqlQuery = sqlQuery.replace(/\?/g, () => {
+            const value = options.values![paramIndex++];
+            if (typeof value === "string") {
+              return `'${value.replace(/'/g, "''")}'`; // Escape single quotes
+            } else if (value === null || value === undefined) {
+              return "NULL";
+            } else {
+              return String(value);
+            }
+          });
+        }
+
+        const { data, error } = await supabaseAdmin.rpc("exec_sql", {
+          sql: sqlQuery,
+        });
+
+        if (error) {
+          console.error("SQL execution error:", error);
+          throw new Error(`SQL execution failed: ${error.message}`);
+        }
+
+        return data as T;
+      } catch (error) {
+        console.error("Error executing SQL via RPC:", error);
+        throw error;
       }
     }
 
