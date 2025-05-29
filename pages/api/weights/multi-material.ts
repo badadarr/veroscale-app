@@ -77,6 +77,14 @@ export default async function handler(
       } catch (err) {
         console.log("Date conversion error:", err);
       }
+
+      // Ensure user_id is explicitly passed in the request body
+      const userId = req.body.user_id;
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      insertData.user_id = userId;
+
       const result = await executeQuery<any>({
         table: "weight_records",
         action: "insert",
