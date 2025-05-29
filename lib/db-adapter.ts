@@ -36,44 +36,83 @@ export async function executeQuery<T = any>(options: {
       columns,
       single,
       returning,
-      range,
-    } = options; // Handle direct SQL execution for Supabase using RPC
+      range,    } = options;
+
+    // Handle direct SQL execution for Supabase - convert to table operations instead of RPC
     if (options.query && !operationTable) {
-      console.log("Executing SQL query directly via Supabase RPC...");
-      try {
-        let sqlQuery = options.query;
-
-        // Handle parameter substitution for MySQL-style queries
-        if (options.values && options.values.length > 0) {
-          // Replace ? placeholders with actual values for PostgreSQL
-          // Note: This is a simple replacement - for production use a proper SQL parameter library
-          let paramIndex = 0;
-          sqlQuery = sqlQuery.replace(/\?/g, () => {
-            const value = options.values![paramIndex++];
-            if (typeof value === "string") {
-              return `'${value.replace(/'/g, "''")}'`; // Escape single quotes
-            } else if (value === null || value === undefined) {
-              return "NULL";
-            } else {
-              return String(value);
-            }
-          });
+      console.log("Converting SQL query to Supabase table operations...");
+      
+      // For now, we'll convert common SQL patterns to Supabase table operations
+      // This is a temporary solution until we can set up proper SQL execution
+      
+      const query = options.query.trim();
+      const values = options.values || [];
+      
+      // Handle SELECT queries
+      if (query.toLowerCase().startsWith('select')) {
+        // Extract table name from SQL
+        const tableMatch = query.match(/from\s+(\w+)/i);
+        if (tableMatch) {
+          const tableName = tableMatch[1];
+          
+          // Simple WHERE id = ? pattern
+          if (query.includes('WHERE id = ?') && values.length > 0) {
+            return supabaseDB.query<T>({
+              table: tableName,
+              filters: { id: values[0] },
+              single: options.single || false,
+            });
+          }
+          
+          // Simple WHERE email = ? pattern
+          if (query.includes('WHERE email = ?') && values.length > 0) {
+            return supabaseDB.query<T>({
+              table: tableName,
+              filters: { email: values[0] },
+              single: options.single || false,
+            });
+          }
+          
+          // Simple SELECT * FROM table
+          if (query.includes('SELECT *') && !query.includes('WHERE')) {
+            return supabaseDB.query<T>({
+              table: tableName,
+              filters: {},
+              single: false,
+            });
+          }
         }
-
-        const { data, error } = await supabaseAdmin.rpc("exec_sql", {
-          sql: sqlQuery,
-        });
-
-        if (error) {
-          console.error("SQL execution error:", error);
-          throw new Error(`SQL execution failed: ${error.message}`);
-        }
-
-        return data as T;
-      } catch (error) {
-        console.error("Error executing SQL via RPC:", error);
-        throw error;
       }
+      
+      // Handle INSERT queries with RETURNING
+      if (query.toLowerCase().startsWith('insert')) {
+        const tableMatch = query.match(/insert\s+into\s+(\w+)/i);
+        if (tableMatch) {
+          const tableName = tableMatch[1];
+          
+          // Extract column names and values
+          const columnsMatch = query.match(/\(([^)]+)\)/);
+          if (columnsMatch && values.length > 0) {
+            const columns = columnsMatch[1].split(',').map(col => col.trim());
+            const data: Record<string, any> = {};
+            
+            columns.forEach((col, index) => {
+              if (index < values.length) {
+                data[col] = values[index];
+              }
+            });
+            
+            return supabaseDB.insert<T>({
+              table: tableName,
+              data,
+              returning: "*",
+            });
+          }
+        }
+      }
+      
+      // If we can't convert the SQL, throw an error with helpful message
+      throw new Error(`SQL query conversion not implemented for: ${query}. Please use table-based operations instead.`);
     }
 
     if (!operationTable) {
