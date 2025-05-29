@@ -62,6 +62,17 @@ export default async function handler(
         timestamp: new Date().toISOString(),
       };
 
+      // Ensure user_id is explicitly passed in the request body
+      const userId = req.body.user_id;
+      if (!userId) {
+        console.error("Missing user_id in request");
+        return res.status(400).json({ error: "User ID is required" });
+      }
+      insertData.user_id = userId;
+
+      // Log insertData for debugging
+      console.log("Insert Data:", insertData);
+
       const result = await executeQuery<any>({
         table: "weight_records",
         action: "insert",

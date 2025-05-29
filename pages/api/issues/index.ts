@@ -12,6 +12,9 @@ export default async function handler(
     return res.status(401).json({ message: 'Unauthorized' });
   }
 
+  // Disable caching for the response
+  res.setHeader('Cache-Control', 'no-store');
+
   switch (req.method) {
     case 'GET':
       return getIssues(req, res);
