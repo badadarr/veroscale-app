@@ -23,6 +23,7 @@ interface Material {
   id: number;
   name: string;
   weight: number;
+  price_per_kg: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -33,11 +34,11 @@ export default function Materials() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
+  const [showForm, setShowForm] = useState(false);  const [formData, setFormData] = useState({
     id: null as number | null,
     name: '',
     weight: '',
+    price_per_kg: '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -59,14 +60,13 @@ export default function Materials() {
       // This would be your actual API call
       // const response = await apiClient.get('/api/materials');
       // setMaterials(response.data);
-      
-      // For now, we'll use dummy data
+        // For now, we'll use dummy data
       const dummyData: Material[] = [
-        { id: 1, name: 'Steel Bar', weight: 5.75 },
-        { id: 2, name: 'Aluminum Sheet', weight: 2.3 },
-        { id: 3, name: 'Copper Wire', weight: 1.25 },
-        { id: 4, name: 'Iron Pipe', weight: 8.5 },
-        { id: 5, name: 'Plastic Granules', weight: 0.85 },
+        { id: 1, name: 'Steel Bar', weight: 5.75, price_per_kg: 1200 },
+        { id: 2, name: 'Aluminum Sheet', weight: 2.3, price_per_kg: 2800 },
+        { id: 3, name: 'Copper Wire', weight: 1.25, price_per_kg: 8500 },
+        { id: 4, name: 'Iron Pipe', weight: 8.5, price_per_kg: 800 },
+        { id: 5, name: 'Plastic Granules', weight: 0.85, price_per_kg: 1500 },
       ];
       
       setMaterials(dummyData);
@@ -78,12 +78,12 @@ export default function Materials() {
       setLoading(false);
     }
   };
-
   const handleEdit = (material: Material) => {
     setFormData({
       id: material.id,
       name: material.name,
       weight: material.weight.toString(),
+      price_per_kg: material.price_per_kg.toString(),
     });
     setShowForm(true);
   };
@@ -107,12 +107,12 @@ export default function Materials() {
       toast.error('Failed to delete material');
     }
   };
-
   const openForm = () => {
     setFormData({
       id: null,
       name: '',
       weight: '',
+      price_per_kg: '',
     });
     setFormErrors({});
     setShowForm(true);
@@ -121,7 +121,6 @@ export default function Materials() {
   const closeForm = () => {
     setShowForm(false);
   };
-
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
@@ -138,6 +137,15 @@ export default function Materials() {
       }
     }
 
+    if (!formData.price_per_kg.trim()) {
+      errors.price_per_kg = 'Price per kg is required';
+    } else {
+      const priceValue = parseFloat(formData.price_per_kg);
+      if (isNaN(priceValue) || priceValue <= 0) {
+        errors.price_per_kg = 'Price must be a positive number';
+      }
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -147,12 +155,11 @@ export default function Materials() {
 
     if (!validateForm()) {
       return;
-    }
-
-    try {
+    }    try {
       const materialData = {
         name: formData.name,
         weight: parseFloat(formData.weight),
+        price_per_kg: parseFloat(formData.price_per_kg),
       };
 
       if (formData.id) {
@@ -242,9 +249,8 @@ export default function Materials() {
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CardContent>                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label htmlFor="material-name" className="block text-sm font-medium text-gray-700 mb-1">
                           Material Name
@@ -269,6 +275,19 @@ export default function Materials() {
                           error={formErrors.weight}
                         />
                       </div>
+                      <div>
+                        <label htmlFor="material-price" className="block text-sm font-medium text-gray-700 mb-1">
+                          Price per kg (IDR)
+                        </label>
+                        <Input
+                          id="material-price"
+                          type="number"
+                          step="0.01"
+                          value={formData.price_per_kg}
+                          onChange={(e) => setFormData({ ...formData, price_per_kg: e.target.value })}
+                          error={formErrors.price_per_kg}
+                        />
+                      </div>
                     </div>
                     <div className="flex justify-end space-x-2">
                       <Button type="button" variant="outline" onClick={closeForm}>
@@ -290,12 +309,12 @@ export default function Materials() {
               <div className="text-center py-4 text-gray-500">
                 {searchQuery ? 'No materials found matching your search.' : 'No materials found. Add some materials to get started.'}
               </div>
-            ) : (
-              <Table>
+            ) : (              <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Standard Weight (kg)</TableHead>
+                    <TableHead>Price per kg (IDR)</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -311,6 +330,7 @@ export default function Materials() {
                         </div>
                       </TableCell>
                       <TableCell>{material.weight} kg</TableCell>
+                      <TableCell>IDR {material.price_per_kg.toLocaleString()}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           size="sm"

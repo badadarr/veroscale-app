@@ -39,143 +39,67 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
     const itemsPerPage = parseInt(limit as string, 10);
     const offset = (currentPage - 1) * itemsPerPage;
 
-    // Check if we're using Supabase or MySQL implementation
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
     let totalItems = 0;
     let records: any[] = [];
 
-    if (useSupabase) {
-      // Supabase implementation
-      let filters: Record<string, any> = {};
+    // Build filters for Supabase query
+    let query = `
+      SELECT wr.*, m.name as item_name, u.name as user_name, 
+             approver.name as approved_by_name
+      FROM weight_records wr
+      JOIN materials m ON wr.item_id = m.id
+      JOIN users u ON wr.user_id = u.id
+      LEFT JOIN users approver ON wr.approved_by = approver.id
+      WHERE 1=1
+    `;
 
-      if (item_id) filters.item_id = item_id;
-      if (user_id) filters.user_id = user_id;
-      if (status) filters.status = status;
+    const queryParams: any[] = [];
 
-      // Date filters handled differently in RPC call or custom query
-      // Using direct query would be more efficient but for now we'll go with a simple approach
-
-      // Get total count for pagination - this is a simple count of filtered records
-      const countResult = await executeQuery<any[]>({
-        table: "public.weight_records",
-        action: "select",
-        columns: "count(*)",
-        filters: filters,
-      });
-
-      totalItems = countResult[0]?.count || 0;
-
-      // Get the actual records with relation data
-      records = await executeQuery<any[]>({
-        table: "public.weight_records",
-        action: "select",
-        columns: `
-          record_id, 
-          user_id, 
-          item_id, 
-          total_weight, 
-          timestamp, 
-          status,
-          approved_by,
-          approved_at,
-          ref_items(name), 
-          users!weight_records_user_id_fkey(name),
-          approver:users!fk_weight_records_approved_by(name)
-        `,
-        filters: filters,
-      });
-
-      // Process the records to match the expected format
-      records = records.map((record) => ({
-        ...record,
-        item_name: record.ref_items?.name,
-        user_name: record.users?.name,
-        approved_by_name: record.approver?.name,
-      }));
-
-      // Manual filtering for dates since we can't do it easily in the query
-      if (startDate) {
-        records = records.filter(
-          (r) => new Date(r.timestamp) >= new Date(startDate as string)
-        );
-      }
-
-      if (endDate) {
-        records = records.filter(
-          (r) => new Date(r.timestamp) <= new Date(endDate as string)
-        );
-      }
-
-      // Manual sorting and pagination
-      records.sort(
-        (a, b) =>
-          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-      );
-      records = records.slice(offset, offset + itemsPerPage);
-    } else {
-      // MySQL implementation - original code
-      let query = `
-        SELECT wr.*, ri.name as item_name, u.name as user_name, 
-               approver.name as approved_by_name
-        FROM weight_records wr
-        JOIN ref_items ri ON wr.item_id = ri.id
-        JOIN users u ON wr.user_id = u.id
-        LEFT JOIN users approver ON wr.approved_by = approver.id
-        WHERE 1=1
-      `;
-
-      const queryParams: any[] = [];
-
-      if (item_id) {
-        query += ` AND wr.item_id = ?`;
-        queryParams.push(item_id);
-      }
-
-      if (user_id) {
-        query += ` AND wr.user_id = ?`;
-        queryParams.push(user_id);
-      }
-
-      if (status) {
-        query += ` AND wr.status = ?`;
-        queryParams.push(status);
-      }
-
-      if (startDate) {
-        query += ` AND wr.timestamp >= ?`;
-        queryParams.push(startDate);
-      }
-
-      if (endDate) {
-        query += ` AND wr.timestamp <= ?`;
-        queryParams.push(endDate);
-      }
-
-      // Get total count for pagination
-      const countQuery = query.replace(
-        "SELECT wr.*, ri.name as item_name, u.name as user_name",
-        "SELECT COUNT(*) as count"
-      );
-      const countResult = await executeQuery<any[]>({
-        query: countQuery,
-        values: queryParams,
-      });
-
-      totalItems = countResult[0].count;
-
-      // Add pagination to main query
-      query += ` ORDER BY wr.timestamp DESC LIMIT ? OFFSET ?`;
-      queryParams.push(itemsPerPage, offset);
-
-      records = await executeQuery<any[]>({
-        query,
-        values: queryParams,
-      });
+    if (item_id) {
+      query += ` AND wr.item_id = ?`;
+      queryParams.push(item_id);
     }
+
+    if (user_id) {
+      query += ` AND wr.user_id = ?`;
+      queryParams.push(user_id);
+    }
+
+    if (status) {
+      query += ` AND wr.status = ?`;
+      queryParams.push(status);
+    }
+
+    if (startDate) {
+      query += ` AND wr.timestamp >= ?`;
+      queryParams.push(startDate);
+    }
+
+    if (endDate) {
+      query += ` AND wr.timestamp <= ?`;
+      queryParams.push(endDate);
+    }
+
+    // Get total count for pagination
+    const countQuery = query.replace(
+      "SELECT wr.*, m.name as item_name, u.name as user_name, approver.name as approved_by_name",
+      "SELECT COUNT(*) as count"
+    );
+    const countResult = await executeQuery<any[]>({
+      query: countQuery,
+      values: queryParams,
+    });
+
+    totalItems = countResult[0].count;
+
+    // Add pagination to main query
+    query += ` ORDER BY wr.timestamp DESC LIMIT ? OFFSET ?`;
+    queryParams.push(itemsPerPage, offset);
+
+    records = await executeQuery<any[]>({
+      query,
+      values: queryParams,
+    });
 
     return res.status(200).json({
       records,
@@ -207,67 +131,31 @@ async function addWeightRecord(
         .json({ message: "Item ID and total weight are required" });
     }
 
-    // Check if we're using Supabase or MySQL implementation
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    // Check if material exists
+    const materials = await executeQuery<any[]>({
+      query: "SELECT * FROM materials WHERE id = ?",
+      values: [item_id],
+    });
 
-    let items;
-    let result;
-
-    if (useSupabase) {
-      // Check if item exists using Supabase table API
-      items = await executeQuery<any[]>({
-        table: "public.ref_items",
-        action: "select",
-        columns: "*",
-        filters: { id: item_id },
-      });
-
-      if (!items || items.length === 0) {
-        return res.status(404).json({ message: "Item not found" });
-      }
-
-      // Insert record using Supabase table API
-      result = await executeQuery<any>({
-        table: "public.weight_records",
-        action: "insert",
-        data: {
-          user_id: user.id,
-          item_id,
-          total_weight,
-          status: "pending",
-        },
-        returning: "*",
-      });
-    } else {
-      // Original MySQL implementation
-      // Check if item exists
-      items = await executeQuery<any[]>({
-        query: "SELECT * FROM ref_items WHERE id = ?",
-        values: [item_id],
-      });
-
-      if (!items || items.length === 0) {
-        return res.status(404).json({ message: "Item not found" });
-      }
-
-      result = await executeQuery<any>({
-        query: `
-          INSERT INTO weight_records (user_id, item_id, total_weight, status)
-          VALUES (?, ?, ?, 'pending')
-        `,
-        values: [user.id, item_id, total_weight],
-      });
+    if (!materials || materials.length === 0) {
+      return res.status(404).json({ message: "Material not found" });
     }
 
+    // Insert new weight record
+    const result = await executeQuery<any>({
+      query: `
+        INSERT INTO weight_records (user_id, item_id, total_weight, status)
+        VALUES (?, ?, ?, 'pending')
+      `,
+      values: [user.id, item_id, total_weight],
+    });
+
     const newRecord = {
-      record_id: useSupabase ? result[0].record_id : result.insertId,
+      id: result.insertId,
       user_id: user.id,
       user_name: user.name,
       item_id,
-      item_name: items[0].name,
+      item_name: materials[0].name,
       total_weight,
       timestamp: new Date(),
       status: "pending",

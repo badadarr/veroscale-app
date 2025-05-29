@@ -1,6 +1,5 @@
-// Fixed dashboard.ts implementation for Supabase
+// New dashboard API implementation for material-focused system
 import { NextApiRequest, NextApiResponse } from "next";
-import { executeQuery } from "../../lib/db-adapter";
 import { getUserFromToken } from "../../lib/auth";
 import { supabaseAdmin } from "../../lib/supabase.js";
 import { getCount, getSum } from "../../lib/supabase-aggregation";
@@ -20,23 +19,19 @@ export default async function handler(
   }
 
   try {
-    // Get summary statistics
+    // Get summary statistics with new structure
     const summaryStats = await getDashboardSummary();
 
-    // Get recent weight records
-    const recentRecords = await getRecentWeightRecords();
+    // Get weight by day for the chart
+    const weightByDay = await getWeightByDay();
 
-    // Get weight by category
-    const weightByCategory = await getWeightByCategory();
-
-    // Get top users by weight recorded
-    const topUsers = await getTopUsers();
+    // Get pending issues for report table
+    const reportIssues = await getReportIssues();
 
     return res.status(200).json({
       summaryStats,
-      recentRecords,
-      weightByCategory,
-      topUsers,
+      weightByDay,
+      reportIssues,
     });
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
@@ -45,164 +40,143 @@ export default async function handler(
 }
 
 async function getDashboardSummary() {
-  // Get total samples count
-  console.log("Fetching samples count...");
-  const samplesCount = await getCount("samples_item");
-  console.log("Samples count result:", samplesCount);
+  // Get total materials count
+  console.log("Fetching materials count...");
+  const materialsCount = await getCount("materials");
+  console.log("Materials count result:", materialsCount);
 
-  // Get total weight records count
-  console.log("Fetching records count...");
-  const recordsCount = await getCount("weight_records");
-  console.log("Records count result:", recordsCount);
+  // Get total requests/month (weight records for current month)
+  console.log("Fetching monthly requests...");
+  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+  const { data: monthlyRequests, error: requestsError } = await supabaseAdmin
+    .from("weight_records")
+    .select("record_id")
+    .gte("timestamp", `${currentMonth}-01`)
+    .lt("timestamp", `${getNextMonth(currentMonth)}-01`);
 
-  // Get total weight recorded
-  console.log("Fetching total weight with aggregation...");
-  const totalWeight = await getSum("weight_records", "total_weight", "total");
-  console.log("Total weight result:", totalWeight);
+  if (requestsError) {
+    console.error("Error fetching monthly requests:", requestsError);
+  }
 
-  // Get pending weight records count
-  console.log("Fetching pending count...");
-  const pendingCount = await getCount("weight_records", { status: "pending" });
-  console.log("Pending count result:", pendingCount);
+  // Get total weight/month
+  console.log("Fetching monthly weight...");
+  const { data: monthlyWeight, error: weightError } = await supabaseAdmin
+    .from("weight_records")
+    .select("total_weight")
+    .gte("timestamp", `${currentMonth}-01`)
+    .lt("timestamp", `${getNextMonth(currentMonth)}-01`);
+
+  if (weightError) {
+    console.error("Error fetching monthly weight:", weightError);
+  }
+
+  const totalMonthlyWeight = monthlyWeight?.reduce((sum, record) => 
+    sum + (parseFloat(record.total_weight) || 0), 0) || 0;
+
+  // Get pending issues count
+  console.log("Fetching pending issues...");
+  const { data: pendingIssues, error: issuesError } = await supabaseAdmin
+    .from("issues")
+    .select("id")
+    .eq("status", "pending");
+
+  if (issuesError) {
+    console.error("Error fetching pending issues:", issuesError);
+  }
 
   return {
-    totalSamples: samplesCount[0]?.count || 0,
-    totalRecords: recordsCount[0]?.count || 0,
-    totalWeight: totalWeight[0]?.total || 0,
-    pendingRecords: pendingCount[0]?.count || 0,
+    totalMaterials: materialsCount[0]?.count || 0,
+    totalRequests: monthlyRequests?.length || 0,
+    totalWeight: Math.round(totalMonthlyWeight * 100) / 100,
+    pendingIssues: pendingIssues?.length || 0,
   };
 }
 
-async function getRecentWeightRecords() {
+async function getWeightByDay() {
   try {
-    console.log("Fetching recent weight records with relations...");
+    console.log("Fetching weight by day for last 7 days...");
 
-    // Use direct Supabase query with proper relation syntax
-    // Specify the exact foreign key relationship to avoid ambiguity
+    // Get data for last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
     const { data, error } = await supabaseAdmin
       .from("weight_records")
-      .select(
-        `
+      .select("timestamp, total_weight")
+      .gte("timestamp", sevenDaysAgo.toISOString())
+      .order("timestamp", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching weight by day:", error);
+      return [];
+    }
+
+    // Group by day
+    const dailyTotals: Record<string, number> = {};
+
+    if (Array.isArray(data)) {
+      data.forEach((record) => {
+        const day = record.timestamp.split('T')[0]; // Get YYYY-MM-DD
+        const weight = parseFloat(record.total_weight) || 0;
+        dailyTotals[day] = (dailyTotals[day] || 0) + weight;
+      });
+    }
+
+    // Convert to array format for chart
+    return Object.entries(dailyTotals)
+      .map(([day, weight]) => ({ 
+        day: formatDayForChart(day), 
+        weight: Math.round(weight * 100) / 100 
+      }))
+      .sort((a, b) => a.day.localeCompare(b.day));
+
+  } catch (error) {
+    console.error("Error in getWeightByDay:", error);
+    return [];
+  }
+}
+
+async function getReportIssues() {
+  try {
+    console.log("Fetching recent issues...");
+
+    const { data, error } = await supabaseAdmin
+      .from("issues")
+      .select(`
         *,
-        ref_items (name),
-        users!weight_records_user_id_fkey (name)
-      `
-      )
-      .order("timestamp", { ascending: false })
+        users!issues_reporter_id_fkey (name)
+      `)
+      .order("created_at", { ascending: false })
       .limit(5);
 
     if (error) {
-      console.error("Error fetching recent records:", error);
+      console.error("Error fetching issues:", error);
       return [];
     }
 
-    // Transform the data to match the expected format
-    return (data || []).map((record: any) => ({
-      ...record,
-      item_name: record.ref_items?.name,
-      user_name: record.users?.name,
+    return (data || []).map((issue: any) => ({
+      ...issue,
+      reporter_name: issue.users?.name || 'Unknown',
     }));
+
   } catch (error) {
-    console.error("Error in getRecentWeightRecords:", error);
+    console.error("Error in getReportIssues:", error);
     return [];
   }
 }
 
-async function getWeightByCategory() {
-  try {
-    console.log("Fetching weight by category...");
-
-    // Use direct query for simplicity
-    const { data, error } = await supabaseAdmin
-      .from("samples_item")
-      .select("category, sample_weight");
-
-    if (error) {
-      console.error("Error fetching samples for category:", error);
-      return [];
-    }
-
-    // Process the data to group by category
-    const categoryTotals: Record<string, number> = {};
-
-    if (Array.isArray(data)) {
-      data.forEach((item) => {
-        if (item.category && item.sample_weight) {
-          categoryTotals[item.category] =
-            (categoryTotals[item.category] || 0) +
-            parseFloat(item.sample_weight);
-        }
-      });
-    }
-
-    // Convert to the expected format and sort
-    return Object.entries(categoryTotals)
-      .map(([category, total_weight]) => ({ category, total_weight }))
-      .sort((a, b) => b.total_weight - a.total_weight);
-  } catch (error) {
-    console.error("Error in getWeightByCategory:", error);
-    return [];
-  }
+// Helper functions
+function getNextMonth(currentMonth: string): string {
+  const [year, month] = currentMonth.split('-').map(Number);
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextYear = month === 12 ? year + 1 : year;
+  return `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
 }
 
-async function getTopUsers() {
-  try {
-    console.log("Fetching top users...");
-
-    // Fetch all users
-    const { data: users, error: usersError } = await supabaseAdmin
-      .from("users")
-      .select("id, name");
-
-    if (usersError) {
-      console.error("Error fetching users:", usersError);
-      return [];
-    }
-
-    // Fetch all weight records
-    const { data: weightRecords, error: recordsError } = await supabaseAdmin
-      .from("weight_records")
-      .select("user_id, record_id, total_weight");
-
-    if (recordsError) {
-      console.error("Error fetching weight records for users:", recordsError);
-      return [];
-    }
-
-    // Process the data to group by user
-    const userStats: Record<
-      string,
-      { id: number; name: string; record_count: number; total_weight: number }
-    > = {};
-
-    if (Array.isArray(users) && Array.isArray(weightRecords)) {
-      // Initialize user stats
-      users.forEach((user) => {
-        userStats[user.id] = {
-          id: user.id,
-          name: user.name,
-          record_count: 0,
-          total_weight: 0,
-        };
-      });
-
-      // Calculate records and weight per user
-      weightRecords.forEach((record) => {
-        if (record.user_id && userStats[record.user_id]) {
-          userStats[record.user_id].record_count += 1;
-          userStats[record.user_id].total_weight += parseFloat(
-            record.total_weight || 0
-          );
-        }
-      });
-    }
-
-    // Convert to array and sort by total weight
-    return Object.values(userStats)
-      .sort((a, b) => b.total_weight - a.total_weight)
-      .slice(0, 5);
-  } catch (error) {
-    console.error("Error in getTopUsers:", error);
-    return [];
-  }
+function formatDayForChart(day: string): string {
+  const date = new Date(day);
+  return date.toLocaleDateString('en-US', { 
+    month: 'short', 
+    day: 'numeric' 
+  });
 }

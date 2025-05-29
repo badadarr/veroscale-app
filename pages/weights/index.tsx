@@ -133,8 +133,7 @@ export default function WeightRecords() {
                         </span>
                       </TableCell>
                       <TableCell>{record.user_name}</TableCell>
-                      {canChangeStatus && (
-                        <TableCell>
+                      {canChangeStatus && (                        <TableCell>
                           <div className="flex space-x-2">
                             {record.status !== 'approved' && (
                               <Button
@@ -149,7 +148,7 @@ export default function WeightRecords() {
                               </Button>
                             )}
 
-                            {record.status !== 'pending' && (
+                            {record.status !== 'pending' && record.status !== 'approved' && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -162,7 +161,7 @@ export default function WeightRecords() {
                               </Button>
                             )}
 
-                            {record.status !== 'rejected' && (
+                            {record.status !== 'rejected' && record.status !== 'approved' && (
                               <Button
                                 size="sm"
                                 variant="outline"

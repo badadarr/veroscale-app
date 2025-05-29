@@ -1,0 +1,175 @@
+USER GUIDE PER USER ROLE (How the user can use the system i.e. what to click, what to fill, etc.).
+
+Common Actions for All Users
+
+Logging In
+Navigate to the application URL in your web browser
+Enter your email address in the "Email address" field
+Enter your password in the "Password" field
+Click the "Sign in" button
+If you encounter login issues, check that your credentials are correct
+
+Navigating the Dashboard
+After logging in, you'll be directed to the main dashboard
+The left sidebar contains navigation options specific to your role
+The top header displays your profile information
+The main content area shows relevant data and statistics
+
+Profile Management
+Click on your profile icon in the top-right corner
+Select "Profile" from the dropdown menu
+Update your personal information (Name, Email)
+Change your password by entering new password
+Click "Save Changes" to update your profile
+
+Logging Out
+Click on your profile icon in the top-right corner
+Select "Log out" from the dropdown menu
+
+Administrator Guide
+
+Administrators have full access to all system features, including user management, system configuration, and report management.
+
+User Management
+- Navigate to "Users" in the sidebar
+- View existing users in the table with search functionality
+- Adding a New User:
+  * Click the "Add User" button
+  * Fill in required fields: Name, Email, Password, Role, Department (optional)
+  * Select role from dropdown: Admin, Manager, or Operator
+  * Click "Create User"
+- Editing a User:
+  * Find the user in the table and click the "Edit" icon
+  * Update Name, Email, Role, or Department
+  * Leave password blank to keep current password
+  * Click "Save Changes"
+- Deleting a User:
+  * Find the user in the table and click the "Delete" icon
+  * Confirm deletion in the popup dialog
+
+System Configuration
+- Navigate to "Settings" in the sidebar
+- Configure system settings:
+  * Company name and information
+  * Default units of measurement
+  * Email notification settings
+  * Data retention policies
+- Click "Save Settings" to apply changes
+
+Sample Management
+- Navigate to "Samples" in the sidebar
+- Adding a New Sample:
+  * Click "Add Sample"
+  * Fill in: Category, Item Name, Sample Weight, Unit
+  * Add optional description
+  * Click "Save Sample"
+- Editing/Deleting Samples:
+  * Use Edit or Delete icons in the samples table
+  * Confirm deletion when prompted
+
+Report Configuration
+- Navigate to "Reports" in the sidebar
+- Click on "Configuration" tab
+- Create new report configurations:
+  * Click "Add Configuration"
+  * Fill in: Name, Description, Report Type (PDF/Excel)
+  * Set schedule (Daily/Weekly/Monthly)
+  * Add recipient email addresses
+  * Configure options (Include Charts, Include Raw Data)
+  * Click "Save Configuration"
+
+Weight Record Management
+- Access all weight records from "Weight Records" section
+- Approve or reject any weight record regardless of who created it
+- Change status between pending, approved, and rejected
+- View detailed information including approval history
+
+Manager Guide
+
+Managers oversee operations, approve weight records, and have access to reporting features.
+
+Dashboard Overview
+- View key metrics on the main dashboard:
+  * Recent weight records
+  * Statistics and charts
+  * System activity overview
+- Use filters to view data for specific time periods
+
+Approving Weight Records
+- Navigate to "Weight Records" in the sidebar
+- Filter records by status to see pending approvals
+- Review weight records:
+  * Click on a record to see details
+  * Check all information for accuracy
+- Approve or reject records:
+  * Click "Approve" to confirm the record
+  * Click "Reject" if the record needs correction
+  * Status changes are tracked with your user ID and timestamp
+
+User Management (Limited)
+- Navigate to "Users" in the sidebar
+- View all users but with limited editing capabilities
+- Can view user details but cannot delete users
+- Can assist with user account issues
+
+Report Generation
+- Navigate to "Reports" in the sidebar
+- Use "Available Reports" tab to generate standard reports
+- Use "Report Templates" tab to create custom report templates:
+  * Click "Add Template"
+  * Configure report parameters and data fields
+  * Save template for future use
+- Export reports to PDF or Excel format
+
+Sample Management
+- Navigate to "Samples" in the sidebar
+- Add, edit, and manage sample items
+- Same functionality as administrators for sample management
+
+Operator Guide
+
+Operators are responsible for daily material weight entry and viewing their own records.
+
+Recording Material Weights
+- Navigate to "Operations" → "Weight Entry" in the sidebar
+- New Weight Record:
+  * Click "New Weight Entry"
+  * Select the material/item from the dropdown
+  * Enter the weight value
+  * Select the unit of measurement
+  * Add batch number if applicable
+  * Enter additional notes if needed
+  * Click "Save Record"
+- All records start with "pending" status and require manager/admin approval
+
+Scanning Entry (if QR/Barcode scanning is implemented)
+- Navigate to "Operations" → "Scan Entry"
+- Click "Start Scanner" to activate the camera
+- Scan the material barcode or QR code
+- Verify the detected information
+- Enter the weight and additional details
+- Click "Save Record"
+
+Viewing Your Records
+- Navigate to "Operations" → "My Records"
+- View all records you've entered
+- Filter by date, material, or status
+- Click on any record to view details
+- Note: You cannot edit records after creation - contact your manager if changes are needed
+
+Understanding Record Status
+- Pending: Newly created records awaiting approval
+- Approved: Records confirmed by manager/administrator
+- Rejected: Records that need correction - contact your manager for details
+- You cannot change the status of your own records
+
+Operator Guide (Reference)
+- Access the "Operator Guide" page for detailed instructions
+- Contains step-by-step instructions for all operator tasks
+- Includes information about approval workflow
+- Reference for troubleshooting common issues
+
+Profile Management
+- Same as common actions above
+- Update your personal information as needed
+- Change password when required

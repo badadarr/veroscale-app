@@ -62,45 +62,18 @@ export default async function handler(
 // Get report configuration by ID
 async function getReportConfigurationById(res: NextApiResponse, id: string) {
   try {
-    // Check if we're using Supabase
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    const configs = await executeQuery<any[]>({
+      query: "SELECT * FROM report_configurations WHERE id = ?",
+      values: [id],
+    });
 
-    let reportConfig;
-
-    if (useSupabase) {
-      // Supabase implementation
-      const configs = await executeQuery<any[]>({
-        table: "report_configurations",
-        action: "select",
-        filters: { id },
-        single: true,
-      });
-
-      if (!configs || configs.length === 0) {
-        return res
-          .status(404)
-          .json({ message: "Report configuration not found" });
-      }
-
-      reportConfig = configs[0];
-    } else {
-      // MySQL implementation
-      const configs = await executeQuery<any[]>({
-        query: "SELECT * FROM report_configurations WHERE id = ?",
-        values: [id],
-      });
-
-      if (!configs || configs.length === 0) {
-        return res
-          .status(404)
-          .json({ message: "Report configuration not found" });
-      }
-
-      reportConfig = configs[0];
+    if (!configs || configs.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "Report configuration not found" });
     }
+
+    const reportConfig = configs[0];
 
     // Parse JSON fields
     if (reportConfig.fields && typeof reportConfig.fields === "string") {
@@ -147,112 +120,54 @@ async function updateReportConfiguration(
       return res.status(400).json({
         message: `Report type must be one of: ${validTypes.join(", ")}`,
       });
+    }    // Check if config exists
+    const existingConfig = await executeQuery<any[]>({
+      query: "SELECT id FROM report_configurations WHERE id = ?",
+      values: [id],
+    });
+
+    if (!existingConfig || existingConfig.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "Report configuration not found" });
     }
 
-    // Check if we're using Supabase
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    // Check for duplicate name (excluding this record)
+    const duplicateCheck = await executeQuery<any[]>({
+      query:
+        "SELECT id FROM report_configurations WHERE name = ? AND id != ?",
+      values: [name, id],
+    });
 
-    if (useSupabase) {
-      // Check if config exists
-      const existingConfig = await executeQuery<any[]>({
-        table: "report_configurations",
-        action: "select",
-        filters: { id },
-      });
-
-      if (!existingConfig || existingConfig.length === 0) {
-        return res
-          .status(404)
-          .json({ message: "Report configuration not found" });
-      }
-
-      // Check for duplicate name (excluding this record)
-      const duplicateCheck = await executeQuery<any[]>({
-        table: "report_configurations",
-        action: "select",
-        columns: "id",
-        filters: { name },
-      });
-
-      if (
-        duplicateCheck &&
-        duplicateCheck.length > 0 &&
-        duplicateCheck[0].id !== id
-      ) {
-        return res.status(400).json({
-          message: "A report configuration with this name already exists",
-        });
-      }
-
-      // Update report configuration
-      await executeQuery({
-        table: "report_configurations",
-        action: "update",
-        data: {
-          name,
-          description: description || "",
-          type,
-          fields: JSON.stringify(fields),
-          schedule: schedule ? JSON.stringify(schedule) : null,
-          recipients: recipients ? JSON.stringify(recipients) : null,
-          updated_at: new Date().toISOString(),
-        },
-        filters: { id },
-      });
-    } else {
-      // MySQL implementation
-      // Check if config exists
-      const existingConfig = await executeQuery<any[]>({
-        query: "SELECT id FROM report_configurations WHERE id = ?",
-        values: [id],
-      });
-
-      if (!existingConfig || existingConfig.length === 0) {
-        return res
-          .status(404)
-          .json({ message: "Report configuration not found" });
-      }
-
-      // Check for duplicate name (excluding this record)
-      const duplicateCheck = await executeQuery<any[]>({
-        query:
-          "SELECT id FROM report_configurations WHERE name = ? AND id != ?",
-        values: [name, id],
-      });
-
-      if (duplicateCheck && duplicateCheck.length > 0) {
-        return res.status(400).json({
-          message: "A report configuration with this name already exists",
-        });
-      }
-
-      // Update report configuration
-      await executeQuery({
-        query: `
-          UPDATE report_configurations 
-          SET name = ?, 
-              description = ?, 
-              type = ?, 
-              fields = ?, 
-              schedule = ?, 
-              recipients = ?, 
-              updated_at = NOW()
-          WHERE id = ?
-        `,
-        values: [
-          name,
-          description || "",
-          type,
-          JSON.stringify(fields),
-          schedule ? JSON.stringify(schedule) : null,
-          recipients ? JSON.stringify(recipients) : null,
-          id,
-        ],
+    if (duplicateCheck && duplicateCheck.length > 0) {
+      return res.status(400).json({
+        message: "A report configuration with this name already exists",
       });
     }
+
+    // Update report configuration
+    await executeQuery({
+      query: `
+        UPDATE report_configurations 
+        SET name = ?, 
+            description = ?, 
+            type = ?, 
+            fields = ?, 
+            schedule = ?, 
+            recipients = ?, 
+            updated_at = NOW()
+        WHERE id = ?
+      `,
+      values: [
+        name,
+        description || "",
+        type,
+        JSON.stringify(fields),
+        schedule ? JSON.stringify(schedule) : null,
+        recipients ? JSON.stringify(recipients) : null,
+        id,
+      ],
+    });
 
     return res
       .status(200)
@@ -266,52 +181,23 @@ async function updateReportConfiguration(
 // Delete report configuration
 async function deleteReportConfiguration(res: NextApiResponse, id: string) {
   try {
-    // Check if we're using Supabase
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    // Check if config exists
+    const existingConfig = await executeQuery<any[]>({
+      query: "SELECT id FROM report_configurations WHERE id = ?",
+      values: [id],
+    });
 
-    if (useSupabase) {
-      // Check if config exists
-      const existingConfig = await executeQuery<any[]>({
-        table: "report_configurations",
-        action: "select",
-        filters: { id },
-      });
-
-      if (!existingConfig || existingConfig.length === 0) {
-        return res
-          .status(404)
-          .json({ message: "Report configuration not found" });
-      }
-
-      // Delete report configuration
-      await executeQuery({
-        table: "report_configurations",
-        action: "delete",
-        filters: { id },
-      });
-    } else {
-      // MySQL implementation
-      // Check if config exists
-      const existingConfig = await executeQuery<any[]>({
-        query: "SELECT id FROM report_configurations WHERE id = ?",
-        values: [id],
-      });
-
-      if (!existingConfig || existingConfig.length === 0) {
-        return res
-          .status(404)
-          .json({ message: "Report configuration not found" });
-      }
-
-      // Delete report configuration
-      await executeQuery({
-        query: "DELETE FROM report_configurations WHERE id = ?",
-        values: [id],
-      });
+    if (!existingConfig || existingConfig.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "Report configuration not found" });
     }
+
+    // Delete report configuration
+    await executeQuery({
+      query: "DELETE FROM report_configurations WHERE id = ?",
+      values: [id],
+    });
 
     return res
       .status(200)

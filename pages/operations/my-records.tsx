@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { toast } from 'react-hot-toast';
 import { ClipboardList, Search, Calendar, Filter, X, AlertTriangle, Eye, Flag } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -10,6 +11,7 @@ import StatusInfoCard from '@/components/ui/StatusInfoCard';
 import { formatDate, formatWeight } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api';
+
 
 interface WeightRecord {
     id: number;
@@ -177,33 +179,35 @@ export default function MyRecords() {
         setIsReportModalOpen(false);
         setIssueType('');
         setIssueDescription('');
-    };
-
-    // Handle submitting issue report
+    };    // Handle submitting issue report
     const handleSubmitIssue = async () => {
         if (!selectedRecord || !issueType || !issueDescription) {
             return;
         }
 
         try {
-            // In production, use real API call
-            // await apiClient.post('/api/issues', {
-            //   record_id: selectedRecord.id,
-            //   issue_type: issueType,
-            //   description: issueDescription,
-            //   user_id: user?.id
-            // });
+            setLoading(true);
+            // Use real API call
+            await apiClient.post('/api/issues', {
+                title: `Issue with record #${selectedRecord.id}: ${issueType}`,
+                description: issueDescription,
+                issue_type: issueType,
+                priority: 'medium',
+                reporter_id: user?.id,
+                record_id: selectedRecord.id
+            });
 
-            // For demo, just close the modal and show success
-            setTimeout(() => {
-                handleCloseReportModal();
-                handleCloseDetails();
-                // In a real implementation, you would show a success message
-            }, 1000);
+            toast.success('Issue reported successfully');
+            handleCloseReportModal();
+            handleCloseDetails();
         } catch (error) {
             console.error('Error reporting issue:', error);
+            toast.error('Failed to report issue. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
+
 
     // Reset all filters
     const resetFilters = () => {
@@ -460,30 +464,26 @@ export default function MyRecords() {
                                     onClick={handleCloseDetails}
                                 >
                                     Close
-                                </Button>
-                                {selectedRecord.status !== 'rejected' && (
+                                </Button>                                {selectedRecord.status !== 'rejected' && (
                                     <Button
                                         variant="secondary"
                                         onClick={handleOpenReportModal}
                                     >
                                         <Flag className="h-4 w-4 mr-1" />
-                                        Report Issue
+                                        Notify Issue
                                     </Button>
                                 )}
                             </div>
                         </div>
                     </div>
-                )}
-
-                {/* Report Issue Modal */}
+                )}                {/* Notify Issue Modal */}
                 {isReportModalOpen && (
                     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50 p-4">
                         <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-                            <div className="flex justify-between items-start p-4 border-b">
-                                <h3 className="text-xl font-semibold text-gray-900 flex items-center">
-                                    <AlertTriangle className="h-5 w-5 mr-2 text-warning-500" />
-                                    Report Issue
-                                </h3>
+                            <div className="flex justify-between items-start p-4 border-b">                                <h3 className="text-xl font-semibold text-gray-900 flex items-center">
+                                <AlertTriangle className="h-5 w-5 mr-2 text-warning-500" />
+                                Notify Issue
+                            </h3>
                                 <button
                                     onClick={handleCloseReportModal}
                                     className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg p-1.5"
@@ -537,13 +537,12 @@ export default function MyRecords() {
                                     className="mr-2"
                                 >
                                     Cancel
-                                </Button>
-                                <Button
+                                </Button>                                <Button
                                     variant="default"
                                     onClick={handleSubmitIssue}
                                     disabled={!issueType || !issueDescription}
                                 >
-                                    Submit Report
+                                    Submit Issue
                                 </Button>
                             </div>
                         </div>

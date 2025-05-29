@@ -23,54 +23,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 // Get user profile
 async function getUserProfile(req: NextApiRequest, res: NextApiResponse, user: any) {
   try {
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    const userData = await executeQuery<any>({
+      query: `
+        SELECT u.id, u.name, u.email, r.name as role, u.created_at
+        FROM users u
+        JOIN roles r ON u.role_id = r.id
+        WHERE u.id = ?
+      `,
+      values: [user.id],
+      single: true
+    });
 
-    let userData;
-
-    if (useSupabase) {
-      // Supabase implementation
-      const users = await executeQuery<any[]>({
-        table: "public.users",
-        action: "select",
-        columns: `
-          id, 
-          name, 
-          email, 
-          created_at,
-          roles (
-            name
-          )
-        `,
-        filters: { id: user.id },
-        single: true,
-      });
-
-      if (!users || users.length === 0) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      userData = users[0];
-      userData.role = userData.roles?.name || "unknown";
-    } else {
-      // MySQL implementation
-      const users = await executeQuery<any[]>({
-        query: `
-          SELECT u.id, u.name, u.email, r.name as role, u.created_at
-          FROM users u
-          JOIN roles r ON u.role_id = r.id
-          WHERE u.id = ?
-        `,
-        values: [user.id],
-      });
-
-      if (!users || users.length === 0) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      userData = users[0];
+    if (!userData) {
+      return res.status(404).json({ message: "User not found" });
     }
 
     return res.status(200).json(userData);
@@ -83,64 +48,30 @@ async function getUserProfile(req: NextApiRequest, res: NextApiResponse, user: a
 // Update user profile
 async function updateUserProfile(req: NextApiRequest, res: NextApiResponse, user: any) {
   try {
-    const { name, email, currentPassword, newPassword } = req.body;
-
-    if (!name || !email) {
+    const { name, email, currentPassword, newPassword } = req.body;    if (!name || !email) {
       return res.status(400).json({ message: "Name and email are required" });
     }
 
     // Check if user exists and get current data
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    const currentUser = await executeQuery<any>({
+      query: "SELECT * FROM users WHERE id = ?",
+      values: [user.id],
+      single: true
+    });
 
-    let currentUser;
-
-    if (useSupabase) {
-      const users = await executeQuery<any[]>({
-        table: "public.users",
-        action: "select",
-        columns: "*",
-        filters: { id: user.id },
-      });
-
-      if (!users || users.length === 0) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      currentUser = users[0];
-    } else {
-      const users = await executeQuery<any[]>({
-        query: "SELECT * FROM users WHERE id = ?",
-        values: [user.id],
-      });
-
-      if (!users || users.length === 0) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      currentUser = users[0];
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found" });
     }
 
     // Check if email already exists (but ignore the current user)
     if (email !== user.email) {
-      let existingUsers;
-      
-      if (useSupabase) {
-        existingUsers = await executeQuery<any[]>({
-          table: "public.users",
-          action: "select",
-          filters: { email },
-        });
-      } else {
-        existingUsers = await executeQuery<any[]>({
-          query: "SELECT * FROM users WHERE email = ? AND id != ?",
-          values: [email, user.id],
-        });
-      }
+      const existingUser = await executeQuery<any>({
+        query: "SELECT * FROM users WHERE email = ? AND id != ?",
+        values: [email, user.id],
+        single: true
+      });
 
-      if (existingUsers && existingUsers.length > 0) {
+      if (existingUser) {
         return res.status(409).json({ message: "Email already in use by another account" });
       }
     }
@@ -167,32 +98,22 @@ async function updateUserProfile(req: NextApiRequest, res: NextApiResponse, user
       updateData.password = hashedPassword;
     }
 
-    // Execute the update
-    if (useSupabase) {
-      await executeQuery({
-        table: "public.users",
-        action: "update",
-        data: updateData,
-        filters: { id: user.id },
-      });
-    } else {
-      // Build the MySQL query dynamically based on whether we're updating the password
-      let query = "UPDATE users SET name = ?, email = ?";
-      const values = [name, email];
+    // Build the query dynamically based on whether we're updating the password
+    let query = "UPDATE users SET name = ?, email = ?";
+    const values = [name, email];
 
-      if (updateData.password) {
-        query += ", password = ?";
-        values.push(updateData.password);
-      }
-
-      query += " WHERE id = ?";
-      values.push(user.id);
-
-      await executeQuery({
-        query,
-        values,
-      });
+    if (updateData.password) {
+      query += ", password = ?";
+      values.push(updateData.password);
     }
+
+    query += " WHERE id = ?";
+    values.push(user.id);
+
+    await executeQuery({
+      query,
+      values,
+    });
 
     return res.status(200).json({ 
       message: "Profile updated successfully",

@@ -23,6 +23,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '../ui/Button';
 import { cn } from '@/lib/utils';
+import NotificationBell from '../ui/NotificationBell';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -53,15 +54,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   // Operations navigation items (mainly for operators)
   const operationsNavigation: NavItem[] = [
-    { name: 'Weight Entry', href: '/operations/weight-entry', icon: Scale },
-    { name: 'Scan Entry', href: '/operations/scan-entry', icon: Clipboard },
+    { name: 'Multiple Material Entry', href: '/operations/weight-entry', icon: Scale },
     { name: 'My Records', href: '/operations/my-records', icon: Database },
   ];
 
   // Role-specific navigation items
   const roleBasedNavigation: NavItem[] = [
     { name: 'Materials', href: '/materials', icon: Package, roles: ['admin', 'manager'] },
-    { name: 'Reports', href: '/reports', icon: BarChart2, roles: ['admin', 'manager', 'operator'] },
+    { name: 'Issues', href: '/issues', icon: BarChart2, roles: ['admin', 'manager', 'operator'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'manager'] },
     { name: 'User Management', href: '/users', icon: Users, roles: ['admin'] },
     { name: 'Operator Guide', href: '/operator-guide', icon: BookOpen, roles: ['operator'] },
@@ -118,7 +118,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
               <Scale className="h-6 w-6 text-primary-600 mr-2" />
               <span className="text-lg font-semibold">VeroScale</span>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2">
+              <NotificationBell />
               <div className="relative" ref={profileMenuRef}>
                 <button
                   onClick={() => setProfileMenuOpen(!profileMenuOpen)}
@@ -210,7 +211,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
               </div>
 
               {/* Profile dropdown for desktop */}
-              <div className="hidden lg:flex items-center">
+              <div className="hidden lg:flex items-center space-x-4">
+                <NotificationBell />
                 <div className="relative" ref={profileMenuRef}>
                   <button
                     onClick={() => setProfileMenuOpen(!profileMenuOpen)}

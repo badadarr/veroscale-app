@@ -27,36 +27,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 // Get all system settings
 async function getSystemSettings(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Check if we're using Supabase
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL && 
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    let settings = await executeQuery<any[]>({
+      query: 'SELECT * FROM system_settings',
+    });
     
-    let settings;
-
-    if (useSupabase) {
-      // Supabase implementation
-      settings = await executeQuery<any[]>({
-        table: 'system_settings',
-        action: 'select',
-        columns: '*'
-      });
-      
-      // If no settings exist yet, return default values
-      if (!settings || settings.length === 0) {
-        settings = getDefaultSettings();
-      }
-    } else {
-      // MySQL implementation
-      settings = await executeQuery<any[]>({
-        query: 'SELECT * FROM system_settings',
-      });
-      
-      // If no settings exist yet, return default values
-      if (!settings || settings.length === 0) {
-        settings = getDefaultSettings();
-      }
+    // If no settings exist yet, return default values
+    if (!settings || settings.length === 0) {
+      settings = getDefaultSettings();
     }
 
     // Group settings by category
@@ -72,80 +49,37 @@ async function getSystemSettings(req: NextApiRequest, res: NextApiResponse) {
 // Update system settings
 async function updateSystemSettings(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const { settings } = req.body;
-
-    if (!settings || !Array.isArray(settings)) {
+    const { settings } = req.body;    if (!settings || !Array.isArray(settings)) {
       return res.status(400).json({ message: 'Invalid settings data' });
     }
 
-    // Check if we're using Supabase
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL && 
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
-    if (useSupabase) {
-      // Supabase implementation
-      // First check if each setting exists, then update or insert as needed
-      for (const setting of settings) {
-        const { key, value, category } = setting;
-        
-        if (!key || value === undefined || !category) {
-          continue; // Skip invalid settings
-        }
-        
-        const existingSetting = await executeQuery<any[]>({
-          table: 'system_settings',
-          action: 'select',
-          filters: { key },
-          single: true
-        });
-        
-        if (existingSetting) {
-          // Update existing setting
-          await executeQuery({
-            table: 'system_settings',
-            action: 'update',
-            data: { value, category },
-            filters: { key }
-          });
-        } else {
-          // Insert new setting
-          await executeQuery({
-            table: 'system_settings',
-            action: 'insert',
-            data: { key, value, category }
-          });
-        }
+    // Process each setting
+    for (const setting of settings) {
+      const { key, value, category } = setting;
+      
+      if (!key || value === undefined || !category) {
+        continue; // Skip invalid settings
       }
-    } else {
-      // MySQL implementation
-      for (const setting of settings) {
-        const { key, value, category } = setting;
-        
-        if (!key || value === undefined || !category) {
-          continue; // Skip invalid settings
-        }
-        
-        // Check if setting exists
-        const existingSetting = await executeQuery<any[]>({
-          query: 'SELECT * FROM system_settings WHERE `key` = ?',
-          values: [key]
+      
+      // Check if setting exists
+      const existingSetting = await executeQuery<any>({
+        query: 'SELECT * FROM system_settings WHERE `key` = ?',
+        values: [key],
+        single: true
+      });
+      
+      if (existingSetting) {
+        // Update existing setting
+        await executeQuery({
+          query: 'UPDATE system_settings SET `value` = ?, `category` = ? WHERE `key` = ?',
+          values: [value, category, key]
         });
-        
-        if (existingSetting && existingSetting.length > 0) {
-          // Update existing setting
-          await executeQuery({
-            query: 'UPDATE system_settings SET `value` = ?, `category` = ? WHERE `key` = ?',
-            values: [value, category, key]
-          });
-        } else {
-          // Insert new setting
-          await executeQuery({
-            query: 'INSERT INTO system_settings (`key`, `value`, `category`) VALUES (?, ?, ?)',
-            values: [key, value, category]
-          });
-        }
+      } else {
+        // Insert new setting
+        await executeQuery({
+          query: 'INSERT INTO system_settings (`key`, `value`, `category`) VALUES (?, ?, ?)',
+          values: [key, value, category]
+        });
       }
     }
     

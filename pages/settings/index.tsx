@@ -36,16 +36,15 @@ export default function Settings() {
                   <label htmlFor="weightUnit" className="block text-sm font-medium text-gray-700 mb-1">
                     Weight Unit
                   </label>
-                  <select
-                    id="weightUnit"
+                  <select                    id="weightUnit"
                     value={formData.weightUnit}
                     onChange={(e) => setFormData({ ...formData, weightUnit: e.target.value })}
                     className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                    disabled
                   >
                     <option value="kg">Kilograms (kg)</option>
-                    <option value="g">Grams (g)</option>
-                    <option value="lb">Pounds (lb)</option>
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">System is configured to use kilograms (kg) only</p>
                 </div>
 
                 <div>

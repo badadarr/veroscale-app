@@ -39,108 +39,53 @@ async function addBatchWeightRecords(
       return res.status(400).json({
         message: "Item ID and at least one batch item are required",
       });
-    }
-
-    // Check if we're using Supabase or MySQL implementation
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
-    let items;
-    let insertedRecords = [];
+    }    let insertedRecords = [];
 
     // First, check if the item exists
-    if (useSupabase) {
-      items = await executeQuery<any[]>({
-        table: "public.ref_items",
-        action: "select",
-        columns: "*",
-        filters: { id: item_id },
+    const items = await executeQuery<any[]>({
+      query: "SELECT * FROM materials WHERE id = ?",
+      values: [item_id],
+    });
+
+    if (!items || items.length === 0) {
+      return res.status(404).json({ message: "Item not found" });
+    }
+
+    // Insert each batch item as a separate record
+    for (const batchItem of batch_items) {
+      const result = await executeQuery<any>({
+        query: `
+          INSERT INTO weight_records 
+          (user_id, item_id, total_weight, status, batch_number, source, destination, notes)
+          VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
+          RETURNING *
+        `,
+        values: [
+          user.id,
+          item_id,
+          batchItem.weight,
+          batch_number || null,
+          source || null,
+          destination || null,
+          batchItem.note || null,
+        ],
+        single: true,
       });
 
-      if (!items || items.length === 0) {
-        return res.status(404).json({ message: "Item not found" });
-      }
-
-      // Insert each batch item as a separate record
-      for (const batchItem of batch_items) {
-        const result = await executeQuery<any>({
-          table: "public.weight_records",
-          action: "insert",
-          data: {
-            user_id: user.id,
-            item_id,
-            total_weight: batchItem.weight,
-            status: "pending",
-            batch_number,
-            source,
-            destination,
-            notes: batchItem.note,
-          },
-          returning: "*",
-        });
-
-        insertedRecords.push({
-          record_id: result[0].record_id,
-          user_id: user.id,
-          user_name: user.name,
-          item_id,
-          item_name: items[0].name,
-          total_weight: batchItem.weight,
-          timestamp: new Date(),
-          status: "pending",
-          batch_number,
-          source,
-          destination,
-          notes: batchItem.note,
-        });
-      }
-    } else {
-      // MySQL implementation
-      items = await executeQuery<any[]>({
-        query: "SELECT * FROM ref_items WHERE id = ?",
-        values: [item_id],
+      insertedRecords.push({
+        id: result.id,
+        user_id: user.id,
+        user_name: user.name,
+        item_id,
+        item_name: items[0].name,
+        total_weight: batchItem.weight,
+        timestamp: result.created_at || new Date(),
+        status: "pending",
+        batch_number,
+        source,
+        destination,
+        notes: batchItem.note,
       });
-
-      if (!items || items.length === 0) {
-        return res.status(404).json({ message: "Item not found" });
-      }
-
-      // Insert each batch item as a separate record
-      for (const batchItem of batch_items) {
-        const result = await executeQuery<any>({
-          query: `
-            INSERT INTO weight_records 
-            (user_id, item_id, total_weight, status, batch_number, source, destination, notes)
-            VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
-          `,
-          values: [
-            user.id,
-            item_id,
-            batchItem.weight,
-            batch_number || null,
-            source || null,
-            destination || null,
-            batchItem.note || null,
-          ],
-        });
-
-        insertedRecords.push({
-          id: result.insertId,
-          user_id: user.id,
-          user_name: user.name,
-          item_id,
-          item_name: items[0].name,
-          total_weight: batchItem.weight,
-          timestamp: new Date(),
-          status: "pending",
-          batch_number,
-          source,
-          destination,
-          notes: batchItem.note,
-        });
-      }
     }
 
     return res.status(201).json({
