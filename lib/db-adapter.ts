@@ -54,7 +54,11 @@ export async function executeQuery<T = any>(options: {
         // Handle JOIN queries - convert to separate queries with manual joining
         if (query.includes("JOIN") || query.includes("join")) {
           // Handle issues with users JOIN
-          if (query.includes("FROM issues") && query.includes("JOIN users")) {
+          if (
+            (query.includes("FROM issues") ||
+              query.match(/FROM\s+issues\s+i\b/i)) &&
+            (query.includes("JOIN users") || query.match(/JOIN\s+users\s+u\b/i))
+          ) {
             const whereMatch = query.match(
               /WHERE\s+(.*?)(?:\s+ORDER|\s+LIMIT|$)/i
             );
@@ -62,50 +66,70 @@ export async function executeQuery<T = any>(options: {
 
             let issuesFilters: Record<string, any> = {};
             let valueIndex = 0;
+            let orderBy: Record<string, string> = {};
 
             if (whereMatch) {
               const whereClause = whereMatch[1].trim();
 
-              // Handle WHERE i.status = ?
-              if (
-                whereClause.includes("i.status = ?") &&
-                values.length > valueIndex
-              ) {
+              // Handle both i.status = ? and status = ? patterns
+              const statusMatch = whereClause.match(/(?:i\.)?status\s*=\s*\?/i);
+              if (statusMatch && values.length > valueIndex) {
                 issuesFilters.status = values[valueIndex];
                 valueIndex++;
               }
 
-              // Handle other WHERE conditions for issues table
-              const statusMatch = whereClause.match(/status\s*=\s*\?/i);
-              if (
-                statusMatch &&
-                values.length > valueIndex &&
-                !issuesFilters.status
-              ) {
-                issuesFilters.status = values[valueIndex];
+              // Try to match any other column condition in WHERE
+              const generalMatch = whereClause.match(/(?:i\.)?(\w+)\s*=\s*\?/i);
+              if (generalMatch && !statusMatch && values.length > valueIndex) {
+                const columnName = generalMatch[1];
+                issuesFilters[columnName] = values[valueIndex];
                 valueIndex++;
               }
             }
 
+            // Parse ORDER BY if it exists
+            if (orderMatch) {
+              const orderClause = orderMatch[1].trim();
+              // Handle i.created_at DESC format
+              const cleanOrderClause = orderClause.replace(/i\./g, "");
+              const [field, direction] = cleanOrderClause.split(/\s+/);
+
+              if (field) {
+                orderBy[field] =
+                  direction?.toLowerCase() === "desc" ? "desc" : "asc";
+              }
+            }
+
             // Get issues with user data
-            return supabaseDB
-              .query<T>({
-                table: "issues",
-                select: "*, users!issues_reporter_id_fkey(name)",
-                filters: issuesFilters,
-                single: false,
-              })
-              .then((issues: any) => {
-                // Transform the data to match expected format
-                if (Array.isArray(issues)) {
-                  return issues.map((issue) => ({
-                    ...issue,
-                    reporter_name: issue.users?.name || "Unknown User",
-                    user_name: issue.users?.name || "Unknown User",
-                  }));
-                }
-                return issues;
-              }) as Promise<T>;
+            console.log(
+              "Getting issues with filters:",
+              issuesFilters,
+              "and order:",
+              orderBy
+            );
+
+            const queryOptions: any = {
+              table: "issues",
+              select: "*, users!reporter_id(name)",
+              filters: issuesFilters,
+              single: false,
+            };
+
+            if (Object.keys(orderBy).length > 0) {
+              queryOptions.order = orderBy;
+            }
+
+            return supabaseDB.query<T>(queryOptions).then((issues: any) => {
+              // Transform the data to match expected format
+              if (Array.isArray(issues)) {
+                return issues.map((issue) => ({
+                  ...issue,
+                  reporter_name: issue.users?.name || "Unknown User",
+                  user_name: issue.users?.name || "Unknown User",
+                }));
+              }
+              return issues;
+            }) as Promise<T>;
           }
 
           // Handle weight_records with materials and users JOIN
