@@ -3,9 +3,12 @@ import bcrypt from "bcryptjs";
 import { executeQuery } from "../../../lib/db-adapter";
 import { getUserFromToken } from "../../../lib/auth";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   const user = await getUserFromToken(req);
-  
+
   if (!user) {
     return res.status(401).json({ message: "Unauthorized" });
   }
@@ -21,24 +24,39 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 // Get user profile
-async function getUserProfile(req: NextApiRequest, res: NextApiResponse, user: any) {
+async function getUserProfile(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  user: any
+) {
   try {
+    // Get user data
     const userData = await executeQuery<any>({
-      query: `
-        SELECT u.id, u.name, u.email, r.name as role, u.created_at
-        FROM users u
-        JOIN roles r ON u.role_id = r.id
-        WHERE u.id = ?
-      `,
+      query: "SELECT * FROM users WHERE id = ?",
       values: [user.id],
-      single: true
+      single: true,
     });
 
     if (!userData) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    return res.status(200).json(userData);
+    // Get role data
+    const roleData = await executeQuery<any>({
+      query: "SELECT * FROM roles WHERE id = ?",
+      values: [userData.role_id],
+      single: true,
+    });
+
+    const userProfile = {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      role: roleData ? roleData.name : "user",
+      created_at: userData.created_at,
+    };
+
+    return res.status(200).json(userProfile);
   } catch (error) {
     console.error("Error fetching user profile:", error);
     return res.status(500).json({ message: "Server error" });
@@ -46,9 +64,14 @@ async function getUserProfile(req: NextApiRequest, res: NextApiResponse, user: a
 }
 
 // Update user profile
-async function updateUserProfile(req: NextApiRequest, res: NextApiResponse, user: any) {
+async function updateUserProfile(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  user: any
+) {
   try {
-    const { name, email, currentPassword, newPassword } = req.body;    if (!name || !email) {
+    const { name, email, currentPassword, newPassword } = req.body;
+    if (!name || !email) {
       return res.status(400).json({ message: "Name and email are required" });
     }
 
@@ -56,7 +79,7 @@ async function updateUserProfile(req: NextApiRequest, res: NextApiResponse, user
     const currentUser = await executeQuery<any>({
       query: "SELECT * FROM users WHERE id = ?",
       values: [user.id],
-      single: true
+      single: true,
     });
 
     if (!currentUser) {
@@ -68,11 +91,13 @@ async function updateUserProfile(req: NextApiRequest, res: NextApiResponse, user
       const existingUser = await executeQuery<any>({
         query: "SELECT * FROM users WHERE email = ? AND id != ?",
         values: [email, user.id],
-        single: true
+        single: true,
       });
 
       if (existingUser) {
-        return res.status(409).json({ message: "Email already in use by another account" });
+        return res
+          .status(409)
+          .json({ message: "Email already in use by another account" });
       }
     }
 
@@ -85,12 +110,21 @@ async function updateUserProfile(req: NextApiRequest, res: NextApiResponse, user
     // If changing password, verify current password first
     if (newPassword) {
       if (!currentPassword) {
-        return res.status(400).json({ message: "Current password is required to set a new password" });
+        return res
+          .status(400)
+          .json({
+            message: "Current password is required to set a new password",
+          });
       }
 
-      const isPasswordValid = await bcrypt.compare(currentPassword, currentUser.password);
+      const isPasswordValid = await bcrypt.compare(
+        currentPassword,
+        currentUser.password
+      );
       if (!isPasswordValid) {
-        return res.status(401).json({ message: "Current password is incorrect" });
+        return res
+          .status(401)
+          .json({ message: "Current password is incorrect" });
       }
 
       // Hash new password
@@ -115,14 +149,14 @@ async function updateUserProfile(req: NextApiRequest, res: NextApiResponse, user
       values,
     });
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       message: "Profile updated successfully",
       user: {
         id: user.id,
         name,
         email,
         role: user.role, // Keep the existing role
-      }
+      },
     });
   } catch (error) {
     console.error("Error updating user profile:", error);

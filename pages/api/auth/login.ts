@@ -18,31 +18,39 @@ export default async function handler(
       return res
         .status(400)
         .json({ message: "Email and password are required" });
-    }    console.log("Finding user by email:", email);
+    }
+    console.log("Finding user by email:", email);
 
-    let users;
+    let user;
     try {
-      users = await executeQuery<any[]>({
-        query: `
-          SELECT u.id, u.email, u.name, u.password, r.name as role
-          FROM users u
-          JOIN roles r ON u.role_id = r.id
-          WHERE u.email = ?
-        `,
+      // First get the user
+      const foundUser = await executeQuery<any>({
+        query: "SELECT * FROM users WHERE email = ?",
         values: [email],
+        single: true,
       });
 
-      console.log("Users found:", users ? users.length : 0);
+      if (!foundUser) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Then get the role
+      const role = await executeQuery<any>({
+        query: "SELECT * FROM roles WHERE id = ?",
+        values: [foundUser.role_id],
+        single: true,
+      });
+
+      user = {
+        ...foundUser,
+        role: role ? role.name : "user",
+      };
+
+      console.log("User found with role:", user.role);
     } catch (err) {
       console.error("Error finding user:", err);
       throw err;
     }
-
-    if (!users || users.length === 0) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-
-    const user = users[0];
 
     // Verify password
     console.log("Verifying password...");

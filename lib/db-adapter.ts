@@ -36,72 +36,139 @@ export async function executeQuery<T = any>(options: {
       columns,
       single,
       returning,
-      range,    } = options;
+      range,
+    } = options;
 
     // Handle direct SQL execution for Supabase - convert to table operations instead of RPC
     if (options.query && !operationTable) {
       console.log("Converting SQL query to Supabase table operations...");
-      
+
       // For now, we'll convert common SQL patterns to Supabase table operations
       // This is a temporary solution until we can set up proper SQL execution
-      
+
       const query = options.query.trim();
-      const values = options.values || [];
-      
-      // Handle SELECT queries
-      if (query.toLowerCase().startsWith('select')) {
+      const values = options.values || []; // Handle SELECT queries
+      if (query.toLowerCase().startsWith("select")) {
         // Extract table name from SQL
         const tableMatch = query.match(/from\s+(\w+)/i);
         if (tableMatch) {
           const tableName = tableMatch[1];
-          
+          // Handle COUNT queries with WHERE clause
+          if (
+            query.includes("COUNT(*)") &&
+            query.includes("WHERE") &&
+            values.length > 0
+          ) {
+            const whereMatch = query.match(/WHERE\s+(\w+)\s*=\s*\?/i);
+            if (whereMatch) {
+              const whereColumn = whereMatch[1];
+              const filters: Record<string, any> = {};
+              filters[whereColumn] = values[0];
+
+              return supabaseDB.query<T>({
+                table: tableName,
+                select: "count",
+                filters,
+                single: true,
+              });
+            }
+          }
+
+          // Handle simple COUNT queries without WHERE
+          if (query.includes("COUNT(*)") && !query.includes("WHERE")) {
+            return supabaseDB.query<T>({
+              table: tableName,
+              select: "count",
+              filters: {},
+              single: true,
+            });
+          }
+
           // Simple WHERE id = ? pattern
-          if (query.includes('WHERE id = ?') && values.length > 0) {
+          if (query.includes("WHERE id = ?") && values.length > 0) {
             return supabaseDB.query<T>({
               table: tableName,
               filters: { id: values[0] },
               single: options.single || false,
             });
           }
-          
+
           // Simple WHERE email = ? pattern
-          if (query.includes('WHERE email = ?') && values.length > 0) {
+          if (query.includes("WHERE email = ?") && values.length > 0) {
             return supabaseDB.query<T>({
               table: tableName,
               filters: { email: values[0] },
               single: options.single || false,
             });
           }
-          
-          // Simple SELECT * FROM table
-          if (query.includes('SELECT *') && !query.includes('WHERE')) {
+          // Handle other WHERE patterns with single column
+          const whereMatch = query.match(/WHERE\s+(\w+)\s*=\s*\?/i);
+          if (whereMatch && values.length > 0) {
+            const whereColumn = whereMatch[1];
+            const filters: Record<string, any> = {};
+            filters[whereColumn] = values[0];
+
+            return supabaseDB.query<T>({
+              table: tableName,
+              filters,
+              single: options.single || false,
+            });
+          }
+
+          // Handle LIKE/ILIKE queries
+          const likeMatch = query.match(/WHERE\s+(\w+)\s+(I?LIKE)\s*\?/i);
+          if (likeMatch && values.length > 0) {
+            const whereColumn = likeMatch[1];
+            let searchValue = values[0];
+
+            // Convert LIKE pattern to Supabase text search
+            // Remove % wildcards for Supabase ilike
+            if (typeof searchValue === "string") {
+              searchValue = searchValue.replace(/%/g, "");
+            }
+
+            const filters: Record<string, any> = {};
+            filters[whereColumn] = searchValue;
+
+            return supabaseDB.query<T>({
+              table: tableName,
+              filters,
+              single: options.single || false,
+            });
+          }
+          // Handle WHERE with multiple conditions (name = ? AND id != ?)
+          if (query.includes("AND") && values.length >= 2) {
+            // For complex queries with AND/OR, fall back to error for now
+            // This can be extended later if needed
+          }
+
+          // Simple SELECT * FROM table pattern
+          if (query.includes("SELECT *") && !query.includes("WHERE")) {
             return supabaseDB.query<T>({
               table: tableName,
               filters: {},
-              single: false,
+              single: options.single || false,
             });
           }
         }
-      }
-      
-      // Handle INSERT queries with RETURNING
-      if (query.toLowerCase().startsWith('insert')) {
+      } // Handle INSERT queries with RETURNING
+      if (query.toLowerCase().startsWith("insert")) {
         const tableMatch = query.match(/insert\s+into\s+(\w+)/i);
         if (tableMatch) {
           const tableName = tableMatch[1];
-          
+
           // Extract column names and values
           const columnsMatch = query.match(/\(([^)]+)\)/);
           if (columnsMatch && values.length > 0) {
-            const columns = columnsMatch[1].split(',').map(col => col.trim());
+            const columns = columnsMatch[1].split(",").map((col) => col.trim());
             const data: Record<string, any> = {};
-            
+
             columns.forEach((col, index) => {
               if (index < values.length) {
                 data[col] = values[index];
               }
             });
-            
+
             return supabaseDB.insert<T>({
               table: tableName,
               data,
@@ -109,10 +176,68 @@ export async function executeQuery<T = any>(options: {
             });
           }
         }
+      } // Handle UPDATE queries with dynamic SET clauses
+      if (query.toLowerCase().startsWith("update")) {
+        const tableMatch = query.match(/update\s+(\w+)/i);
+        if (tableMatch) {
+          const tableName = tableMatch[1];
+
+          // Handle UPDATE with multiple SET clauses and WHERE id = ?
+          if (query.includes("WHERE id = ?")) {
+            const setSection = query.match(/set\s+(.*?)\s+where/i);
+            if (setSection && values.length >= 1) {
+              const setClauses = setSection[1]
+                .split(",")
+                .map((clause) => clause.trim());
+              const data: Record<string, any> = {};
+              let valueIndex = 0;
+
+              setClauses.forEach((clause) => {
+                const columnMatch = clause.match(/(\w+)\s*=\s*\?/);
+                if (columnMatch && valueIndex < values.length - 1) {
+                  data[columnMatch[1]] = values[valueIndex];
+                  valueIndex++;
+                } else if (clause.includes("updated_at = NOW()")) {
+                  // Handle NOW() function - set to current timestamp
+                  data["updated_at"] = new Date().toISOString();
+                }
+              });
+
+              // Last value is for WHERE id = ?
+              const idValue = values[values.length - 1];
+
+              return supabaseDB.update<T>({
+                table: tableName,
+                data,
+                filters: { id: idValue },
+                returning: "*",
+              });
+            }
+          }
+        }
       }
-      
+
+      // Handle DELETE queries
+      if (query.toLowerCase().startsWith("delete")) {
+        const tableMatch = query.match(/delete\s+from\s+(\w+)/i);
+        if (tableMatch) {
+          const tableName = tableMatch[1];
+
+          // Simple DELETE FROM table WHERE id = ?
+          if (query.includes("WHERE id = ?") && values.length > 0) {
+            return supabaseDB.remove<T>({
+              table: tableName,
+              filters: { id: values[0] },
+              returning: "*",
+            });
+          }
+        }
+      }
+
       // If we can't convert the SQL, throw an error with helpful message
-      throw new Error(`SQL query conversion not implemented for: ${query}. Please use table-based operations instead.`);
+      throw new Error(
+        `SQL query conversion not implemented for: ${query}. Please use table-based operations instead.`
+      );
     }
 
     if (!operationTable) {
