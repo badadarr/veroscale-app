@@ -23,7 +23,7 @@ export default async function handler(
 
     const insertedRecords = [];
 
-    // Process each material entry
+    // Process and insert multiple records into weight_records
     for (const entry of material_entries) {
       const { materialId, weight, notes } = entry;
 
@@ -33,7 +33,7 @@ export default async function handler(
         });
       }
 
-      // Get material information using table operations
+      // Fetch material information for each entry
       const material = await executeQuery<any>({
         table: "materials",
         action: "select",
@@ -45,18 +45,10 @@ export default async function handler(
         return res
           .status(404)
           .json({ error: `Material with ID ${materialId} not found` });
-      } // Insert weight record using table operations
-      const insertData: {
-        item_id: any;
-        total_weight: any;
-        unit: string;
-        batch_number: any;
-        source: any;
-        destination: any;
-        notes: any;
-        status: string;
-        [key: string]: any; // Allow additional properties like created_at and timestamp
-      } = {
+      }
+
+      // Insert record into weight_records
+      const insertData = {
         item_id: materialId,
         total_weight: weight,
         unit,
@@ -65,42 +57,23 @@ export default async function handler(
         destination: destination || null,
         notes: notes || null,
         status: "pending",
+        user_id: req.body.user_id,
+        created_at: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
       };
-
-      // Add timestamp field if no created_at field exists
-      // This makes the API compatible with both old and new schema
-      try {
-        const currentTime = new Date().toISOString();
-        insertData.created_at = currentTime;
-        // Also set timestamp for backward compatibility
-        insertData.timestamp = currentTime;
-      } catch (err) {
-        console.log("Date conversion error:", err);
-      }
-
-      // Ensure user_id is explicitly passed in the request body
-      const userId = req.body.user_id;
-      if (!userId) {
-        return res.status(400).json({ error: "User ID is required" });
-      }
-      insertData.user_id = userId;
 
       const result = await executeQuery<any>({
         table: "weight_records",
         action: "insert",
         data: insertData,
-        returning: "record_id, item_id", // Use record_id (the correct primary key column name)
+        returning: "record_id, item_id",
       });
-      if (result) {
-        // Extract ID correctly using record_id (the correct primary key name)
-        const recordId =
-          result.record_id ||
-          (result[0] ? result[0].record_id : null) ||
-          result.id ||
-          (result[0] ? result[0].id : null);
 
+      if (result) {
+        const recordId =
+          result.record_id || (result[0] ? result[0].record_id : null);
         insertedRecords.push({
-          id: recordId, // Use recordId as the ID in the response
+          id: recordId,
           materialId,
           materialName: material.name,
           weight,
