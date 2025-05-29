@@ -256,8 +256,9 @@ export default function Issues() {
                                                 <Flag className={`h-4 w-4 ${getPriorityColor(issue.priority)}`} />
                                             </TableCell>
                                             <TableCell>
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(issue.status)}`}>
-                                                    {issue.status.replace('_', ' ')}
+                                                {/* Ensure issue.status is defined before calling replace */}
+                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(issue.status || '')}`}>
+                                                    {issue.status ? issue.status.replace('_', ' ') : 'Unknown Status'}
                                                 </span>
                                             </TableCell>
                                             <TableCell>{issue.user_name}</TableCell>
