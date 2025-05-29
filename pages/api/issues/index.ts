@@ -27,46 +27,52 @@ export default async function handler(
 async function handleGet(req: NextApiRequest, res: NextApiResponse) {
   const { status, priority, type, search } = req.query;
 
-  // Build conditions for Supabase query
-  const conditions: Record<string, any> = {};
+  // Build WHERE conditions
+  const conditions: string[] = [];
+  const values: any[] = [];
 
   if (status) {
-    conditions.status = status;
+    conditions.push("i.status = ?");
+    values.push(status);
   }
 
   if (priority) {
-    conditions.priority = priority;
+    conditions.push("i.priority = ?");
+    values.push(priority);
   }
 
   if (type) {
-    conditions.issue_type = type;
+    conditions.push("i.issue_type = ?");
+    values.push(type);
   }
 
-  // Using Supabase to get issues
-  // Note: search functionality needs to be implemented differently with Supabase
-  // This is a simplified approach without the search term for now
+  if (search && typeof search === "string") {
+    conditions.push("(i.title ILIKE ? OR i.description ILIKE ?)");
+    const searchPattern = `%${search}%`;
+    values.push(searchPattern, searchPattern);
+  }
+
+  // Build the complete query
+  let query = `
+    SELECT i.*, u.name as reporter_name 
+    FROM issues i 
+    LEFT JOIN users u ON i.reporter_id = u.id
+  `;
+
+  if (conditions.length > 0) {
+    query += ` WHERE ${conditions.join(" AND ")}`;
+  }
+
+  query += " ORDER BY i.created_at DESC";
+
   const issuesResult = await executeQuery({
-    table: "issues",
-    action: "select",
-    columns: ["issues.*, users.name as reporter_name"],
-    conditions: conditions,
-    orderBy: { column: "created_at", ascending: false },
+    query,
+    values,
   });
 
-  // If search is provided, filter results manually (as a simple approach)
-  let filteredResults = issuesResult;
-  if (search && typeof search === "string" && Array.isArray(issuesResult)) {
-    const searchLower = search.toLowerCase();
-    filteredResults = issuesResult.filter(
-      (issue: any) =>
-        issue.title?.toLowerCase().includes(searchLower) ||
-        issue.description?.toLowerCase().includes(searchLower)
-    );
-  }
-
   res.status(200).json({
-    issues: filteredResults,
-    total: Array.isArray(filteredResults) ? filteredResults.length : 0,
+    issues: issuesResult || [],
+    total: Array.isArray(issuesResult) ? issuesResult.length : 0,
   });
 }
 
@@ -79,25 +85,19 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     });
   }
 
-  // Using Supabase to create a new issue
   const result = await executeQuery({
-    table: "issues",
-    action: "insert",
-    data: {
-      title,
-      description,
-      issue_type,
-      priority: priority || "medium",
-      status: "pending",
-      reporter_id,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
+    query: `
+      INSERT INTO issues (title, description, issue_type, priority, status, reporter_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'pending', ?, NOW(), NOW())
+      RETURNING id
+    `,
+    values: [title, description, issue_type, priority || "medium", reporter_id],
+    single: true,
   });
 
   res.status(201).json({
     message: "Issue created successfully",
-    issue_id: (result as any[])[0]?.id,
+    issue_id: result?.id,
   });
 }
 
@@ -110,24 +110,41 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ error: "Issue ID is required" });
   }
 
-  // Create update data object for Supabase
-  const updateData: Record<string, any> = {
-    updated_at: new Date().toISOString(),
-  };
+  // Build SET clauses
+  const setClauses: string[] = [];
+  const values: any[] = [];
 
-  if (title) updateData.title = title;
-  if (description) updateData.description = description;
-  if (issue_type) updateData.issue_type = issue_type;
-  if (priority) updateData.priority = priority;
-  if (status) updateData.status = status;
-  if (resolution) updateData.resolution = resolution;
+  if (title) {
+    setClauses.push("title = ?");
+    values.push(title);
+  }
+  if (description) {
+    setClauses.push("description = ?");
+    values.push(description);
+  }
+  if (issue_type) {
+    setClauses.push("issue_type = ?");
+    values.push(issue_type);
+  }
+  if (priority) {
+    setClauses.push("priority = ?");
+    values.push(priority);
+  }
+  if (status) {
+    setClauses.push("status = ?");
+    values.push(status);
+  }
+  if (resolution) {
+    setClauses.push("resolution = ?");
+    values.push(resolution);
+  }
 
-  // Using Supabase to update an issue
+  setClauses.push("updated_at = NOW()");
+  values.push(id); // for WHERE clause
+
   await executeQuery({
-    table: "issues",
-    action: "update",
-    data: updateData,
-    conditions: { id },
+    query: `UPDATE issues SET ${setClauses.join(", ")} WHERE id = ?`,
+    values,
   });
 
   res.status(200).json({
@@ -142,11 +159,9 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ error: "Issue ID is required" });
   }
 
-  // Using Supabase to delete an issue
   await executeQuery({
-    table: "issues",
-    action: "delete",
-    conditions: { id },
+    query: "DELETE FROM issues WHERE id = ?",
+    values: [id],
   });
 
   res.status(200).json({
