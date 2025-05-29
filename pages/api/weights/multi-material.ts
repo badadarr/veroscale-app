@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { executeQuery } from "@/lib/db-adapter-adapter";
+import { executeQuery } from "@/lib/db-adapter";
 
 export default async function handler(
   req: NextApiRequest,
@@ -28,18 +28,16 @@ export default async function handler(
       const { materialId, weight, notes } = entry;
 
       if (!materialId || !weight) {
-        return res
-          .status(400)
-          .json({
-            error: "Material ID and weight are required for each entry",
-          });
+        return res.status(400).json({
+          error: "Material ID and weight are required for each entry",
+        });
       }
 
       // Get material information using Supabase
       const materialResult = await executeQuery<any[]>({
         table: "materials",
         action: "select",
-        conditions: { id: materialId },
+        filters: { id: materialId },
       });
 
       if (!materialResult || materialResult.length === 0) {
