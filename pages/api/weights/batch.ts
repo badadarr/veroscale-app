@@ -39,11 +39,12 @@ async function addBatchWeightRecords(
       return res.status(400).json({
         message: "Item ID and at least one batch item are required",
       });
-    }    let insertedRecords = [];
+    }
+    let insertedRecords = [];
 
     // First, check if the item exists
     const items = await executeQuery<any[]>({
-      query: "SELECT * FROM materials WHERE id = ?",
+      query: "SELECT * FROM ref_items WHERE id = ?",
       values: [item_id],
     });
 

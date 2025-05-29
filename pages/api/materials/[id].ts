@@ -34,9 +34,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 // Get material by ID
 async function getMaterialById(res: NextApiResponse, id: string) {
-  try {
-    const material = await executeQuery<any>({
-      query: 'SELECT * FROM materials WHERE id = ?',
+  try {    const material = await executeQuery<any>({
+      query: 'SELECT * FROM ref_items WHERE id = ?',
       values: [id],
       single: true
     });
@@ -65,7 +64,7 @@ async function updateMaterial(
 
     // Check if material exists
     const existingMaterial = await executeQuery<any>({
-      query: 'SELECT * FROM materials WHERE id = ?',
+      query: 'SELECT * FROM ref_items WHERE id = ?',
       values: [id],
       single: true
     });
@@ -77,7 +76,7 @@ async function updateMaterial(
     // Check if the new name already exists (but ignore the current material)
     if (name !== existingMaterial.name) {
       const duplicateMaterial = await executeQuery<any>({
-        query: 'SELECT * FROM materials WHERE name = ? AND id != ?',
+        query: 'SELECT * FROM ref_items WHERE name = ? AND id != ?',
         values: [name, id],
         single: true
       });
@@ -85,11 +84,9 @@ async function updateMaterial(
       if (duplicateMaterial) {
         return res.status(409).json({ message: 'Material with this name already exists' });
       }
-    }
-
-    // Update the material
+    }    // Update the material
     await executeQuery({
-      query: 'UPDATE materials SET name = ?, weight = ? WHERE id = ?',
+      query: 'UPDATE ref_items SET name = ?, weight = ? WHERE id = ?',
       values: [name, parseFloat(weight), id],
     });
 
@@ -109,10 +106,9 @@ async function updateMaterial(
 
 // Delete material
 async function deleteMaterial(res: NextApiResponse, id: string) {
-  try {
-    // Check if material exists
+  try {    // Check if material exists
     const existingMaterial = await executeQuery<any>({
-      query: 'SELECT * FROM materials WHERE id = ?',
+      query: 'SELECT * FROM ref_items WHERE id = ?',
       values: [id],
       single: true
     });
@@ -132,11 +128,9 @@ async function deleteMaterial(res: NextApiResponse, id: string) {
       return res.status(409).json({ 
         message: 'Cannot delete material as it is used in weight records. Consider deactivating it instead.' 
       });
-    }
-
-    // Delete the material
+    }    // Delete the material
     await executeQuery({
-      query: 'DELETE FROM materials WHERE id = ?',
+      query: 'DELETE FROM ref_items WHERE id = ?',
       values: [id],
     });
 

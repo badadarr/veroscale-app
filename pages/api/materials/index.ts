@@ -33,64 +33,30 @@ async function getMaterials(req: NextApiRequest, res: NextApiResponse) {
     const itemsPerPage = parseInt(limit as string, 10);
     const offset = (currentPage - 1) * itemsPerPage;
 
-    // Check if we're using Supabase
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL && 
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    let query = 'SELECT * FROM ref_items';
+    const queryParams: any[] = [];
     
-    let materials: any[] = [];
-    let totalItems = 0;
-
-    if (useSupabase) {
-      // Supabase implementation
-      materials = await executeQuery<any[]>({
-        table: 'ref_items',
-        action: 'select',
-        columns: '*'
-      });
-      
-      // Apply search filter in memory if needed
-      if (search) {
-        const searchLower = (search as string).toLowerCase();
-        materials = materials.filter(material => 
-          material.name.toLowerCase().includes(searchLower)
-        );
-      }
-      
-      // Get total count for pagination
-      totalItems = materials.length;
-      
-      // Apply pagination
-      materials = materials.slice(offset, offset + itemsPerPage);
-      
-    } else {
-      // MySQL implementation
-      let query = 'SELECT * FROM ref_items';
-      const queryParams: any[] = [];
-      
-      if (search) {
-        query += ' WHERE name LIKE ?';
-        queryParams.push(`%${search}%`);
-      }
-      
-      // Get total count for pagination
-      const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as count');
-      const countResult = await executeQuery<any[]>({
-        query: countQuery,
-        values: queryParams,
-      });
-      
-      totalItems = countResult[0].count;
-      
-      // Add pagination to main query
-      query += ` ORDER BY id DESC LIMIT ${itemsPerPage} OFFSET ${offset}`;
-      
-      materials = await executeQuery<any[]>({
-        query,
-        values: queryParams,
-      });
+    if (search) {
+      query += ' WHERE name ILIKE ?';
+      queryParams.push(`%${search}%`);
     }
+    
+    // Get total count for pagination
+    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*) as count');
+    const countResult = await executeQuery<any[]>({
+      query: countQuery,
+      values: queryParams,
+    });
+    
+    const totalItems = countResult[0].count;
+    
+    // Add pagination to main query
+    query += ` ORDER BY id DESC LIMIT ${itemsPerPage} OFFSET ${offset}`;
+    
+    const materials = await executeQuery<any[]>({
+      query,
+      values: queryParams,
+    });
     
     return res.status(200).json({
       materials,
@@ -116,59 +82,25 @@ async function addMaterial(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ message: 'Name and weight are required' });
     }
     
-    // Check if we're using Supabase
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL && 
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    // Check if material with same name already exists
+    const existingMaterial = await executeQuery<any[]>({
+      query: 'SELECT * FROM ref_items WHERE name = ?',
+      values: [name],
+    });
     
-    let result;
-    
-    if (useSupabase) {
-      // Check if material with same name already exists
-      const existingMaterial = await executeQuery<any[]>({
-        table: 'ref_items',
-        action: 'select',
-        filters: { name },
-      });
-      
-      if (existingMaterial && existingMaterial.length > 0) {
-        return res.status(409).json({ message: 'Material with this name already exists' });
-      }
-      
-      // Supabase implementation
-      result = await executeQuery<any[]>({
-        table: 'ref_items',
-        action: 'insert',
-        data: {
-          name,
-          weight: parseFloat(weight)
-        },
-        returning: '*'
-      });
-      
-      // Supabase returns an array with the inserted object
-      result = result[0];
-    } else {
-      // Check if material with same name already exists
-      const existingMaterial = await executeQuery<any[]>({
-        query: 'SELECT * FROM ref_items WHERE name = ?',
-        values: [name],
-      });
-      
-      if (existingMaterial && existingMaterial.length > 0) {
-        return res.status(409).json({ message: 'Material with this name already exists' });
-      }
-      
-      // MySQL implementation
-      result = await executeQuery<any>({
-        query: 'INSERT INTO ref_items (name, weight) VALUES (?, ?)',
-        values: [name, parseFloat(weight)],
-      });
+    if (existingMaterial && existingMaterial.length > 0) {
+      return res.status(409).json({ message: 'Material with this name already exists' });
     }
     
+    // Insert new material
+    const result = await executeQuery<any>({
+      query: 'INSERT INTO ref_items (name, weight) VALUES (?, ?) RETURNING id',
+      values: [name, parseFloat(weight)],
+      single: true,
+    });
+    
     const newMaterial = {
-      id: useSupabase ? result.id : result.insertId,
+      id: result.id,
       name,
       weight: parseFloat(weight)
     };

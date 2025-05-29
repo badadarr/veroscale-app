@@ -133,7 +133,7 @@ async function addWeightRecord(
 
     // Check if material exists
     const materials = await executeQuery<any[]>({
-      query: "SELECT * FROM materials WHERE id = ?",
+      query: "SELECT * FROM ref_items WHERE id = ?",
       values: [item_id],
     });
 

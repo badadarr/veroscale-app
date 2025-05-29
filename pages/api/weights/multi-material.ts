@@ -31,13 +31,10 @@ export default async function handler(
         return res.status(400).json({
           error: "Material ID and weight are required for each entry",
         });
-      }
-
-      // Get material information using Supabase
+      }      // Get material information
       const materialResult = await executeQuery<any[]>({
-        table: "materials",
-        action: "select",
-        filters: { id: materialId },
+        query: "SELECT * FROM ref_items WHERE id = ?",
+        values: [materialId],
       });
 
       if (!materialResult || materialResult.length === 0) {
@@ -48,27 +45,26 @@ export default async function handler(
 
       const material = materialResult[0];
 
-      // Insert weight record using Supabase
-      const result = await executeQuery<any[]>({
-        table: "weight_records",
-        action: "insert",
-        data: {
-          item_id: materialId,
-          item_name: material.name,
-          total_weight: weight,
+      // Insert weight record
+      const result = await executeQuery<any>({
+        query: `
+          INSERT INTO weight_records (item_id, total_weight, unit, batch_number, source, destination, notes, status, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+          RETURNING id
+        `,
+        values: [
+          materialId,
+          weight,
           unit,
-          batch_number: batch_number || null,
-          source: source || null,
-          destination: destination || null,
-          notes: notes || null,
-          status: "pending",
-          timestamp: new Date().toISOString(),
-        },
-      });
-
-      if (result) {
+          batch_number || null,
+          source || null,
+          destination || null,
+          notes || null,
+        ],
+        single: true,
+      });      if (result) {
         insertedRecords.push({
-          id: result[0]?.id,
+          id: result.id,
           materialId,
           materialName: material.name,
           weight,
