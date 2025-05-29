@@ -126,7 +126,7 @@ export default function Dashboard() {
                 <div className="flex items-center">
                   <TrendingUp className="h-8 w-8 text-accent-600 mr-2" />
                   <div>
-                    <p className="text-2xl font-bold">{formatWeight(dashboardData.summaryStats.totalWeight)} kg</p>
+                    <p className="text-2xl font-bold">{formatWeight(dashboardData.summaryStats.totalWeight)}</p>
                     <p className="text-xs text-gray-500">Total this month</p>
                   </div>
                 </div>
