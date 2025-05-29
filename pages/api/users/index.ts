@@ -23,14 +23,17 @@ export default async function handler(
 // Get all users
 async function getUsers(res: NextApiResponse) {
   try {
-    // Get all users first
+    // Use table-based operations instead of raw SQL
     const users = await executeQuery<any[]>({
-      query: "SELECT * FROM users ORDER BY created_at DESC",
+      table: "users",
+      action: "select",
+      columns: "id, name, email, role_id, department, status, created_at",
     });
 
-    // Get all roles
     const roles = await executeQuery<any[]>({
-      query: "SELECT * FROM roles",
+      table: "roles",
+      action: "select",
+      columns: "id, name",
     });
 
     // Create a role lookup map

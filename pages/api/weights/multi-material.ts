@@ -31,40 +31,43 @@ export default async function handler(
         return res.status(400).json({
           error: "Material ID and weight are required for each entry",
         });
-      }      // Get material information
-      const materialResult = await executeQuery<any[]>({
-        query: "SELECT * FROM ref_items WHERE id = ?",
-        values: [materialId],
+      }
+
+      // Get material information using table operations
+      const material = await executeQuery<any>({
+        table: "materials",
+        action: "select",
+        filters: { id: materialId },
+        single: true,
       });
 
-      if (!materialResult || materialResult.length === 0) {
+      if (!material) {
         return res
           .status(404)
           .json({ error: `Material with ID ${materialId} not found` });
       }
 
-      const material = materialResult[0];
-
-      // Insert weight record
+      // Insert weight record using table operations
       const result = await executeQuery<any>({
-        query: `
-          INSERT INTO weight_records (item_id, total_weight, unit, batch_number, source, destination, notes, status, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
-          RETURNING id
-        `,
-        values: [
-          materialId,
-          weight,
+        table: "weight_records",
+        action: "insert",
+        data: {
+          item_id: materialId,
+          total_weight: weight,
           unit,
-          batch_number || null,
-          source || null,
-          destination || null,
-          notes || null,
-        ],
-        single: true,
-      });      if (result) {
+          batch_number: batch_number || null,
+          source: source || null,
+          destination: destination || null,
+          notes: notes || null,
+          status: "pending",
+          created_at: new Date().toISOString(),
+        },
+        returning: "id",
+      });
+
+      if (result) {
         insertedRecords.push({
-          id: result.id,
+          id: result.id || result[0]?.id,
           materialId,
           materialName: material.name,
           weight,

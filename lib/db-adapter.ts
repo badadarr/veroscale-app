@@ -359,6 +359,32 @@ export async function executeQuery<T = any>(options: {
               }
             }
           }
+          // Handle simple SELECT with ORDER BY
+          if (query.includes("ORDER BY") && !query.includes("JOIN")) {
+            const tableMatch = query.match(/FROM\s+(\w+)/i);
+            const orderMatch = query.match(
+              /ORDER BY\s+([\w_]+)(?:\s+(ASC|DESC))?/i
+            );
+
+            if (tableMatch) {
+              const tableName = tableMatch[1];
+              const orderBy: Record<string, "asc" | "desc"> = {};
+
+              if (orderMatch) {
+                const column = orderMatch[1];
+                const direction =
+                  orderMatch[2]?.toLowerCase() === "desc" ? "desc" : "asc";
+                orderBy[column] = direction;
+              }
+
+              return supabaseDB.query<T>({
+                table: tableName,
+                filters: {},
+                order: orderBy,
+                single: false,
+              });
+            }
+          }
 
           // Handle WHERE 1=1 (means no filters, select all)
           if (query.includes("WHERE 1=1") && !query.includes("AND")) {
