@@ -159,16 +159,22 @@ export default function Dashboard() {
               <CardContent>
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={dashboardData.weightByDay}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="day" />
-                      <YAxis />
-                      <Tooltip formatter={(value) => [`${value} kg`, 'Weight']} />
-                      <Bar dataKey="total_weight" fill="#0f6bc3" name="Weight (kg)" />
-                    </BarChart>
+                    {dashboardData.weightByDay && Array.isArray(dashboardData.weightByDay) ? (
+                      <BarChart
+                        data={dashboardData.weightByDay}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="day" />
+                        <YAxis />
+                        <Tooltip formatter={(value) => [`${value} kg`, 'Weight']} />
+                        <Bar dataKey="total_weight" fill="#0f6bc3" name="Weight (kg)" />
+                      </BarChart>
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-gray-500">No weight data available</p>
+                      </div>
+                    )}
                   </ResponsiveContainer>
                 </div>
               </CardContent>
@@ -197,7 +203,7 @@ export default function Dashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dashboardData.reportIssues.length === 0 ? (
+                    {!dashboardData.reportIssues || !Array.isArray(dashboardData.reportIssues) || dashboardData.reportIssues.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={3} className="text-center text-gray-500">
                           No pending issues
@@ -208,11 +214,10 @@ export default function Dashboard() {
                         <TableRow key={issue.id} className="cursor-pointer hover:bg-gray-50" onClick={() => router.push('/issues')}>
                           <TableCell className="font-medium">{issue.title}</TableCell>
                           <TableCell>
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              issue.status === 'resolved' ? 'bg-success-100 text-success-800' :
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${issue.status === 'resolved' ? 'bg-success-100 text-success-800' :
                               issue.status === 'pending' ? 'bg-warning-100 text-warning-800' :
-                              'bg-error-100 text-error-800'
-                            }`}>
+                                'bg-error-100 text-error-800'
+                              }`}>
                               {issue.status.charAt(0).toUpperCase() + issue.status.slice(1)}
                             </span>
                           </TableCell>
@@ -251,23 +256,31 @@ export default function Dashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dashboardData.recentRecords.map((record) => (
-                    <TableRow key={record.record_id}>
-                      <TableCell className="font-medium">#{record.record_id}</TableCell>
-                      <TableCell>{record.item_name}</TableCell>
-                      <TableCell>{record.user_name}</TableCell>
-                      <TableCell>{formatWeight(record.total_weight)} kg</TableCell>
-                      <TableCell>{formatDate(record.timestamp)}</TableCell>
-                      <TableCell>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${record.status === 'approved' ? 'bg-success-100 text-success-800' :
-                          record.status === 'pending' ? 'bg-warning-100 text-warning-800' :
-                            'bg-error-100 text-error-800'
-                          }`}>
-                          {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
-                        </span>
+                  {dashboardData.recentRecords && Array.isArray(dashboardData.recentRecords) && dashboardData.recentRecords.length > 0 ? (
+                    dashboardData.recentRecords.map((record) => (
+                      <TableRow key={record.record_id}>
+                        <TableCell className="font-medium">#{record.record_id}</TableCell>
+                        <TableCell>{record.item_name}</TableCell>
+                        <TableCell>{record.user_name}</TableCell>
+                        <TableCell>{formatWeight(record.total_weight)} kg</TableCell>
+                        <TableCell>{formatDate(record.timestamp)}</TableCell>
+                        <TableCell>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${record.status === 'approved' ? 'bg-success-100 text-success-800' :
+                            record.status === 'pending' ? 'bg-warning-100 text-warning-800' :
+                              'bg-error-100 text-error-800'
+                            }`}>
+                            {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-gray-500">
+                        No recent weight records found
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>

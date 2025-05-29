@@ -3,59 +3,42 @@ import { supabaseAdmin } from "./supabase.js";
 // Helper functions for interacting with Supabase
 
 // Generic query function
-export async function query<T = any>({
+export async function query<T>({
   table,
   select = "*",
   filters = {},
   single = false,
+  order = {},
 }: {
   table: string;
   select?: string;
   filters?: Record<string, any>;
   single?: boolean;
+  order?: Record<string, "asc" | "desc">;
 }): Promise<T> {
-  try {
-    // Just use the table name directly without adding schema prefix
-    // This helps Supabase correctly establish relationships between tables
-    const tableName = table.includes(".")
-      ? table.split(".")[1] // Extract just the table name if schema is provided
-      : table;
+  // Remove schema prefix if exists
+  const tableName = table.includes(".") ? table.split(".")[1] : table;
 
-    let query = supabaseAdmin.from(tableName).select(select);
+  let query = supabaseAdmin.from(tableName).select(select);
 
-    // Apply filters
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined) {
-        query = query.eq(key, value);
-      }
-    }); // Execute query
-    const { data, error } = single ? await query.single() : await query;
+  // Apply filters
+  Object.entries(filters).forEach(([key, value]) => {
+    query = query.eq(key, value);
+  });
 
+  // Apply order if specified
+  Object.entries(order).forEach(([column, direction]) => {
+    query = query.order(column, { ascending: direction === "asc" });
+  });
+
+  if (single) {
+    const { data, error } = await query.single();
     if (error) throw error;
-
-    // Check if this is aggregate result (common for count, sum, etc.)
-    if (
-      data &&
-      typeof data === "object" &&
-      !Array.isArray(data) &&
-      select !== "*"
-    ) {
-      // For aggregate functions, wrap the result in an array to match MySQL behavior
-      if (
-        select.toLowerCase().includes("count(") ||
-        select.toLowerCase().includes("sum(") ||
-        select.toLowerCase().includes("avg(") ||
-        select.toLowerCase().includes("min(") ||
-        select.toLowerCase().includes("max(")
-      ) {
-        return [data] as unknown as T;
-      }
-    }
-
     return data as T;
-  } catch (error) {
-    console.error("Database query error:", error);
-    throw new Error(`Database query failed for table ${table}`);
+  } else {
+    const { data, error } = await query;
+    if (error) throw error;
+    return data as T;
   }
 }
 

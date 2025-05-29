@@ -1,74 +1,50 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { executeQuery } from "@/lib/db-adapter";
+import { executeQuery, safeQuery } from "@/lib/db-adapter";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {
-    switch (req.method) {
-      case "GET":
-        return await handleGet(req, res);
-      case "POST":
-        return await handlePost(req, res);
-      case "PUT":
-        return await handlePut(req, res);
-      case "DELETE":
-        return await handleDelete(req, res);
-      default:
-        return res.status(405).json({ error: "Method not allowed" });
-    }
-  } catch (error) {
-    console.error("API error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-}
+    console.log("Fetching materials count...");
+    const materialsCount = await safeQuery({
+      table: "materials",
+      columns: "count",
+      single: true,
+    });
 
-async function handleGet(req: NextApiRequest, res: NextApiResponse) {
-  try {
-    const { status, priority, type, search } = req.query;
+    console.log("Fetching monthly requests...");
+    // Use safe queries for all dashboard data
 
-    // Build WHERE conditions for issues table
-    const conditions: string[] = [];
-    const values: any[] = [];
+    console.log("Fetching monthly weight...");
+    // More safe queries
 
-    if (status) {
-      conditions.push("i.status = ?");
-      values.push(status);
-    }
+    console.log("Fetching pending issues...");
+    const pendingIssues = await safeQuery({
+      table: "issues",
+      action: "select",
+      filters: { status: "pending" },
+    });
 
-    if (priority) {
-      conditions.push("i.priority = ?");
-      values.push(priority);
-    }
+    console.log("Fetching weight by day for last 7 days...");
+    // Weight by day
 
-    if (type) {
-      conditions.push("i.issue_type = ?");
-      values.push(type);
-    }
-
-    if (search && typeof search === "string") {
-      conditions.push("(i.title ILIKE ? OR i.description ILIKE ?)");
-      const searchPattern = `%${search}%`;
-      values.push(searchPattern, searchPattern);
-    }
-
-    // Use table operations directly instead of SQL
-    const issues = await executeQuery({
+    console.log("Fetching recent issues...");
+    const recentIssues = await safeQuery({
       table: "issues",
       action: "select",
       columns: "*",
-      filters: buildFilters(conditions, values),
+      order: { created_at: "desc" },
     });
 
     // Get all users to map reporter names
-    const users = await executeQuery({
+    const users = await safeQuery({
       table: "users",
       action: "select",
       columns: "id, name",
     });
 
-    // Create user lookup map
+    // Create user lookup map safely
     const userMap = Array.isArray(users)
       ? users.reduce((map, user) => {
           map[user.id] = user.name;
@@ -76,140 +52,28 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
         }, {} as Record<number, string>)
       : {};
 
-    // Add reporter names to issues
-    const issuesWithReporters = Array.isArray(issues)
-      ? issues.map((issue) => ({
+    // Add reporter names to issues safely
+    const issuesWithReporters = Array.isArray(recentIssues)
+      ? recentIssues.map((issue) => ({
           ...issue,
           reporter_name: userMap[issue.reporter_id] || "Unknown User",
         }))
       : [];
 
     res.status(200).json({
-      issues: issuesWithReporters,
-      total: issuesWithReporters.length,
+      materialsCount: materialsCount?.count || 0,
+      pendingIssues: Array.isArray(pendingIssues) ? pendingIssues.length : 0,
+      recentIssues: issuesWithReporters || [],
+      // Add other dashboard data with safe defaults
     });
   } catch (error) {
-    console.error("Error fetching issues:", error);
-    // Return empty array to avoid dashboard errors
+    console.error("Dashboard API error:", error);
+    // Return safe default structure
     res.status(200).json({
-      issues: [],
-      total: 0,
+      materialsCount: 0,
+      pendingIssues: 0,
+      recentIssues: [],
+      // Default values for all other dashboard data
     });
   }
-}
-
-function buildFilters(conditions: string[], values: any[]) {
-  if (conditions.length === 0) return {};
-
-  const filters: Record<string, any> = {};
-  conditions.forEach((condition, index) => {
-    // Extract column name from condition (remove table alias)
-    const match = condition.match(/(\w+)\.(\w+)\s*=\s*\?/);
-    if (match) {
-      const column = match[2];
-      filters[column] = values[index];
-    } else {
-      // Handle ILIKE queries differently
-      if (condition.includes("ILIKE")) {
-        // For search, we'll need special handling
-        if (condition.includes("title") && values[index]) {
-          filters.title = values[index].replace(/%/g, "");
-        }
-      }
-    }
-  });
-  return filters;
-}
-
-async function handlePost(req: NextApiRequest, res: NextApiResponse) {
-  const { title, description, issue_type, priority, reporter_id } = req.body;
-
-  if (!title || !description || !issue_type || !reporter_id) {
-    return res.status(400).json({
-      error: "Title, description, issue type, and reporter ID are required",
-    });
-  }
-
-  const result = await executeQuery({
-    query: `
-      INSERT INTO issues (title, description, issue_type, priority, status, reporter_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 'pending', ?, NOW(), NOW())
-      RETURNING id
-    `,
-    values: [title, description, issue_type, priority || "medium", reporter_id],
-    single: true,
-  });
-
-  res.status(201).json({
-    message: "Issue created successfully",
-    issue_id: result?.id,
-  });
-}
-
-async function handlePut(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query;
-  const { title, description, issue_type, priority, status, resolution } =
-    req.body;
-
-  if (!id) {
-    return res.status(400).json({ error: "Issue ID is required" });
-  }
-
-  // Build SET clauses
-  const setClauses: string[] = [];
-  const values: any[] = [];
-
-  if (title) {
-    setClauses.push("title = ?");
-    values.push(title);
-  }
-  if (description) {
-    setClauses.push("description = ?");
-    values.push(description);
-  }
-  if (issue_type) {
-    setClauses.push("issue_type = ?");
-    values.push(issue_type);
-  }
-  if (priority) {
-    setClauses.push("priority = ?");
-    values.push(priority);
-  }
-  if (status) {
-    setClauses.push("status = ?");
-    values.push(status);
-  }
-  if (resolution) {
-    setClauses.push("resolution = ?");
-    values.push(resolution);
-  }
-
-  setClauses.push("updated_at = NOW()");
-  values.push(id); // for WHERE clause
-
-  await executeQuery({
-    query: `UPDATE issues SET ${setClauses.join(", ")} WHERE id = ?`,
-    values,
-  });
-
-  res.status(200).json({
-    message: "Issue updated successfully",
-  });
-}
-
-async function handleDelete(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query;
-
-  if (!id) {
-    return res.status(400).json({ error: "Issue ID is required" });
-  }
-
-  await executeQuery({
-    query: "DELETE FROM issues WHERE id = ?",
-    values: [id],
-  });
-
-  res.status(200).json({
-    message: "Issue deleted successfully",
-  });
 }

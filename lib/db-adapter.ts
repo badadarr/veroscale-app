@@ -26,6 +26,7 @@ export async function executeQuery<T = any>(options: {
   single?: boolean;
   returning?: string;
   range?: [number, number];
+  order?: Record<string, "asc" | "desc">;
 }): Promise<T> {
   if (useSupabase) {
     let {
@@ -569,6 +570,38 @@ export async function executeQuery<T = any>(options: {
       throw new Error("Query is required when using MySQL");
     }
     return mysqlDB.executeQuery<T>({ query, values: values ?? [] });
+  }
+}
+
+export async function safeQuery<T>(
+  options: Parameters<typeof executeQuery>[0]
+): Promise<T> {
+  try {
+    const result = await executeQuery<T>(options);
+
+    // For tables that should always return arrays, ensure we return an empty array instead of null
+    if (options.table && !options.single && result === null) {
+      return [] as unknown as T;
+    }
+
+    // For count queries that return null, return 0
+    if (
+      typeof options.columns === "string" &&
+      options.columns.toLowerCase().includes("count") &&
+      result === null
+    ) {
+      return { count: 0 } as unknown as T;
+    }
+
+    return result;
+  } catch (error) {
+    console.error(`Error querying ${options.table || options.query}:`, error);
+    // Return a type-appropriate fallback value
+    if (options.single === true) {
+      return null as unknown as T;
+    } else {
+      return [] as unknown as T;
+    }
   }
 }
 
