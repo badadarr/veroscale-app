@@ -47,30 +47,165 @@ export async function executeQuery<T = any>(options: {
       // This is a temporary solution until we can set up proper SQL execution
 
       const query = options.query.trim();
-      const values = options.values || []; // Handle SELECT queries
+      const values = options.values || [];
+
+      // Handle SELECT queries
       if (query.toLowerCase().startsWith("select")) {
+        // Handle JOIN queries - convert to separate queries with manual joining
+        if (query.includes("JOIN") || query.includes("join")) {
+          // Handle issues with users JOIN
+          if (query.includes("FROM issues") && query.includes("JOIN users")) {
+            const whereMatch = query.match(
+              /WHERE\s+(.*?)(?:\s+ORDER|\s+LIMIT|$)/i
+            );
+            const orderMatch = query.match(/ORDER BY\s+([\w\s,.]+)/i);
+
+            let issuesFilters: Record<string, any> = {};
+            let valueIndex = 0;
+
+            if (whereMatch) {
+              const whereClause = whereMatch[1].trim();
+
+              // Handle WHERE i.status = ?
+              if (
+                whereClause.includes("i.status = ?") &&
+                values.length > valueIndex
+              ) {
+                issuesFilters.status = values[valueIndex];
+                valueIndex++;
+              }
+
+              // Handle other WHERE conditions for issues table
+              const statusMatch = whereClause.match(/status\s*=\s*\?/i);
+              if (
+                statusMatch &&
+                values.length > valueIndex &&
+                !issuesFilters.status
+              ) {
+                issuesFilters.status = values[valueIndex];
+                valueIndex++;
+              }
+            }
+
+            // Get issues with user data
+            return supabaseDB
+              .query<T>({
+                table: "issues",
+                select: "*, users!issues_reporter_id_fkey(name)",
+                filters: issuesFilters,
+                single: false,
+              })
+              .then((issues: any) => {
+                // Transform the data to match expected format
+                if (Array.isArray(issues)) {
+                  return issues.map((issue) => ({
+                    ...issue,
+                    reporter_name: issue.users?.name || "Unknown User",
+                    user_name: issue.users?.name || "Unknown User",
+                  }));
+                }
+                return issues;
+              }) as Promise<T>;
+          }
+
+          // Handle weight_records with materials and users JOIN
+          if (
+            query.includes("FROM weight_records") &&
+            query.includes("JOIN materials") &&
+            query.includes("JOIN users")
+          ) {
+            const whereMatch = query.match(
+              /WHERE\s+(.*?)(?:\s+ORDER|\s+LIMIT|$)/i
+            );
+
+            let filters: Record<string, any> = {};
+            let valueIndex = 0;
+
+            if (whereMatch) {
+              const whereClause = whereMatch[1].trim();
+
+              // Skip "WHERE 1=1" as it means no filters
+              if (whereClause !== "1=1") {
+                // Parse other WHERE conditions here if needed
+                const conditions = whereClause
+                  .split(" AND ")
+                  .map((cond) => cond.trim());
+
+                conditions.forEach((condition) => {
+                  if (condition === "1=1") return; // Skip this condition
+
+                  const match = condition.match(/(\w+)\s*=\s*\?/);
+                  if (match && valueIndex < values.length) {
+                    filters[match[1]] = values[valueIndex];
+                    valueIndex++;
+                  }
+                });
+              }
+            }
+
+            // Get weight records with related data
+            return supabaseDB
+              .query<T>({
+                table: "weight_records",
+                select:
+                  "*, materials!weight_records_item_id_fkey(name), users!weight_records_user_id_fkey(name), approved_by_user:users!weight_records_approved_by_fkey(name)",
+                filters,
+                single: false,
+              })
+              .then((records: any) => {
+                // Transform the data to match expected format
+                if (Array.isArray(records)) {
+                  return records.map((record) => ({
+                    ...record,
+                    item_name: record.materials?.name || "Unknown Material",
+                    user_name: record.users?.name || "Unknown User",
+                    approved_by_name: record.approved_by_user?.name || null,
+                  }));
+                }
+                return records;
+              }) as Promise<T>;
+          }
+        }
+
         // Extract table name from SQL
         const tableMatch = query.match(/from\s+(\w+)/i);
         if (tableMatch) {
           const tableName = tableMatch[1];
+
           // Handle COUNT queries with WHERE clause
           if (
             query.includes("COUNT(*)") &&
             query.includes("WHERE") &&
             values.length > 0
           ) {
-            const whereMatch = query.match(/WHERE\s+(\w+)\s*=\s*\?/i);
+            const whereMatch = query.match(
+              /WHERE\s+(.+?)(?:\s+ORDER|\s+LIMIT|$)/i
+            );
             if (whereMatch) {
-              const whereColumn = whereMatch[1];
-              const filters: Record<string, any> = {};
-              filters[whereColumn] = values[0];
+              const whereClause = whereMatch[1].trim();
 
-              return supabaseDB.query<T>({
-                table: tableName,
-                select: "count",
-                filters,
-                single: true,
-              });
+              // Skip "WHERE 1=1" for count queries
+              if (whereClause === "1=1") {
+                return supabaseDB.query<T>({
+                  table: tableName,
+                  select: "count",
+                  filters: {},
+                  single: true,
+                });
+              }
+
+              const columnMatch = whereClause.match(/(\w+)\s*=\s*\?/);
+              if (columnMatch) {
+                const filters: Record<string, any> = {};
+                filters[columnMatch[1]] = values[0];
+
+                return supabaseDB.query<T>({
+                  table: tableName,
+                  select: "count",
+                  filters,
+                  single: true,
+                });
+              }
             }
           }
 
@@ -101,6 +236,7 @@ export async function executeQuery<T = any>(options: {
               single: options.single || false,
             });
           }
+
           // Handle other WHERE patterns with single column
           const whereMatch = query.match(/WHERE\s+(\w+)\s*=\s*\?/i);
           if (whereMatch && values.length > 0) {
@@ -115,31 +251,97 @@ export async function executeQuery<T = any>(options: {
             });
           }
 
-          // Handle LIKE/ILIKE queries
-          const likeMatch = query.match(/WHERE\s+(\w+)\s+(I?LIKE)\s*\?/i);
-          if (likeMatch && values.length > 0) {
-            const whereColumn = likeMatch[1];
-            let searchValue = values[0];
+          // Handle LIKE/ILIKE queries with OR conditions
+          if (query.includes("ILIKE") || query.includes("LIKE")) {
+            // Handle (title ILIKE ? OR description ILIKE ?) pattern
+            const orMatch = query.match(
+              /\((\w+)\s+(I?LIKE)\s*\?\s+OR\s+(\w+)\s+(I?LIKE)\s*\?\)/i
+            );
+            if (orMatch && values.length >= 2) {
+              const field1 = orMatch[1];
+              const field2 = orMatch[3];
+              let searchValue = values[0];
 
-            // Convert LIKE pattern to Supabase text search
-            // Remove % wildcards for Supabase ilike
-            if (typeof searchValue === "string") {
-              searchValue = searchValue.replace(/%/g, "");
+              // Remove % wildcards for Supabase text search
+              if (typeof searchValue === "string") {
+                searchValue = searchValue.replace(/%/g, "");
+              }
+
+              // For OR conditions, we'll use the first field for now
+              // This is a limitation of the current conversion approach
+              const filters: Record<string, any> = {};
+              filters[field1] = searchValue;
+
+              return supabaseDB.query<T>({
+                table: tableName,
+                filters,
+                single: options.single || false,
+              });
             }
 
-            const filters: Record<string, any> = {};
-            filters[whereColumn] = searchValue;
+            // Handle simple single LIKE/ILIKE
+            const likeMatch = query.match(/WHERE\s+(\w+)\s+(I?LIKE)\s*\?/i);
+            if (likeMatch && values.length > 0) {
+              const whereColumn = likeMatch[1];
+              let searchValue = values[0];
 
+              // Convert LIKE pattern to Supabase text search
+              // Remove % wildcards for Supabase ilike
+              if (typeof searchValue === "string") {
+                searchValue = searchValue.replace(/%/g, "");
+              }
+
+              const filters: Record<string, any> = {};
+              filters[whereColumn] = searchValue;
+
+              return supabaseDB.query<T>({
+                table: tableName,
+                filters,
+                single: options.single || false,
+              });
+            }
+          }
+
+          // Handle WHERE with multiple conditions (AND logic)
+          if (query.includes("AND") && values.length >= 2) {
+            // Extract table name
+            const whereSection = query.match(
+              /WHERE\s+(.*?)(?:\s+ORDER|\s+LIMIT|$)/i
+            );
+            if (whereSection) {
+              const conditions = whereSection[1]
+                .split(" AND ")
+                .map((cond) => cond.trim());
+              const filters: Record<string, any> = {};
+              let valueIndex = 0;
+
+              conditions.forEach((condition) => {
+                if (condition === "1=1") return; // Skip this condition
+
+                const match = condition.match(/(\w+)\s*=\s*\?/);
+                if (match && valueIndex < values.length) {
+                  filters[match[1]] = values[valueIndex];
+                  valueIndex++;
+                }
+              });
+
+              if (Object.keys(filters).length > 0) {
+                return supabaseDB.query<T>({
+                  table: tableName,
+                  filters,
+                  single: options.single || false,
+                });
+              }
+            }
+          }
+
+          // Handle WHERE 1=1 (means no filters, select all)
+          if (query.includes("WHERE 1=1") && !query.includes("AND")) {
             return supabaseDB.query<T>({
               table: tableName,
-              filters,
+              filters: {},
               single: options.single || false,
             });
-          }
-          // Handle WHERE with multiple conditions (name = ? AND id != ?)
-          if (query.includes("AND") && values.length >= 2) {
-            // For complex queries with AND/OR, fall back to error for now
-            // This can be extended later if needed
           }
 
           // Simple SELECT * FROM table pattern
@@ -151,7 +353,9 @@ export async function executeQuery<T = any>(options: {
             });
           }
         }
-      } // Handle INSERT queries with RETURNING
+      }
+
+      // Handle INSERT queries with RETURNING
       if (query.toLowerCase().startsWith("insert")) {
         const tableMatch = query.match(/insert\s+into\s+(\w+)/i);
         if (tableMatch) {
@@ -176,7 +380,9 @@ export async function executeQuery<T = any>(options: {
             });
           }
         }
-      } // Handle UPDATE queries with dynamic SET clauses
+      }
+
+      // Handle UPDATE queries with dynamic SET clauses
       if (query.toLowerCase().startsWith("update")) {
         const tableMatch = query.match(/update\s+(\w+)/i);
         if (tableMatch) {

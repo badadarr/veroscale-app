@@ -42,49 +42,37 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
     let totalItems = 0;
     let records: any[] = [];
 
-    // Build filters for Supabase query
-    let query = `
-      SELECT wr.*, m.name as item_name, u.name as user_name, 
-             approver.name as approved_by_name
-      FROM weight_records wr
-      JOIN materials m ON wr.item_id = m.id
-      JOIN users u ON wr.user_id = u.id
-      LEFT JOIN users approver ON wr.approved_by = approver.id
-      WHERE 1=1
-    `;
-
+    // Build filters for weight_records query
+    let query = "SELECT * FROM weight_records WHERE 1=1";
     const queryParams: any[] = [];
 
     if (item_id) {
-      query += ` AND wr.item_id = ?`;
+      query += ` AND item_id = ?`;
       queryParams.push(item_id);
     }
 
     if (user_id) {
-      query += ` AND wr.user_id = ?`;
+      query += ` AND user_id = ?`;
       queryParams.push(user_id);
     }
 
     if (status) {
-      query += ` AND wr.status = ?`;
+      query += ` AND status = ?`;
       queryParams.push(status);
     }
 
     if (startDate) {
-      query += ` AND wr.timestamp >= ?`;
+      query += ` AND timestamp >= ?`;
       queryParams.push(startDate);
     }
 
     if (endDate) {
-      query += ` AND wr.timestamp <= ?`;
+      query += ` AND timestamp <= ?`;
       queryParams.push(endDate);
     }
 
     // Get total count for pagination
-    const countQuery = query.replace(
-      "SELECT wr.*, m.name as item_name, u.name as user_name, approver.name as approved_by_name",
-      "SELECT COUNT(*) as count"
-    );
+    const countQuery = query.replace("SELECT *", "SELECT COUNT(*) as count");
     const countResult = await executeQuery<any[]>({
       query: countQuery,
       values: queryParams,
@@ -93,13 +81,43 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
     totalItems = countResult[0].count;
 
     // Add pagination to main query
-    query += ` ORDER BY wr.timestamp DESC LIMIT ? OFFSET ?`;
+    query += ` ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
     queryParams.push(itemsPerPage, offset);
 
-    records = await executeQuery<any[]>({
+    // Get weight records
+    const weightRecords = await executeQuery<any[]>({
       query,
       values: queryParams,
     });
+
+    // Get all materials for item name lookup
+    const materials = await executeQuery<any[]>({
+      query: "SELECT id, name FROM ref_items",
+    });
+
+    // Get all users for user name and approver lookup
+    const users = await executeQuery<any[]>({
+      query: "SELECT id, name FROM users",
+    });
+
+    // Create lookup maps
+    const materialMap = Array.isArray(materials) ? materials.reduce((map, material) => {
+      map[material.id] = material.name;
+      return map;
+    }, {} as Record<number, string>) : {};
+
+    const userMap = Array.isArray(users) ? users.reduce((map, user) => {
+      map[user.id] = user.name;
+      return map;
+    }, {} as Record<number, string>) : {};
+
+    // Add related data to weight records
+    records = Array.isArray(weightRecords) ? weightRecords.map(record => ({
+      ...record,
+      item_name: materialMap[record.item_id] || 'Unknown Item',
+      user_name: userMap[record.user_id] || 'Unknown User',
+      approved_by_name: record.approved_by ? (userMap[record.approved_by] || 'Unknown Approver') : null
+    })) : [];
 
     return res.status(200).json({
       records,

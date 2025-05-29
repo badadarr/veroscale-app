@@ -27,52 +27,66 @@ export default async function handler(
 async function handleGet(req: NextApiRequest, res: NextApiResponse) {
   const { status, priority, type, search } = req.query;
 
-  // Build WHERE conditions
+  // Build WHERE conditions for issues table
   const conditions: string[] = [];
   const values: any[] = [];
 
   if (status) {
-    conditions.push("i.status = ?");
+    conditions.push("status = ?");
     values.push(status);
   }
 
   if (priority) {
-    conditions.push("i.priority = ?");
+    conditions.push("priority = ?");
     values.push(priority);
   }
 
   if (type) {
-    conditions.push("i.issue_type = ?");
+    conditions.push("issue_type = ?");
     values.push(type);
   }
 
   if (search && typeof search === "string") {
-    conditions.push("(i.title ILIKE ? OR i.description ILIKE ?)");
+    conditions.push("(title ILIKE ? OR description ILIKE ?)");
     const searchPattern = `%${search}%`;
     values.push(searchPattern, searchPattern);
   }
 
-  // Build the complete query
-  let query = `
-    SELECT i.*, u.name as reporter_name 
-    FROM issues i 
-    LEFT JOIN users u ON i.reporter_id = u.id
-  `;
-
+  // Build the issues query
+  let issuesQuery = "SELECT * FROM issues";
+  
   if (conditions.length > 0) {
-    query += ` WHERE ${conditions.join(" AND ")}`;
+    issuesQuery += ` WHERE ${conditions.join(" AND ")}`;
   }
 
-  query += " ORDER BY i.created_at DESC";
+  issuesQuery += " ORDER BY created_at DESC";
 
-  const issuesResult = await executeQuery({
-    query,
+  // Get issues
+  const issues = await executeQuery({
+    query: issuesQuery,
     values,
   });
 
+  // Get all users to map reporter names
+  const users = await executeQuery({
+    query: "SELECT id, name FROM users",
+  });
+
+  // Create user lookup map
+  const userMap = Array.isArray(users) ? users.reduce((map, user) => {
+    map[user.id] = user.name;
+    return map;
+  }, {} as Record<number, string>) : {};
+
+  // Add reporter names to issues
+  const issuesWithReporters = Array.isArray(issues) ? issues.map(issue => ({
+    ...issue,
+    reporter_name: userMap[issue.reporter_id] || 'Unknown User'
+  })) : [];
+
   res.status(200).json({
-    issues: issuesResult || [],
-    total: Array.isArray(issuesResult) ? issuesResult.length : 0,
+    issues: issuesWithReporters,
+    total: issuesWithReporters.length,
   });
 }
 
