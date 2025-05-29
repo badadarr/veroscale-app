@@ -45,29 +45,54 @@ export default async function handler(
         return res
           .status(404)
           .json({ error: `Material with ID ${materialId} not found` });
-      }
+      } // Insert weight record using table operations
+      const insertData: {
+        item_id: any;
+        total_weight: any;
+        unit: string;
+        batch_number: any;
+        source: any;
+        destination: any;
+        notes: any;
+        status: string;
+        [key: string]: any; // Allow additional properties like created_at and timestamp
+      } = {
+        item_id: materialId,
+        total_weight: weight,
+        unit,
+        batch_number: batch_number || null,
+        source: source || null,
+        destination: destination || null,
+        notes: notes || null,
+        status: "pending",
+      };
 
-      // Insert weight record using table operations
+      // Add timestamp field if no created_at field exists
+      // This makes the API compatible with both old and new schema
+      try {
+        const currentTime = new Date().toISOString();
+        insertData.created_at = currentTime;
+        // Also set timestamp for backward compatibility
+        insertData.timestamp = currentTime;
+      } catch (err) {
+        console.log("Date conversion error:", err);
+      }
       const result = await executeQuery<any>({
         table: "weight_records",
         action: "insert",
-        data: {
-          item_id: materialId,
-          total_weight: weight,
-          unit,
-          batch_number: batch_number || null,
-          source: source || null,
-          destination: destination || null,
-          notes: notes || null,
-          status: "pending",
-          created_at: new Date().toISOString(),
-        },
-        returning: "id",
+        data: insertData,
+        returning: "record_id, item_id", // Use record_id (the correct primary key column name)
       });
-
       if (result) {
+        // Extract ID correctly using record_id (the correct primary key name)
+        const recordId =
+          result.record_id ||
+          (result[0] ? result[0].record_id : null) ||
+          result.id ||
+          (result[0] ? result[0].id : null);
+
         insertedRecords.push({
-          id: result.id || result[0]?.id,
+          id: recordId, // Use recordId as the ID in the response
           materialId,
           materialName: material.name,
           weight,

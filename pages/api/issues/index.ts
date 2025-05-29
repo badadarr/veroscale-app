@@ -1,36 +1,32 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { executeQuery, safeQuery } from "@/lib/db-adapter";
+import { getUserFromToken } from "@/lib/auth";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const user = await getUserFromToken(req);
+  
+  if (!user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  switch (req.method) {
+    case 'GET':
+      return getIssues(req, res);
+    case 'POST':
+      return createIssue(req, res, user);
+    default:
+      return res.status(405).json({ message: 'Method not allowed' });
+  }
+}
+
+// Get all issues with optional filtering
+async function getIssues(req: NextApiRequest, res: NextApiResponse) {
   try {
-    console.log("Fetching materials count...");
-    const materialsCount = (await safeQuery({
-      table: "materials",
-      columns: "count",
-      single: true,
-    })) as { count: number } | null;
-
-    console.log("Fetching monthly requests...");
-    // Use safe queries for all dashboard data
-
-    console.log("Fetching monthly weight...");
-    // More safe queries
-
-    console.log("Fetching pending issues...");
-    const pendingIssues = await safeQuery({
-      table: "issues",
-      action: "select",
-      filters: { status: "pending" },
-    });
-
-    console.log("Fetching weight by day for last 7 days...");
-    // Weight by day
-
-    console.log("Fetching recent issues...");
-    const recentIssues = await safeQuery({
+    console.log("Fetching issues...");
+    const issues = await safeQuery({
       table: "issues",
       action: "select",
       columns: "*",
@@ -53,27 +49,61 @@ export default async function handler(
       : {};
 
     // Add reporter names to issues safely
-    const issuesWithReporters = Array.isArray(recentIssues)
-      ? recentIssues.map((issue) => ({
+    const issuesWithReporters = Array.isArray(issues)
+      ? issues.map((issue) => ({
           ...issue,
-          reporter_name: userMap[issue.reporter_id] || "Unknown User",
+          user_name: userMap[issue.reporter_id || issue.user_id] || "Unknown User",
         }))
       : [];
 
-    res.status(200).json({
-      materialsCount: materialsCount?.count || 0,
-      pendingIssues: Array.isArray(pendingIssues) ? pendingIssues.length : 0,
-      recentIssues: issuesWithReporters || [],
-      // Add other dashboard data with safe defaults
+    return res.status(200).json({ issues: issuesWithReporters });
+  } catch (error) {
+    console.error("Error fetching issues:", error);
+    return res.status(500).json({ message: "Failed to fetch issues" });
+  }
+}
+
+// Create a new issue
+async function createIssue(req: NextApiRequest, res: NextApiResponse, user: any) {
+  try {
+    const { title, description, type, priority, record_id } = req.body;
+
+    if (!title || !description) {
+      return res.status(400).json({ message: 'Title and description are required' });
+    }
+
+    const result = await executeQuery({
+      table: "issues",
+      action: "insert",
+      data: {
+        title,
+        description,
+        type: type || 'data_correction',
+        priority: priority || 'medium',
+        status: 'pending',
+        reporter_id: user.id,
+        user_id: user.id,
+        record_id: record_id || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      },
+      returning: "*"
+    });
+
+    const issue = Array.isArray(result) ? result[0] : result;
+
+    // Add user_name to the issue
+    const issueWithUser = {
+      ...issue,
+      user_name: user.name || "Unknown User"
+    };
+
+    return res.status(201).json({ 
+      message: 'Issue created successfully',
+      issue: issueWithUser
     });
   } catch (error) {
-    console.error("Dashboard API error:", error);
-    // Return safe default structure
-    res.status(200).json({
-      materialsCount: 0,
-      pendingIssues: 0,
-      recentIssues: [],
-      // Default values for all other dashboard data
-    });
+    console.error("Error creating issue:", error);
+    return res.status(500).json({ message: "Failed to create issue" });
   }
 }

@@ -15,12 +15,11 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function runMigration() {
   try {
-    console.log('Starting database migrations...');
-
-    // Array of SQL files to execute in order
+    console.log('Starting database migrations...');    // Array of SQL files to execute in order
     const migrationFiles = [
       'alter-users-table.sql',
-      'create-report-tables.sql'
+      'create-report-tables.sql',
+      'fix-weight-records-comprehensive.sql' // Added comprehensive fix
     ];
 
     for (const file of migrationFiles) {
