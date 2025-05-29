@@ -7,11 +7,11 @@ export default async function handler(
 ) {
   try {
     console.log("Fetching materials count...");
-    const materialsCount = await safeQuery({
+    const materialsCount = (await safeQuery({
       table: "materials",
       columns: "count",
       single: true,
-    });
+    })) as { count: number } | null;
 
     console.log("Fetching monthly requests...");
     // Use safe queries for all dashboard data
