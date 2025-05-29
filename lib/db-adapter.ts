@@ -369,12 +369,21 @@ export async function executeQuery<T = any>(options: {
           }
 
           // Simple SELECT * FROM table pattern
-          if (query.includes("SELECT *") && !query.includes("WHERE")) {
-            return supabaseDB.query<T>({
-              table: tableName,
-              filters: {},
-              single: options.single || false,
-            });
+          if (query.match(/^SELECT\s+[\w\s,]+\s+FROM\s+\w+$/i)) {
+            const columnsMatch = query.match(/SELECT\s+([\w\s,]+)\s+FROM/i);
+            const tableMatch = query.match(/FROM\s+(\w+)/i);
+
+            if (columnsMatch && tableMatch) {
+              const columns = columnsMatch[1].trim();
+              const tableName = tableMatch[1];
+
+              return supabaseDB.query<T>({
+                table: tableName,
+                select: columns,
+                filters: {},
+                single: false,
+              });
+            }
           }
         }
       }

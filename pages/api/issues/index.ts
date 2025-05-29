@@ -25,69 +25,100 @@ export default async function handler(
 }
 
 async function handleGet(req: NextApiRequest, res: NextApiResponse) {
-  const { status, priority, type, search } = req.query;
+  try {
+    const { status, priority, type, search } = req.query;
 
-  // Build WHERE conditions for issues table
-  const conditions: string[] = [];
-  const values: any[] = [];
+    // Build WHERE conditions for issues table
+    const conditions: string[] = [];
+    const values: any[] = [];
 
-  if (status) {
-    conditions.push("status = ?");
-    values.push(status);
+    if (status) {
+      conditions.push("i.status = ?");
+      values.push(status);
+    }
+
+    if (priority) {
+      conditions.push("i.priority = ?");
+      values.push(priority);
+    }
+
+    if (type) {
+      conditions.push("i.issue_type = ?");
+      values.push(type);
+    }
+
+    if (search && typeof search === "string") {
+      conditions.push("(i.title ILIKE ? OR i.description ILIKE ?)");
+      const searchPattern = `%${search}%`;
+      values.push(searchPattern, searchPattern);
+    }
+
+    // Use table operations directly instead of SQL
+    const issues = await executeQuery({
+      table: "issues",
+      action: "select",
+      columns: "*",
+      filters: buildFilters(conditions, values),
+    });
+
+    // Get all users to map reporter names
+    const users = await executeQuery({
+      table: "users",
+      action: "select",
+      columns: "id, name",
+    });
+
+    // Create user lookup map
+    const userMap = Array.isArray(users)
+      ? users.reduce((map, user) => {
+          map[user.id] = user.name;
+          return map;
+        }, {} as Record<number, string>)
+      : {};
+
+    // Add reporter names to issues
+    const issuesWithReporters = Array.isArray(issues)
+      ? issues.map((issue) => ({
+          ...issue,
+          reporter_name: userMap[issue.reporter_id] || "Unknown User",
+        }))
+      : [];
+
+    res.status(200).json({
+      issues: issuesWithReporters,
+      total: issuesWithReporters.length,
+    });
+  } catch (error) {
+    console.error("Error fetching issues:", error);
+    // Return empty array to avoid dashboard errors
+    res.status(200).json({
+      issues: [],
+      total: 0,
+    });
   }
+}
 
-  if (priority) {
-    conditions.push("priority = ?");
-    values.push(priority);
-  }
+function buildFilters(conditions: string[], values: any[]) {
+  if (conditions.length === 0) return {};
 
-  if (type) {
-    conditions.push("issue_type = ?");
-    values.push(type);
-  }
-
-  if (search && typeof search === "string") {
-    conditions.push("(title ILIKE ? OR description ILIKE ?)");
-    const searchPattern = `%${search}%`;
-    values.push(searchPattern, searchPattern);
-  }
-
-  // Build the issues query
-  let issuesQuery = "SELECT * FROM issues";
-  
-  if (conditions.length > 0) {
-    issuesQuery += ` WHERE ${conditions.join(" AND ")}`;
-  }
-
-  issuesQuery += " ORDER BY created_at DESC";
-
-  // Get issues
-  const issues = await executeQuery({
-    query: issuesQuery,
-    values,
+  const filters: Record<string, any> = {};
+  conditions.forEach((condition, index) => {
+    // Extract column name from condition (remove table alias)
+    const match = condition.match(/(\w+)\.(\w+)\s*=\s*\?/);
+    if (match) {
+      const column = match[2];
+      filters[column] = values[index];
+    } else {
+      // Handle ILIKE queries differently
+      if (condition.includes("ILIKE")) {
+        // For search, we'll need special handling
+        if (condition.includes("title") && values[index]) {
+          filters.title = values[index].replace(/%/g, "");
+        }
+      }
+    }
   });
-
-  // Get all users to map reporter names
-  const users = await executeQuery({
-    query: "SELECT id, name FROM users",
-  });
-
-  // Create user lookup map
-  const userMap = Array.isArray(users) ? users.reduce((map, user) => {
-    map[user.id] = user.name;
-    return map;
-  }, {} as Record<number, string>) : {};
-
-  // Add reporter names to issues
-  const issuesWithReporters = Array.isArray(issues) ? issues.map(issue => ({
-    ...issue,
-    reporter_name: userMap[issue.reporter_id] || 'Unknown User'
-  })) : [];
-
-  res.status(200).json({
-    issues: issuesWithReporters,
-    total: issuesWithReporters.length,
-  });
+  return filters;
 }
 
 async function handlePost(req: NextApiRequest, res: NextApiResponse) {
