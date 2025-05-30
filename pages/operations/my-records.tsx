@@ -182,27 +182,42 @@ export default function MyRecords() {
     };    // Handle submitting issue report
     const handleSubmitIssue = async () => {
         if (!selectedRecord || !issueType || !issueDescription) {
+            toast.error('Please fill in all required fields');
             return;
         }
 
         try {
             setLoading(true);
+            console.log('Submitting issue with data:', {
+                title: `Issue with record #${selectedRecord.id}: ${issueType}`,
+                description: issueDescription,
+                issue_type: issueType,
+                priority: 'medium',
+                record_id: selectedRecord.id
+            });
+
             // Use real API call
             await apiClient.post('/api/issues', {
                 title: `Issue with record #${selectedRecord.id}: ${issueType}`,
                 description: issueDescription,
                 issue_type: issueType,
                 priority: 'medium',
-                reporter_id: user?.id,
                 record_id: selectedRecord.id
             });
 
             toast.success('Issue reported successfully');
             handleCloseReportModal();
             handleCloseDetails();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error reporting issue:', error);
-            toast.error('Failed to report issue. Please try again.');
+            console.error('Error response:', error.response?.data);
+
+            const errorMessage = error.response?.data?.error ||
+                error.response?.data?.details ||
+                error.message ||
+                'Failed to report issue';
+
+            toast.error(`Failed to report issue: ${errorMessage}`);
         } finally {
             setLoading(false);
         }
@@ -498,8 +513,7 @@ export default function MyRecords() {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Issue Type *
-                                    </label>
-                                    <select
+                                    </label>                                    <select
                                         value={issueType}
                                         onChange={(e) => setIssueType(e.target.value)}
                                         className="w-full p-2 border border-gray-300 rounded-md"
@@ -507,10 +521,9 @@ export default function MyRecords() {
                                         required
                                     >
                                         <option value="">Select Issue Type</option>
-                                        <option value="incorrect_weight">Incorrect Weight</option>
-                                        <option value="wrong_material">Wrong Material</option>
-                                        <option value="duplicate_entry">Duplicate Entry</option>
-                                        <option value="wrong_batch">Wrong Batch Number</option>
+                                        <option value="data_correction">Data Correction</option>
+                                        <option value="system_error">System Error</option>
+                                        <option value="feature_request">Feature Request</option>
                                         <option value="other">Other Issue</option>
                                     </select>
                                 </div>

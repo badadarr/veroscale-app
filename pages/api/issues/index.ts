@@ -99,11 +99,13 @@ async function createIssue(
   user: any
 ) {
   try {
-    const { title, description, type, priority, record_id } = req.body;
+    const { title, description, type, issue_type, priority, record_id } =
+      req.body;
     console.log("Creating issue with data:", {
       title,
       description,
       type,
+      issue_type,
       priority,
       record_id,
       reporter_id: user.id,
@@ -115,13 +117,16 @@ async function createIssue(
         .json({ message: "Title and description are required" });
     }
 
+    // Use issue_type if provided, otherwise fall back to type
+    const issueTypeValue = issue_type || type || "data_correction";
+
     const result = await executeQuery({
       table: "issues",
       action: "insert",
       data: {
         title,
         description,
-        issue_type: type || "data_correction", // Use issue_type instead of type
+        issue_type: issueTypeValue,
         priority: priority || "medium",
         status: "pending",
         reporter_id: user.id,
@@ -140,7 +145,7 @@ async function createIssue(
     const issueWithUser = {
       ...issue,
       user_name: user.name || "Unknown User",
-      type: issue.issue_type || issue.type || type || "other",
+      type: issue.issue_type || issueTypeValue,
     };
 
     console.log("Final issue with user:", issueWithUser);
