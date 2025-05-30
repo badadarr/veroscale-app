@@ -26,7 +26,7 @@ export default async function handler(
 async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
   try {
     const {
-      item_id,
+      sample_id,
       user_id,
       status,
       startDate,
@@ -42,13 +42,13 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
     let totalItems = 0;
     let records: any[] = [];
 
-    // Build filters for weight_records query
+    // Build filters for weight_records query using sample_id instead of item_id
     let query = "SELECT * FROM weight_records WHERE 1=1";
     const queryParams: any[] = [];
 
-    if (item_id) {
-      query += ` AND item_id = ?`;
-      queryParams.push(item_id);
+    if (sample_id) {
+      query += ` AND sample_id = ?`;
+      queryParams.push(sample_id);
     }
 
     if (user_id) {
@@ -90,9 +90,9 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
       values: queryParams,
     });
 
-    // Get all materials for item name lookup
-    const materials = await executeQuery<any[]>({
-      query: "SELECT id, name FROM ref_items",
+    // Get all samples for sample name lookup
+    const samples = await executeQuery<any[]>({
+      query: "SELECT id, category, item FROM samples_item",
     });
 
     // Get all users for user name and approver lookup
@@ -101,8 +101,8 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
     });
 
     // Create lookup maps
-    const materialMap = Array.isArray(materials) ? materials.reduce((map, material) => {
-      map[material.id] = material.name;
+    const sampleMap = Array.isArray(samples) ? samples.reduce((map, sample) => {
+      map[sample.id] = `${sample.category} - ${sample.item}`;
       return map;
     }, {} as Record<number, string>) : {};
 
@@ -114,7 +114,7 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
     // Add related data to weight records
     records = Array.isArray(weightRecords) ? weightRecords.map(record => ({
       ...record,
-      item_name: materialMap[record.item_id] || 'Unknown Item',
+      item_name: sampleMap[record.sample_id] || 'Unknown Sample',
       user_name: userMap[record.user_id] || 'Unknown User',
       approved_by_name: record.approved_by ? (userMap[record.approved_by] || 'Unknown Approver') : null
     })) : [];
@@ -134,49 +134,66 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
   }
 }
 
-// Add a new weight record
+// Add a new weight record (single entry with sample)
 async function addWeightRecord(
   req: NextApiRequest,
   res: NextApiResponse,
   user: any
 ) {
   try {
-    const { item_id, total_weight } = req.body;
+    const { sample_id, total_weight, notes, source, destination, unit } = req.body;
 
-    if (!item_id || total_weight === undefined) {
+    if (!sample_id || total_weight === undefined) {
       return res
         .status(400)
-        .json({ message: "Item ID and total weight are required" });
+        .json({ message: "Sample ID and total weight are required" });
     }
 
-    // Check if material exists
-    const materials = await executeQuery<any[]>({
-      query: "SELECT * FROM ref_items WHERE id = ?",
-      values: [item_id],
+    // Check if sample exists
+    const samples = await executeQuery<any[]>({
+      query: "SELECT * FROM samples_item WHERE id = ?",
+      values: [sample_id],
     });
 
-    if (!materials || materials.length === 0) {
-      return res.status(404).json({ message: "Material not found" });
+    if (!samples || samples.length === 0) {
+      return res.status(404).json({ message: "Sample not found" });
     }
 
-    // Insert new weight record
+    const sample = samples[0];
+
+    // Insert new weight record using samples
     const result = await executeQuery<any>({
       query: `
-        INSERT INTO weight_records (user_id, item_id, total_weight, status)
-        VALUES (?, ?, ?, 'pending')
+        INSERT INTO weight_records 
+        (user_id, sample_id, total_weight, status, source, destination, notes, unit)
+        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
+        RETURNING *
       `,
-      values: [user.id, item_id, total_weight],
+      values: [
+        user.id, 
+        sample_id, 
+        total_weight, 
+        source || null, 
+        destination || null, 
+        notes || null, 
+        unit || "kg"
+      ],
+      single: true,
     });
 
     const newRecord = {
-      id: result.insertId,
+      id: result.record_id,
       user_id: user.id,
       user_name: user.name,
-      item_id,
-      item_name: materials[0].name,
+      sample_id,
+      sample_name: `${sample.category} - ${sample.item}`,
       total_weight,
-      timestamp: new Date(),
+      timestamp: result.created_at || new Date(),
       status: "pending",
+      source: source || null,
+      destination: destination || null,
+      notes: notes || null,
+      unit: unit || "kg",
     };
 
     return res.status(201).json({

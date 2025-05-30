@@ -40,10 +40,10 @@ export default async function handler(
 }
 
 async function getDashboardSummary() {
-  // Get total materials count
-  console.log("Fetching materials count...");
-  const materialsCount = await getCount("materials");
-  console.log("Materials count result:", materialsCount);
+  // Get total samples count (changed from materials to samples)
+  console.log("Fetching samples count...");
+  const samplesCount = await getCount("samples_item");
+  console.log("Samples count result:", samplesCount);
 
   // Get total requests/month (weight records for current month)
   console.log("Fetching monthly requests...");
@@ -70,8 +70,11 @@ async function getDashboardSummary() {
     console.error("Error fetching monthly weight:", weightError);
   }
 
-  const totalMonthlyWeight = monthlyWeight?.reduce((sum, record) => 
-    sum + (parseFloat(record.total_weight) || 0), 0) || 0;
+  const totalMonthlyWeight =
+    monthlyWeight?.reduce(
+      (sum, record) => sum + (parseFloat(record.total_weight) || 0),
+      0
+    ) || 0;
 
   // Get pending issues count
   console.log("Fetching pending issues...");
@@ -85,7 +88,7 @@ async function getDashboardSummary() {
   }
 
   return {
-    totalMaterials: materialsCount[0]?.count || 0,
+    totalMaterials: samplesCount[0]?.count || 0,
     totalRequests: monthlyRequests?.length || 0,
     totalWeight: Math.round(totalMonthlyWeight * 100) / 100,
     pendingIssues: pendingIssues?.length || 0,
@@ -116,7 +119,7 @@ async function getWeightByDay() {
 
     if (Array.isArray(data)) {
       data.forEach((record) => {
-        const day = record.timestamp.split('T')[0]; // Get YYYY-MM-DD
+        const day = record.timestamp.split("T")[0]; // Get YYYY-MM-DD
         const weight = parseFloat(record.total_weight) || 0;
         dailyTotals[day] = (dailyTotals[day] || 0) + weight;
       });
@@ -124,12 +127,11 @@ async function getWeightByDay() {
 
     // Convert to array format for chart
     return Object.entries(dailyTotals)
-      .map(([day, weight]) => ({ 
-        day: formatDayForChart(day), 
-        weight: Math.round(weight * 100) / 100 
+      .map(([day, weight]) => ({
+        day: formatDayForChart(day),
+        weight: Math.round(weight * 100) / 100,
       }))
       .sort((a, b) => a.day.localeCompare(b.day));
-
   } catch (error) {
     console.error("Error in getWeightByDay:", error);
     return [];
@@ -142,10 +144,12 @@ async function getReportIssues() {
 
     const { data, error } = await supabaseAdmin
       .from("issues")
-      .select(`
+      .select(
+        `
         *,
         users!issues_reporter_id_fkey (name)
-      `)
+      `
+      )
       .order("created_at", { ascending: false })
       .limit(5);
 
@@ -156,9 +160,8 @@ async function getReportIssues() {
 
     return (data || []).map((issue: any) => ({
       ...issue,
-      reporter_name: issue.users?.name || 'Unknown',
+      reporter_name: issue.users?.name || "Unknown",
     }));
-
   } catch (error) {
     console.error("Error in getReportIssues:", error);
     return [];
@@ -167,16 +170,16 @@ async function getReportIssues() {
 
 // Helper functions
 function getNextMonth(currentMonth: string): string {
-  const [year, month] = currentMonth.split('-').map(Number);
+  const [year, month] = currentMonth.split("-").map(Number);
   const nextMonth = month === 12 ? 1 : month + 1;
   const nextYear = month === 12 ? year + 1 : year;
-  return `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
+  return `${nextYear}-${String(nextMonth).padStart(2, "0")}`;
 }
 
 function formatDayForChart(day: string): string {
   const date = new Date(day);
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
-    day: 'numeric' 
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
   });
 }
