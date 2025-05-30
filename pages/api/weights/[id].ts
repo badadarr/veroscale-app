@@ -37,17 +37,17 @@ async function getWeightRecord(
   id: string
 ) {
   try {
-    // Query using Supabase format
+    // Query using Supabase format with record_id
     const record = await executeQuery<any>({
       table: "weight_records",
       action: "select",
       columns: `
         *,
-        materials(name),
+        samples_item!weight_records_sample_id_fkey(id, category, item),
         users!weight_records_user_id_fkey(name),
         approved_by:users(name)
       `,
-      filters: { id },
+      filters: { record_id: id },
       single: true,
     });
 
@@ -82,12 +82,14 @@ async function updateWeightRecord(
       return res.status(403).json({
         message: "Only administrators and managers can change approval status",
       });
-    } // First check if record exists
+    } 
+    
+    // First check if record exists - use record_id instead of id
     const existingRecord = await executeQuery<any>({
       table: "weight_records",
       action: "select",
       columns: "*",
-      filters: { id },
+      filters: { record_id: id },
       single: true,
     });
 
@@ -110,12 +112,12 @@ async function updateWeightRecord(
         updateData.approved_at = null;
       }
     }
-
+    
     await executeQuery({
       table: "weight_records",
       action: "update",
       data: updateData,
-      filters: { id },
+      filters: { record_id: id },
     });
 
     // Fetch the updated record with related data
@@ -124,11 +126,11 @@ async function updateWeightRecord(
       action: "select",
       columns: `
         *,
-        materials(name),
+        samples_item!weight_records_sample_id_fkey(id, category, item),
         users!weight_records_user_id_fkey(name),
         approved_by:users(name)
       `,
-      filters: { id },
+      filters: { record_id: id },
       single: true,
     });
 
@@ -148,19 +150,21 @@ async function deleteWeightRecord(
   res: NextApiResponse,
   id: string,
   user: any
-) {
+) {  
   try {
     // Only admin can delete records
     if (user.role !== "admin") {
       return res.status(403).json({
         message: "Only administrators can delete weight records",
       });
-    } // First check if record exists
+    } 
+    
+    // First check if record exists - use record_id
     const existingRecord = await executeQuery<any>({
       table: "weight_records",
       action: "select",
       columns: "*",
-      filters: { id },
+      filters: { record_id: id },
       single: true,
     });
 
@@ -172,7 +176,7 @@ async function deleteWeightRecord(
     await executeQuery({
       table: "weight_records",
       action: "delete",
-      filters: { id },
+      filters: { record_id: id },
     });
 
     return res.status(200).json({

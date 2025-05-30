@@ -84,10 +84,8 @@ async function addBatchWeightRecords(
           unit || "kg",
         ],
         single: true,
-      });
-
-      insertedRecords.push({
-        id: result.id,
+      });      insertedRecords.push({
+        id: result.record_id, // Gunakan record_id sebagai id untuk kompatibilitas
         user_id: user.id,
         user_name: user.name,
         sample_id,

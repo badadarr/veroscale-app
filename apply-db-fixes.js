@@ -21,6 +21,11 @@ const fixedFilesMap = [
   }
 ];
 
+// Database fix scripts to run
+const dbFixScripts = [
+  path.join(projectRoot, 'scripts/fix-weight-records.js')
+];
+
 // Create backup function
 function createBackup(filePath) {
   if (fs.existsSync(filePath)) {
@@ -32,13 +37,39 @@ function createBackup(filePath) {
   return null;
 }
 
+// Run a database fix script
+async function runDbFixScript(scriptPath) {
+  return new Promise((resolve, reject) => {
+    console.log(`Running database fix script: ${path.basename(scriptPath)}`);
+    
+    const { exec } = require('child_process');
+    exec(`node "${scriptPath}"`, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error executing script: ${error.message}`);
+        reject(error);
+        return;
+      }
+      
+      console.log(stdout);
+      
+      if (stderr) {
+        console.error(`Script warnings: ${stderr}`);
+      }
+      
+      console.log(`Successfully ran: ${path.basename(scriptPath)}`);
+      resolve();
+    });
+  });
+}
+
 // Apply fixes
-function applyFixes() {
+async function applyFixes() {
   console.log('Starting database implementation fixes...');
   
   let success = true;
   const backups = [];
   
+  // Apply file fixes
   fixedFilesMap.forEach(({ source, destination }) => {
     try {
       if (!fs.existsSync(source)) {
@@ -57,6 +88,23 @@ function applyFixes() {
       success = false;
     }
   });
+  
+  // Run database fix scripts
+  console.log('\nRunning database schema fixes...');
+  try {
+    for (const scriptPath of dbFixScripts) {
+      if (!fs.existsSync(scriptPath)) {
+        console.error(`Database fix script not found: ${scriptPath}`);
+        success = false;
+        continue;
+      }
+      
+      await runDbFixScript(scriptPath);
+    }
+  } catch (error) {
+    console.error('Error running database fix scripts:', error);
+    success = false;
+  }
   
   if (success) {
     console.log('\nAll database implementation fixes applied successfully!');
