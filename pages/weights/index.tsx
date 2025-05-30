@@ -27,49 +27,88 @@ export default function WeightRecords() {
 
   useEffect(() => {
     fetchWeightRecords();
-  }, []);
-  // Function to fetch weight records from API
+  }, []);  // Function to fetch weight records from API
   const fetchWeightRecords = async () => {
     setLoading(true);
     try {
       const response = await apiClient.get('/api/weights');
       const data = response.data;
 
-      if (data.records) {
+      if (data.records && Array.isArray(data.records)) {
         setRecords(data.records.map((record: any) => ({
           id: record.record_id || record.id,
-          item_name: record.item_name,
-          total_weight: record.total_weight,
-          timestamp: record.timestamp,
-          status: record.status,
-          user_name: record.user_name
+          item_name: record.item_name || 'Unknown Item',
+          total_weight: record.total_weight || 0,
+          timestamp: record.timestamp || new Date().toISOString(),
+          status: record.status || 'pending',
+          user_name: record.user_name || 'Unknown User'
         })));
       } else {
+        console.warn('No records found or invalid format:', data);
         setRecords([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching weight records:', error);
-      toast.error('Failed to load weight records');
+      
+      if (error.response?.status === 500) {
+        toast.error('Server error while loading records. Please try again.');
+      } else if (error.response?.status === 401) {
+        toast.error('Unauthorized. Please login again.');
+      } else {
+        toast.error('Failed to load weight records');
+      }
+      
+      setRecords([]);
     } finally {
       setLoading(false);
     }
-  };
-  // Function to update weight record status
+  };// Function to update weight record status
   const updateRecordStatus = async (recordId: number, status: 'approved' | 'rejected' | 'pending') => {
     setStatusUpdating(recordId);
+    
     try {
       const response = await apiClient.put(`/api/weights/${recordId}`, { status });
       const data = response.data;
 
       toast.success(`Record status updated to ${status}`);
-      // Update local state
-      setRecords(records.map(record =>
-        record.id === recordId ? { ...record, status } : record
-      ));
+      
+      // Update local state with the returned record data
+      setRecords(records.map(record => {
+        if (record.id === recordId) {
+          return { 
+            ...record, 
+            status,
+            // Update with additional data from response if available
+            ...(data.record && {
+              user_name: data.record.user_name || record.user_name,
+              item_name: data.record.item_name || record.item_name
+            })
+          };
+        }
+        return record;
+      }));
+      
     } catch (error: any) {
       console.error('Error updating record status:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to update status';
-      toast.error(errorMessage);
+      
+      // Check if the update might have succeeded but the response failed
+      if (error.response?.status === 500) {
+        // Show a different message and try to refresh the data
+        toast.error('Update may have succeeded but response failed. Refreshing data...');
+        
+        // Optimistically update the local state
+        setRecords(records.map(record =>
+          record.id === recordId ? { ...record, status } : record
+        ));
+        
+        // Try to refresh the data to get the latest state
+        setTimeout(() => {
+          fetchWeightRecords();
+        }, 1000);
+      } else {
+        const errorMessage = error.response?.data?.message || 'Failed to update status';
+        toast.error(errorMessage);
+      }
     } finally {
       setStatusUpdating(null);
     }

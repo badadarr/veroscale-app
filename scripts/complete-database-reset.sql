@@ -93,11 +93,14 @@ CREATE TABLE public.issues (
     priority VARCHAR(10) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
     reporter_id INTEGER NOT NULL,
     assigned_to INTEGER NULL,
+    resolved_by INTEGER NULL,
+    resolution TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMP NULL,
     FOREIGN KEY (reporter_id) REFERENCES public.users(id),
-    FOREIGN KEY (assigned_to) REFERENCES public.users(id)
+    FOREIGN KEY (assigned_to) REFERENCES public.users(id),
+    FOREIGN KEY (resolved_by) REFERENCES public.users(id)
 );
 
 -- Create indexes for better performance

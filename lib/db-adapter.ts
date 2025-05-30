@@ -1,10 +1,9 @@
 import * as mysqlDB from "./db";
 import * as supabaseDB from "./db-supabase";
 import { supabaseAdmin } from "./supabase.js";
-import * as supabaseAggregation from "./supabase-aggregation"; // Import fungsi-fungsi agregasi
+import * as supabaseAggregation from "./supabase-aggregation";
 
 // Determine which database implementation to use
-// Use Supabase if the environment variables are set
 const useSupabase = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -29,29 +28,25 @@ export async function executeQuery<T = any>(options: {
   order?: Record<string, "asc" | "desc">;
 }): Promise<T> {
   if (useSupabase) {
-    let {
-      table: operationTable,
-      action,
-      data,
-      filters,
-      columns,
-      single,
-      returning,
-      range,
-    } = options;
+    try {
+      const {
+        table: operationTable,
+        action,
+        data,
+        filters,
+        columns,
+        single,
+        returning,
+        range,
+        order,
+      } = options;
 
-    // Handle direct SQL execution for Supabase - convert to table operations instead of RPC
-    if (options.query && !operationTable) {
-      console.log("Converting SQL query to Supabase table operations...");
+      // Handle direct SQL execution for Supabase
+      if (options.query && !operationTable) {
+        console.log("Converting SQL query to Supabase table operations...");
+        const query = options.query.trim();
+        const values = options.values || [];
 
-      // For now, we'll convert common SQL patterns to Supabase table operations
-      // This is a temporary solution until we can set up proper SQL execution
-
-      const query = options.query.trim();
-      const values = options.values || [];
-
-      // Handle SELECT queries
-      if (query.toLowerCase().startsWith("select")) {
         // Handle JOIN queries - convert to separate queries with manual joining
         if (query.includes("JOIN") || query.includes("join")) {
           // Handle issues with users JOIN
@@ -71,15 +66,12 @@ export async function executeQuery<T = any>(options: {
 
             if (whereMatch) {
               const whereClause = whereMatch[1].trim();
-
-              // Handle both i.status = ? and status = ? patterns
               const statusMatch = whereClause.match(/(?:i\.)?status\s*=\s*\?/i);
               if (statusMatch && values.length > valueIndex) {
                 issuesFilters.status = values[valueIndex];
                 valueIndex++;
               }
 
-              // Try to match any other column condition in WHERE
               const generalMatch = whereClause.match(/(?:i\.)?(\w+)\s*=\s*\?/i);
               if (generalMatch && !statusMatch && values.length > valueIndex) {
                 const columnName = generalMatch[1];
@@ -88,10 +80,8 @@ export async function executeQuery<T = any>(options: {
               }
             }
 
-            // Parse ORDER BY if it exists
             if (orderMatch) {
               const orderClause = orderMatch[1].trim();
-              // Handle i.created_at DESC format
               const cleanOrderClause = orderClause.replace(/i\./g, "");
               const [field, direction] = cleanOrderClause.split(/\s+/);
 
@@ -100,14 +90,6 @@ export async function executeQuery<T = any>(options: {
                   direction?.toLowerCase() === "desc" ? "desc" : "asc";
               }
             }
-
-            // Get issues with user data
-            console.log(
-              "Getting issues with filters:",
-              issuesFilters,
-              "and order:",
-              orderBy
-            );
 
             const queryOptions: any = {
               table: "issues",
@@ -121,7 +103,6 @@ export async function executeQuery<T = any>(options: {
             }
 
             return supabaseDB.query<T>(queryOptions).then((issues: any) => {
-              // Transform the data to match expected format
               if (Array.isArray(issues)) {
                 return issues.map((issue) => ({
                   ...issue,
@@ -149,15 +130,13 @@ export async function executeQuery<T = any>(options: {
             if (whereMatch) {
               const whereClause = whereMatch[1].trim();
 
-              // Skip "WHERE 1=1" as it means no filters
               if (whereClause !== "1=1") {
-                // Parse other WHERE conditions here if needed
                 const conditions = whereClause
                   .split(" AND ")
                   .map((cond) => cond.trim());
 
                 conditions.forEach((condition) => {
-                  if (condition === "1=1") return; // Skip this condition
+                  if (condition === "1=1") return;
 
                   const match = condition.match(/(\w+)\s*=\s*\?/);
                   if (match && valueIndex < values.length) {
@@ -178,7 +157,6 @@ export async function executeQuery<T = any>(options: {
                 single: false,
               })
               .then((records: any) => {
-                // Transform the data to match expected format
                 if (Array.isArray(records)) {
                   return records.map((record) => ({
                     ...record,
@@ -195,7 +173,9 @@ export async function executeQuery<T = any>(options: {
         // Extract table name from SQL
         const tableMatch = query.match(/from\s+(\w+)/i);
         if (tableMatch) {
-          const tableName = tableMatch[1];          // Handle COUNT queries with WHERE clause
+          const tableName = tableMatch[1];
+
+          // Handle COUNT queries with WHERE clause
           if (
             query.includes("COUNT(*)") &&
             query.includes("WHERE") &&
@@ -207,7 +187,6 @@ export async function executeQuery<T = any>(options: {
             if (whereMatch) {
               const whereClause = whereMatch[1].trim();
 
-              // Skip "WHERE 1=1" for count queries
               if (whereClause === "1=1") {
                 return supabaseDB.query<T>({
                   table: tableName,
@@ -217,29 +196,27 @@ export async function executeQuery<T = any>(options: {
                 });
               }
 
-              // Parse multiple AND conditions for count queries
               const filters: Record<string, any> = {};
               const conditions = whereClause.split(/\s+AND\s+/i);
               let valueIndex = 0;
 
               conditions.forEach((condition) => {
                 const trimmedCondition = condition.trim();
-                if (trimmedCondition === "1=1") return; // Skip this condition
+                if (trimmedCondition === "1=1") return;
 
                 const columnMatch = trimmedCondition.match(/(\w+)\s*=\s*\?/);
                 if (columnMatch && valueIndex < values.length) {
                   filters[columnMatch[1]] = values[valueIndex];
                   valueIndex++;
                 }
-                
-                // Handle >= and <= operators for date ranges
+
                 const gteMatch = trimmedCondition.match(/(\w+)\s*>=\s*\?/);
                 if (gteMatch && valueIndex < values.length) {
                   filters[`${gteMatch[1]}_gte`] = values[valueIndex];
                   valueIndex++;
                   return;
                 }
-                
+
                 const lteMatch = trimmedCondition.match(/(\w+)\s*<=\s*\?/);
                 if (lteMatch && valueIndex < values.length) {
                   filters[`${lteMatch[1]}_lte`] = values[valueIndex];
@@ -301,22 +278,17 @@ export async function executeQuery<T = any>(options: {
 
           // Handle LIKE/ILIKE queries with OR conditions
           if (query.includes("ILIKE") || query.includes("LIKE")) {
-            // Handle (title ILIKE ? OR description ILIKE ?) pattern
             const orMatch = query.match(
               /\((\w+)\s+(I?LIKE)\s*\?\s+OR\s+(\w+)\s+(I?LIKE)\s*\?\)/i
             );
             if (orMatch && values.length >= 2) {
               const field1 = orMatch[1];
-              const field2 = orMatch[3];
               let searchValue = values[0];
 
-              // Remove % wildcards for Supabase text search
               if (typeof searchValue === "string") {
                 searchValue = searchValue.replace(/%/g, "");
               }
 
-              // For OR conditions, we'll use the first field for now
-              // This is a limitation of the current conversion approach
               const filters: Record<string, any> = {};
               filters[field1] = searchValue;
 
@@ -327,14 +299,11 @@ export async function executeQuery<T = any>(options: {
               });
             }
 
-            // Handle simple single LIKE/ILIKE
             const likeMatch = query.match(/WHERE\s+(\w+)\s+(I?LIKE)\s*\?/i);
             if (likeMatch && values.length > 0) {
               const whereColumn = likeMatch[1];
               let searchValue = values[0];
 
-              // Convert LIKE pattern to Supabase text search
-              // Remove % wildcards for Supabase ilike
               if (typeof searchValue === "string") {
                 searchValue = searchValue.replace(/%/g, "");
               }
@@ -352,7 +321,6 @@ export async function executeQuery<T = any>(options: {
 
           // Handle WHERE with multiple conditions (AND logic)
           if (query.includes("AND") && values.length >= 2) {
-            // Extract table name
             const whereSection = query.match(
               /WHERE\s+(.*?)(?:\s+ORDER|\s+LIMIT|$)/i
             );
@@ -364,7 +332,7 @@ export async function executeQuery<T = any>(options: {
               let valueIndex = 0;
 
               conditions.forEach((condition) => {
-                if (condition === "1=1") return; // Skip this condition
+                if (condition === "1=1") return;
 
                 const match = condition.match(/(\w+)\s*=\s*\?/);
                 if (match && valueIndex < values.length) {
@@ -381,7 +349,9 @@ export async function executeQuery<T = any>(options: {
                 });
               }
             }
-          } // Handle simple SELECT with ORDER BY
+          }
+
+          // Handle simple SELECT with ORDER BY
           if (query.includes("ORDER BY") && !query.includes("JOIN")) {
             const orderMatch = query.match(
               /ORDER BY\s+([\w_]+)(?:\s+(ASC|DESC))?/i
@@ -431,34 +401,56 @@ export async function executeQuery<T = any>(options: {
             }
           }
         }
-      }      // Handle INSERT queries with RETURNING
-      if (query.toLowerCase().startsWith("insert")) {
-        const tableMatch = query.match(/insert\s+into\s+(\w+)/i);
-        if (tableMatch) {
-          const tableName = tableMatch[1];
 
-          // Special handling for weight_records table
-          if (tableName === "weight_records") {
-            console.log("Handling weight_records INSERT");
-            console.log("Query:", query);
-            console.log("Values:", values);
-            
-            // Extract column names from the query
-            const columnsMatch = query.match(/\(([\s\S]*?)\)\s*VALUES/i);
+        // Handle INSERT queries with RETURNING
+        if (query.toLowerCase().startsWith("insert")) {
+          const tableMatch = query.match(/insert\s+into\s+(\w+)/i);
+          if (tableMatch) {
+            const tableName = tableMatch[1];
+
+            if (tableName === "weight_records") {
+              console.log("Handling weight_records INSERT");
+              console.log("Query:", query);
+              console.log("Values:", values);
+
+              const columnsMatch = query.match(/\(([\s\S]*?)\)\s*VALUES/i);
+              if (columnsMatch && values.length > 0) {
+                const columnText = columnsMatch[1];
+                const columns = columnText
+                  .split(",")
+                  .map((col: string) => col.trim());
+                const data: Record<string, any> = {};
+
+                console.log("Parsed columns:", columns);
+
+                columns.forEach((col: string, index: number) => {
+                  if (index < values.length) {
+                    data[col] = values[index];
+                  }
+                });
+
+                console.log("Data object:", data);
+
+                return supabaseDB.insert<T>({
+                  table: tableName,
+                  data,
+                  returning: "*",
+                });
+              }
+            }
+
+            const columnsMatch = query.match(/\(([^)]+)\)/);
             if (columnsMatch && values.length > 0) {
-              const columnText = columnsMatch[1];
-              const columns = columnText.split(",").map((col) => col.trim());
+              const columns = columnsMatch[1]
+                .split(",")
+                .map((col: string) => col.trim());
               const data: Record<string, any> = {};
 
-              console.log("Parsed columns:", columns);
-
-              columns.forEach((col, index) => {
+              columns.forEach((col: string, index: number) => {
                 if (index < values.length) {
                   data[col] = values[index];
                 }
               });
-
-              console.log("Data object:", data);
 
               return supabaseDB.insert<T>({
                 table: tableName,
@@ -467,182 +459,179 @@ export async function executeQuery<T = any>(options: {
               });
             }
           }
+        }
 
-          // Extract column names and values for other tables
-          const columnsMatch = query.match(/\(([^)]+)\)/);
-          if (columnsMatch && values.length > 0) {
-            const columns = columnsMatch[1].split(",").map((col) => col.trim());
-            const data: Record<string, any> = {};
+        // Handle UPDATE queries with dynamic SET clauses
+        if (query.toLowerCase().startsWith("update")) {
+          const tableMatch = query.match(/update\s+(\w+)/i);
+          if (tableMatch) {
+            const tableName = tableMatch[1];
 
-            columns.forEach((col, index) => {
-              if (index < values.length) {
-                data[col] = values[index];
+            if (query.includes("WHERE id = ?")) {
+              const setSection = query.match(/set\s+(.*?)\s+where/i);
+              if (setSection && values.length >= 1) {
+                const setClauses = setSection[1]
+                  .split(",")
+                  .map((clause: string) => clause.trim());
+                const data: Record<string, any> = {};
+                let valueIndex = 0;
+
+                setClauses.forEach((clause: string) => {
+                  const columnMatch = clause.match(/(\w+)\s*=\s*\?/);
+                  if (columnMatch && valueIndex < values.length - 1) {
+                    data[columnMatch[1]] = values[valueIndex];
+                    valueIndex++;
+                  } else if (clause.includes("updated_at = NOW()")) {
+                    data["updated_at"] = new Date().toISOString();
+                  }
+                });
+
+                const idValue = values[values.length - 1];
+
+                return supabaseDB.update<T>({
+                  table: tableName,
+                  data,
+                  filters: { id: idValue },
+                  returning: "*",
+                });
               }
-            });
-
-            return supabaseDB.insert<T>({
-              table: tableName,
-              data,
-              returning: "*",
-            });
+            }
           }
         }
-      }
 
-      // Handle UPDATE queries with dynamic SET clauses
-      if (query.toLowerCase().startsWith("update")) {
-        const tableMatch = query.match(/update\s+(\w+)/i);
-        if (tableMatch) {
-          const tableName = tableMatch[1];
+        // Handle DELETE queries
+        if (query.toLowerCase().startsWith("delete")) {
+          const tableMatch = query.match(/delete\s+from\s+(\w+)/i);
+          if (tableMatch) {
+            const tableName = tableMatch[1];
 
-          // Handle UPDATE with multiple SET clauses and WHERE id = ?
-          if (query.includes("WHERE id = ?")) {
-            const setSection = query.match(/set\s+(.*?)\s+where/i);
-            if (setSection && values.length >= 1) {
-              const setClauses = setSection[1]
-                .split(",")
-                .map((clause) => clause.trim());
-              const data: Record<string, any> = {};
-              let valueIndex = 0;
-
-              setClauses.forEach((clause) => {
-                const columnMatch = clause.match(/(\w+)\s*=\s*\?/);
-                if (columnMatch && valueIndex < values.length - 1) {
-                  data[columnMatch[1]] = values[valueIndex];
-                  valueIndex++;
-                } else if (clause.includes("updated_at = NOW()")) {
-                  // Handle NOW() function - set to current timestamp
-                  data["updated_at"] = new Date().toISOString();
-                }
-              });
-
-              // Last value is for WHERE id = ?
-              const idValue = values[values.length - 1];
-
-              return supabaseDB.update<T>({
+            if (query.includes("WHERE id = ?") && values.length > 0) {
+              return supabaseDB.remove<T>({
                 table: tableName,
-                data,
-                filters: { id: idValue },
+                filters: { id: values[0] },
                 returning: "*",
               });
             }
           }
         }
-      }
 
-      // Handle DELETE queries
-      if (query.toLowerCase().startsWith("delete")) {
-        const tableMatch = query.match(/delete\s+from\s+(\w+)/i);
-        if (tableMatch) {
-          const tableName = tableMatch[1];
-
-          // Simple DELETE FROM table WHERE id = ?
-          if (query.includes("WHERE id = ?") && values.length > 0) {
-            return supabaseDB.remove<T>({
-              table: tableName,
-              filters: { id: values[0] },
-              returning: "*",
-            });
-          }
-        }
-      }
-
-      // If we can't convert the SQL, throw an error with helpful message
-      throw new Error(
-        `SQL query conversion not implemented for: ${query}. Please use table-based operations instead.`
-      );
-    }
-
-    if (!operationTable) {
-      throw new Error("Table name is required when using Supabase");
-    }
-
-    // Hapus prefix skema dari nama tabel untuk konsistensi
-    const tableNameWithoutSchema = operationTable.includes(".")
-      ? operationTable.split(".")[1]
-      : operationTable;
-
-    if (action === "select" || !action) {
-      const selectColumnsString =
-        typeof columns === "string" ? columns.trim() : "*";
-
-      // Penanganan COUNT menggunakan helper
-      if (
-        typeof columns === "string" &&
-        columns.toLowerCase().startsWith("count(")
-      ) {
-        console.log(
-          `Using getCount for ${columns} on ${tableNameWithoutSchema}`
+        throw new Error(
+          `SQL query conversion not implemented for: ${query}. Please use table-based operations instead.`
         );
-        return supabaseAggregation.getCount(
-          tableNameWithoutSchema,
-          filters || {}
-        ) as unknown as T;
       }
 
-      // Penanganan SUM menggunakan helper
-      if (
-        typeof columns === "string" &&
-        columns.toLowerCase().startsWith("sum(")
-      ) {
-        const sumMatch = columns.match(
-          /sum\s*\(\s*([\w_]+)\s*\)(?:\s+as\s+([\w_]+))?/i
-        );
-        if (sumMatch) {
-          const fieldName = sumMatch[1];
-          const resultKey = sumMatch[2] || "total"; // Alias default jika tidak disediakan
+      if (!operationTable) {
+        throw new Error("Table name is required when using Supabase");
+      }
+
+      const tableNameWithoutSchema = operationTable.includes(".")
+        ? operationTable.split(".")[1]
+        : operationTable;
+
+      if (action === "select" || !action) {
+        const selectColumnsString =
+          typeof columns === "string" ? columns.trim() : "*";
+
+        if (
+          typeof columns === "string" &&
+          columns.toLowerCase().startsWith("count(")
+        ) {
           console.log(
-            `Using getSum for SUM(${fieldName}) as ${resultKey} on ${tableNameWithoutSchema}`
+            `Using getCount for ${columns} on ${tableNameWithoutSchema}`
           );
-          return supabaseAggregation.getSum(
+          return supabaseAggregation.getCount(
             tableNameWithoutSchema,
-            fieldName,
-            resultKey,
             filters || {}
           ) as unknown as T;
-        } else {
-          console.warn(
-            `Could not parse SUM correctly from columns: ${columns}. Falling back to standard query.`
+        }
+
+        if (
+          typeof columns === "string" &&
+          columns.toLowerCase().startsWith("sum(")
+        ) {
+          const sumMatch = columns.match(
+            /sum\s*\(\s*([\w_]+)\s*\)(?:\s+as\s+([\w_]+))?/i
+          );
+          if (sumMatch) {
+            const fieldName = sumMatch[1];
+            const resultKey = sumMatch[2] || "total";
+            console.log(
+              `Using getSum for SUM(${fieldName}) as ${resultKey} on ${tableNameWithoutSchema}`
+            );
+            return supabaseAggregation.getSum(
+              tableNameWithoutSchema,
+              fieldName,
+              resultKey,
+              filters || {}
+            ) as unknown as T;
+          }
+        }
+
+        return supabaseDB.query<T>({
+          table: tableNameWithoutSchema,
+          select: selectColumnsString,
+          filters: filters || {},
+          single: single || false,
+        });
+      } else if (action === "insert") {
+        return supabaseDB.insert<T>({
+          table: tableNameWithoutSchema,
+          data: data || {},
+          returning: returning || "*",
+        });
+      } else if (action === "update") {
+        return supabaseDB.update<T>({
+          table: tableNameWithoutSchema,
+          data: data || {},
+          filters: filters || {},
+          returning: returning || "*",
+        });
+      } else if (action === "delete") {
+        return supabaseDB.remove<T>({
+          table: tableNameWithoutSchema,
+          filters: filters || {},
+          returning: returning || "*",
+        });
+      }
+
+      throw new Error(`Unsupported action: ${action}`);
+    } catch (error) {
+      console.error("Database operation failed:", error);
+
+      if (error instanceof Error) {
+        if (error.message.includes("foreign key constraint")) {
+          throw new Error(
+            "Operation failed due to data dependencies. Please check related records."
+          );
+        } else if (error.message.includes("unique constraint")) {
+          throw new Error(
+            "Operation failed due to duplicate data. Record already exists."
+          );
+        } else if (error.message.includes("not found")) {
+          throw new Error(
+            "Record not found. It may have been deleted by another user."
+          );
+        } else if (error.message.includes("permission")) {
+          throw new Error(
+            "Permission denied. You don't have access to perform this operation."
           );
         }
       }
 
-      // Kueri standar tanpa delegasi helper agregasi spesifik
-      return supabaseDB.query<T>({
-        table: tableNameWithoutSchema,
-        select: selectColumnsString,
-        filters: filters || {},
-        single: single || false,
-      });
-    } else if (action === "insert") {
-      return supabaseDB.insert<T>({
-        table: tableNameWithoutSchema,
-        data: data || {},
-        returning: returning || "*",
-      });
-    } else if (action === "update") {
-      return supabaseDB.update<T>({
-        table: tableNameWithoutSchema,
-        data: data || {},
-        filters: filters || {},
-        returning: returning || "*",
-      });
-    } else if (action === "delete") {
-      return supabaseDB.remove<T>({
-        table: tableNameWithoutSchema,
-        filters: filters || {},
-        returning: returning || "*",
-      });
+      throw error;
     }
-
-    throw new Error(`Unsupported action: ${action}`);
   } else {
-    // Implementasi MySQL
-    const { query, values } = options;
-    if (!query) {
-      throw new Error("Query is required when using MySQL");
+    // MySQL implementation
+    try {
+      const { query, values } = options;
+      if (!query) {
+        throw new Error("Query is required when using MySQL");
+      }
+      return mysqlDB.executeQuery<T>({ query, values: values ?? [] });
+    } catch (error) {
+      console.error("MySQL operation failed:", error);
+      throw error;
     }
-    return mysqlDB.executeQuery<T>({ query, values: values ?? [] });
   }
 }
 
@@ -652,12 +641,10 @@ export async function safeQuery<T>(
   try {
     const result = await executeQuery<T>(options);
 
-    // For tables that should always return arrays, ensure we return an empty array instead of null
     if (options.table && !options.single && result === null) {
       return [] as unknown as T;
     }
 
-    // For count queries that return null, return 0
     if (
       typeof options.columns === "string" &&
       options.columns.toLowerCase().includes("count") &&
@@ -669,7 +656,6 @@ export async function safeQuery<T>(
     return result;
   } catch (error) {
     console.error(`Error querying ${options.table || options.query}:`, error);
-    // Return a type-appropriate fallback value
     if (options.single === true) {
       return null as unknown as T;
     } else {
@@ -683,7 +669,6 @@ export async function safeQuery<T>(
  */
 export async function getUserById(id: number): Promise<any> {
   if (useSupabase) {
-    // db-supabase.ts akan menangani penghapusan skema jika ada "public.users"
     const users = await supabaseDB.query({
       table: "users",
       filters: { id },
@@ -704,7 +689,6 @@ export async function getUserById(id: number): Promise<any> {
  */
 export async function getUserByEmail(email: string): Promise<any> {
   if (useSupabase) {
-    // db-supabase.ts akan menangani penghapusan skema jika ada "public.users"
     const users = await supabaseDB.query({
       table: "users",
       filters: { email },

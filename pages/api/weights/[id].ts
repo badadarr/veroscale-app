@@ -37,16 +37,11 @@ async function getWeightRecord(
   id: string
 ) {
   try {
-    // Query using Supabase format with record_id
+    // Get basic record first
     const record = await executeQuery<any>({
       table: "weight_records",
       action: "select",
-      columns: `
-        *,
-        samples_item!weight_records_sample_id_fkey(id, category, item),
-        users!weight_records_user_id_fkey(name),
-        approved_by:users(name)
-      `,
+      columns: "*",
       filters: { record_id: id },
       single: true,
     });
@@ -55,7 +50,67 @@ async function getWeightRecord(
       return res.status(404).json({ message: "Weight record not found" });
     }
 
-    return res.status(200).json({ record });
+    // Fetch related data separately to avoid complex JOIN issues
+    let sampleName = "Unknown Sample";
+    let userName = "Unknown User";
+    let approverName = null;
+
+    try {
+      // Get sample information
+      if (record.sample_id) {
+        const sample = await executeQuery<any>({
+          table: "samples_item",
+          action: "select",
+          columns: "id, category, item",
+          filters: { id: record.sample_id },
+          single: true,
+        });
+        if (sample) {
+          sampleName = `${sample.category} - ${sample.item}`;
+        }
+      }
+
+      // Get user information
+      if (record.user_id) {
+        const user = await executeQuery<any>({
+          table: "users",
+          action: "select",
+          columns: "id, name",
+          filters: { id: record.user_id },
+          single: true,
+        });
+        if (user) {
+          userName = user.name;
+        }
+      }
+
+      // Get approver information
+      if (record.approved_by) {
+        const approver = await executeQuery<any>({
+          table: "users",
+          action: "select",
+          columns: "id, name",
+          filters: { id: record.approved_by },
+          single: true,
+        });
+        if (approver) {
+          approverName = approver.name;
+        }
+      }
+    } catch (relatedDataError) {
+      console.warn("Error fetching related data:", relatedDataError);
+      // Continue with default values
+    }
+
+    // Construct the final record with related data
+    const finalRecord = {
+      ...record,
+      item_name: sampleName,
+      user_name: userName,
+      approved_by_name: approverName,
+    };
+
+    return res.status(200).json({ record: finalRecord });
   } catch (error) {
     console.error("Error fetching weight record:", error);
     return res.status(500).json({ message: "Server error" });
@@ -111,32 +166,89 @@ async function updateWeightRecord(
         updateData.approved_by = null;
         updateData.approved_at = null;
       }
-    }
-
-    await executeQuery({
+    }    await executeQuery({
       table: "weight_records",
       action: "update",
       data: updateData,
       filters: { record_id: id },
     });
 
-    // Fetch the updated record with related data
+    // Fetch the updated record with basic data first
     const record = await executeQuery<any>({
       table: "weight_records",
       action: "select",
-      columns: `
-        *,
-        samples_item!weight_records_sample_id_fkey(id, category, item),
-        users!weight_records_user_id_fkey(name),
-        approved_by:users(name)
-      `,
+      columns: "*",
       filters: { record_id: id },
       single: true,
     });
 
+    if (!record) {
+      return res.status(404).json({ message: "Updated record not found" });
+    }
+
+    // Fetch related data separately to avoid complex JOIN issues
+    let sampleName = "Unknown Sample";
+    let userName = "Unknown User";
+    let approverName = null;
+
+    try {
+      // Get sample information
+      if (record.sample_id) {
+        const sample = await executeQuery<any>({
+          table: "samples_item",
+          action: "select",
+          columns: "id, category, item",
+          filters: { id: record.sample_id },
+          single: true,
+        });
+        if (sample) {
+          sampleName = `${sample.category} - ${sample.item}`;
+        }
+      }
+
+      // Get user information
+      if (record.user_id) {
+        const user = await executeQuery<any>({
+          table: "users",
+          action: "select",
+          columns: "id, name",
+          filters: { id: record.user_id },
+          single: true,
+        });
+        if (user) {
+          userName = user.name;
+        }
+      }
+
+      // Get approver information
+      if (record.approved_by) {
+        const approver = await executeQuery<any>({
+          table: "users",
+          action: "select",
+          columns: "id, name",
+          filters: { id: record.approved_by },
+          single: true,
+        });
+        if (approver) {
+          approverName = approver.name;
+        }
+      }
+    } catch (relatedDataError) {
+      console.warn("Error fetching related data:", relatedDataError);
+      // Continue with default values
+    }
+
+    // Construct the final record with related data
+    const finalRecord = {
+      ...record,
+      item_name: sampleName,
+      user_name: userName,
+      approved_by_name: approverName,
+    };
+
     return res.status(200).json({
       message: "Weight record updated successfully",
-      record,
+      record: finalRecord,
     });
   } catch (error) {
     console.error("Error updating weight record:", error);
