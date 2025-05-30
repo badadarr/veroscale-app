@@ -27,10 +27,12 @@ interface Issue {
     description: string;
     status: 'pending' | 'in_review' | 'resolved' | 'rejected';
     priority: 'low' | 'medium' | 'high' | 'critical';
-    type: 'data_correction' | 'system_error' | 'feature_request' | 'other';
+    type?: 'data_correction' | 'system_error' | 'feature_request' | 'other';
+    issue_type?: 'data_correction' | 'system_error' | 'feature_request' | 'other';
     created_at: string;
     updated_at: string;
-    user_id: number;
+    user_id?: number;
+    reporter_id?: number;
     user_name: string;
     resolved_by?: number;
     resolved_by_name?: string;
@@ -60,29 +62,30 @@ export default function Issues() {
 
     useEffect(() => {
         fetchIssues();
-    }, []);
-
-    const fetchIssues = async () => {
+    }, []); const fetchIssues = async () => {
         setLoading(true);
         try {
+            console.log('Fetching issues...');
             const response = await apiClient.get('/api/issues');
+            console.log('Issues response:', response.data);
             setIssues(response.data.issues || []);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching issues:', error);
-            toast.error('Failed to load issues');
+            console.error('Error response:', error.response?.data);
+            toast.error(`Failed to load issues: ${error.response?.data?.error || error.message || 'Unknown error'}`);
         } finally {
             setLoading(false);
         }
-    };
-
-    const createIssue = async () => {
+    }; const createIssue = async () => {
         if (!newIssue.title.trim() || !newIssue.description.trim()) {
             toast.error('Please fill in all required fields');
             return;
         }
 
         try {
+            console.log('Creating issue with data:', newIssue);
             const response = await apiClient.post('/api/issues', newIssue);
+            console.log('Create issue response:', response.data);
             toast.success('Issue created successfully');
             setIssues([response.data.issue, ...issues]);
             setShowCreateModal(false);
@@ -93,11 +96,12 @@ export default function Issues() {
                 priority: 'medium',
                 record_id: null
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creating issue:', error);
-            toast.error('Failed to create issue');
+            console.error('Error response:', error.response?.data);
+            toast.error(`Failed to create issue: ${error.response?.data?.error || error.message || 'Unknown error'}`);
         }
-    };    const updateIssueStatus = async (issueId: number, status: string) => {
+    }; const updateIssueStatus = async (issueId: number, status: string) => {
         if (user?.role === 'operator' && status !== 'pending') {
             // Operators can only revise (reopen) issues
             return;
@@ -105,9 +109,9 @@ export default function Issues() {
 
         setStatusUpdating(issueId);
         try {
-            const response = await apiClient.put(`/api/issues/${issueId}`, { 
+            const response = await apiClient.put(`/api/issues/${issueId}`, {
                 status,
-                resolver_id: status === 'resolved' ? user?.id : undefined 
+                resolver_id: status === 'resolved' ? user?.id : undefined
             });
             toast.success(`Issue ${status} successfully`);
             setIssues(issues.map(issue =>
@@ -248,9 +252,8 @@ export default function Issues() {
                                                         {issue.description}
                                                     </p>
                                                 </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <span className="capitalize">{issue.type.replace('_', ' ')}</span>
+                                            </TableCell>                                            <TableCell>
+                                                <span className="capitalize">{(issue.issue_type || issue.type || 'other').replace('_', ' ')}</span>
                                             </TableCell>
                                             <TableCell>
                                                 <Flag className={`h-4 w-4 ${getPriorityColor(issue.priority)}`} />
@@ -297,9 +300,7 @@ export default function Issues() {
                                                                 </Button>
                                                             )}
                                                         </>
-                                                    )}
-
-                                                    {user?.role === 'operator' && issue.user_id === user.id && (
+                                                    )}                                                    {user?.role === 'operator' && (issue.user_id === user.id || issue.reporter_id === user.id) && (
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
@@ -311,7 +312,7 @@ export default function Issues() {
                                                         </Button>
                                                     )}
 
-                                                    {(user?.role === 'admin' || (issue.user_id === user?.id)) && (
+                                                    {(user?.role === 'admin' || (issue.user_id === user?.id || issue.reporter_id === user?.id)) && (
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
@@ -447,9 +448,8 @@ export default function Issues() {
                                         </span>
                                         <span className="text-sm text-gray-500">
                                             Priority: <span className={getPriorityColor(selectedIssue.priority)}>{selectedIssue.priority}</span>
-                                        </span>
-                                        <span className="text-sm text-gray-500">
-                                            Type: {selectedIssue.type.replace('_', ' ')}
+                                        </span>                                        <span className="text-sm text-gray-500">
+                                            Type: {(selectedIssue.issue_type || selectedIssue.type || 'other').replace('_', ' ')}
                                         </span>
                                     </div>
                                 </div>
