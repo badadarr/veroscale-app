@@ -28,8 +28,12 @@ export default async function handler(
     // Get pending issues for report table
     const reportIssues = await getReportIssues();
 
+    // Get recent weight records based on user role
+    const recentRecords = await getRecentRecords(user);
+
     return res.status(200).json({
       summaryStats,
+      recentRecords,
       weightByDay,
       reportIssues,
     });
@@ -164,6 +168,112 @@ async function getReportIssues() {
     }));
   } catch (error) {
     console.error("Error in getReportIssues:", error);
+    return [];
+  }
+}
+
+async function getRecentRecords(user: any) {
+  try {
+    console.log("Fetching recent weight records for user role:", user.role);
+
+    let query = `
+      SELECT 
+        wr.record_id,
+        wr.user_id,
+        wr.sample_id,
+        wr.total_weight,
+        wr.timestamp,
+        wr.status,
+        wr.source,
+        wr.destination,
+        wr.notes,
+        wr.unit,
+        wr.approved_by,
+        wr.approved_at,
+        wr.created_at
+      FROM weight_records wr
+      WHERE 1=1
+    `;
+    
+    const queryParams: any[] = [];
+
+    // For operators, only show their own records
+    if (user.role === 'operator') {
+      query += ` AND wr.user_id = ?`;
+      queryParams.push(user.id);
+    }
+    // For admin/manager, show all records (no additional filter needed)
+
+    // Order by timestamp descending and limit to 10 most recent records
+    query += ` ORDER BY wr.timestamp DESC LIMIT 10`;
+
+    const { data: weightRecords, error } = await supabaseAdmin.rpc('exec_sql', {
+      query,
+      params: queryParams
+    });
+
+    if (error) {
+      console.error("Error fetching recent records:", error);
+      return [];
+    }
+
+    if (!Array.isArray(weightRecords)) {
+      console.warn("Weight records is not an array:", weightRecords);
+      return [];
+    }
+
+    // Get sample and user information for the records
+    const sampleIds = Array.from(new Set(weightRecords.map(r => r.sample_id).filter(Boolean)));
+    const userIds = Array.from(new Set(weightRecords.map(r => r.user_id).filter(Boolean)));
+
+    // Fetch samples
+    const samples = sampleIds.length > 0 ? await supabaseAdmin
+      .from("samples_item")
+      .select("id, category, item")
+      .in("id", sampleIds) : { data: [] };
+
+    // Fetch users
+    const users = userIds.length > 0 ? await supabaseAdmin
+      .from("users")
+      .select("id, name")
+      .in("id", userIds) : { data: [] };
+
+    // Create lookup maps
+    const sampleMap: Record<number, string> = {};
+    if (samples.data) {
+      samples.data.forEach((sample: any) => {
+        sampleMap[sample.id] = `${sample.category} - ${sample.item}`;
+      });
+    }
+
+    const userMap: Record<number, string> = {};
+    if (users.data) {
+      users.data.forEach((user: any) => {
+        userMap[user.id] = user.name;
+      });
+    }
+
+    // Map records with related data
+    return weightRecords.map((record: any) => ({
+      record_id: record.record_id,
+      user_id: record.user_id,
+      sample_id: record.sample_id,
+      item_name: sampleMap[record.sample_id] || "Unknown Sample",
+      user_name: userMap[record.user_id] || "Unknown User",
+      total_weight: record.total_weight,
+      timestamp: record.timestamp,
+      status: record.status,
+      source: record.source,
+      destination: record.destination,
+      notes: record.notes,
+      unit: record.unit || 'kg',
+      approved_by: record.approved_by,
+      approved_at: record.approved_at,
+      created_at: record.created_at,
+    }));
+
+  } catch (error) {
+    console.error("Error in getRecentRecords:", error);
     return [];
   }
 }

@@ -54,7 +54,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   // Operations navigation items (mainly for operators)
   const operationsNavigation: NavItem[] = [
-    { name: 'Multiple Weight Entry', href: '/operations/weight-entry', icon: Scale },
+    { name: 'Weight Entry', href: '/operations/weight-entry', icon: Scale },
     { name: 'My Records', href: '/operations/my-records', icon: Database },
   ];
 
