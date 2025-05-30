@@ -42,6 +42,11 @@ async function getIssues(req: NextApiRequest, res: NextApiResponse) {
       issues
     );
 
+    if (!Array.isArray(issues)) {
+      console.error("Issues is not an array:", issues);
+      return res.status(200).json({ issues: [] });
+    }
+
     // Get all users to map reporter names
     const users = await safeQuery({
       table: "users",
@@ -64,23 +69,27 @@ async function getIssues(req: NextApiRequest, res: NextApiResponse) {
       : {};
 
     // Add reporter names to issues safely
-    const issuesWithReporters = Array.isArray(issues)
-      ? issues.map((issue) => ({
-          ...issue,
-          user_name: userMap[issue.reporter_id] || "Unknown User",
-          // Ensure type field is mapped correctly
-          type: issue.issue_type || issue.type || "other",
-        }))
-      : [];
+    const issuesWithReporters = issues.map((issue) => ({
+      ...issue,
+      user_name: userMap[issue.reporter_id || issue.user_id] || "Unknown User",
+      // Ensure type field is mapped correctly
+      type: issue.issue_type || issue.type || "other",
+      // Ensure status is always present
+      status: issue.status || "pending",
+    }));
 
     console.log("Final issues with reporters:", issuesWithReporters.length);
 
-    return res.status(200).json({ issues: issuesWithReporters });
+    return res.status(200).json({ 
+      issues: issuesWithReporters,
+      total: issuesWithReporters.length 
+    });
   } catch (error) {
     console.error("Error fetching issues:", error);
     return res.status(500).json({
       message: "Failed to fetch issues",
       error: error instanceof Error ? error.message : "Unknown error",
+      issues: [], // Always return an empty array on error
     });
   }
 }

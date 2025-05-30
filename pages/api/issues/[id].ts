@@ -99,7 +99,7 @@ async function handlePut(
     const existingIssue = await executeQuery({
       table: "issues",
       action: "select",
-      columns: "id, status",
+      columns: "id, status, reporter_id, user_id",
       filters: { id },
       single: true,
     });
@@ -112,7 +112,7 @@ async function handlePut(
 
     // Prepare update data
     const updateData: Record<string, any> = {
-      updated_at: new Date(),
+      updated_at: new Date().toISOString(),
     };
 
     if (title) {
@@ -136,35 +136,62 @@ async function handlePut(
 
       // If status is changed to 'resolved', record who resolved it and when
       if (status === "resolved" && currentStatus !== "resolved") {
-        updateData.resolved_at = new Date();
+        updateData.resolved_at = new Date().toISOString();
 
         // If resolver_id is provided in the request, use it
         if (resolver_id) {
           updateData.resolved_by = resolver_id;
         }
       }
+      
+      // If status is changed from resolved back to pending, clear resolution fields
+      if (status === "pending" && currentStatus === "resolved") {
+        updateData.resolved_at = null;
+        updateData.resolved_by = null;
+        updateData.resolution = null;
+      }
     }
 
     if (resolution) {
       updateData.resolution = resolution;
-    }
+    }    console.log("Final update data:", updateData);
 
-    console.log("Update data:", updateData);
-
-    // Execute update
-    const result = await executeQuery({
+    // Execute update - the issue here is that Supabase update might return array
+    const updateResult = await executeQuery({
       table: "issues",
       action: "update",
       data: updateData,
-      filters: { id },
+      filters: { id: parseInt(id) },
       returning: "*",
     });
 
-    console.log("Update result:", result);
+    console.log("Update result:", updateResult);
+
+    // Get the updated issue (updateResult might be an array)
+    const updatedIssue = Array.isArray(updateResult) ? updateResult[0] : updateResult;
+
+    if (!updatedIssue) {
+      throw new Error("Failed to get updated issue data");
+    }
+
+    // Get user name for reporter
+    const user = await executeQuery({
+      table: "users",
+      action: "select",
+      columns: "name",
+      filters: { id: updatedIssue.reporter_id || updatedIssue.user_id },
+      single: true,
+    });
+
+    const enrichedIssue = {
+      ...updatedIssue,
+      user_name: user?.name || "Unknown User",
+      type: updatedIssue.issue_type || updatedIssue.type || "other",
+    };
 
     res.status(200).json({
       message: "Issue updated successfully",
-      issue: result,
+      issue: enrichedIssue,
     });
   } catch (error) {
     console.error("Error updating issue:", error);
@@ -180,27 +207,42 @@ async function handleDelete(
   res: NextApiResponse,
   id: string
 ) {
-  // Check if issue exists
-  const existingIssue = await executeQuery({
-    table: "issues",
-    action: "select",
-    columns: "id",
-    filters: { id },
-    single: true,
-  });
+  try {
+    console.log("Deleting issue with ID:", id);
 
-  if (!existingIssue) {
-    return res.status(404).json({ error: "Issue not found" });
+    // Check if issue exists
+    const existingIssue = await executeQuery({
+      table: "issues",
+      action: "select",
+      columns: "id, title",
+      filters: { id: parseInt(id) },
+      single: true,
+    });
+
+    if (!existingIssue) {
+      return res.status(404).json({ error: "Issue not found" });
+    }
+
+    console.log("Found issue to delete:", existingIssue);
+
+    // Execute delete
+    const deleteResult = await executeQuery({
+      table: "issues",
+      action: "delete",
+      filters: { id: parseInt(id) },
+    });
+
+    console.log("Delete result:", deleteResult);
+
+    res.status(200).json({
+      message: "Issue deleted successfully",
+      deletedId: parseInt(id),
+    });
+  } catch (error) {
+    console.error("Error deleting issue:", error);
+    res.status(500).json({
+      error: "Failed to delete issue",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
   }
-
-  // Execute delete
-  await executeQuery({
-    table: "issues",
-    action: "delete",
-    filters: { id },
-  });
-
-  res.status(200).json({
-    message: "Issue deleted successfully",
-  });
 }

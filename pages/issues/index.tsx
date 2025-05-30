@@ -76,7 +76,7 @@ export default function Issues() {
         } finally {
             setLoading(false);
         }
-    }; const createIssue = async () => {
+    };    const createIssue = async () => {
         if (!newIssue.title.trim() || !newIssue.description.trim()) {
             toast.error('Please fill in all required fields');
             return;
@@ -86,55 +86,102 @@ export default function Issues() {
             console.log('Creating issue with data:', newIssue);
             const response = await apiClient.post('/api/issues', newIssue);
             console.log('Create issue response:', response.data);
-            toast.success('Issue created successfully');
-            setIssues([response.data.issue, ...issues]);
-            setShowCreateModal(false);
-            setNewIssue({
-                title: '',
-                description: '',
-                type: 'data_correction',
-                priority: 'medium',
-                record_id: null
-            });
+            
+            if (response.data?.issue) {
+                toast.success('Issue created successfully');
+                
+                // Add the new issue to the beginning of the list
+                setIssues(prevIssues => [response.data.issue, ...prevIssues]);
+                
+                setShowCreateModal(false);
+                setNewIssue({
+                    title: '',
+                    description: '',
+                    type: 'data_correction',
+                    priority: 'medium',
+                    record_id: null
+                });
+            } else {
+                throw new Error('No issue data returned from server');
+            }
         } catch (error: any) {
             console.error('Error creating issue:', error);
             console.error('Error response:', error.response?.data);
-            toast.error(`Failed to create issue: ${error.response?.data?.error || error.message || 'Unknown error'}`);
+            
+            const errorMessage = error.response?.data?.error || 
+                               error.response?.data?.details || 
+                               error.message || 
+                               'Unknown error occurred';
+            
+            toast.error(`Failed to create issue: ${errorMessage}`);
         }
-    }; const updateIssueStatus = async (issueId: number, status: string) => {
+    };const updateIssueStatus = async (issueId: number, status: string) => {
         if (user?.role === 'operator' && status !== 'pending') {
             // Operators can only revise (reopen) issues
+            toast.error('You can only reopen issues, not resolve or reject them');
             return;
         }
 
         setStatusUpdating(issueId);
         try {
+            console.log(`Updating issue ${issueId} to status: ${status}`);
             const response = await apiClient.put(`/api/issues/${issueId}`, {
                 status,
                 resolver_id: status === 'resolved' ? user?.id : undefined
             });
-            toast.success(`Issue ${status} successfully`);
-            setIssues(issues.map(issue =>
-                issue.id === issueId ? { ...issue, status: status as any } : issue
-            ));
-        } catch (error) {
+            
+            console.log('Status update response:', response.data);
+            
+            if (response.data?.issue) {
+                // Update the local state with the returned issue data
+                setIssues(issues.map(issue =>
+                    issue.id === issueId ? {
+                        ...response.data.issue,
+                        user_name: response.data.issue.user_name || issue.user_name
+                    } : issue
+                ));
+                
+                toast.success(`Issue ${status === 'resolved' ? 'resolved' : status === 'rejected' ? 'rejected' : 'updated'} successfully`);
+            } else {
+                throw new Error('No issue data returned from server');
+            }
+            
+        } catch (error: any) {
             console.error('Error updating issue status:', error);
-            toast.error('Failed to update issue status');
+            console.error('Error response:', error.response?.data);
+            
+            const errorMessage = error.response?.data?.error || 
+                               error.response?.data?.details || 
+                               error.message || 
+                               'Unknown error occurred';
+            
+            toast.error(`Failed to update issue status: ${errorMessage}`);
         } finally {
             setStatusUpdating(null);
         }
-    };
-
-    const deleteIssue = async (issueId: number) => {
+    };    const deleteIssue = async (issueId: number) => {
         if (!confirm('Are you sure you want to delete this issue?')) return;
 
         try {
-            await apiClient.delete(`/api/issues/${issueId}`);
+            console.log(`Deleting issue ${issueId}`);
+            const response = await apiClient.delete(`/api/issues/${issueId}`);
+            console.log('Delete response:', response.data);
+            
             toast.success('Issue deleted successfully');
-            setIssues(issues.filter(issue => issue.id !== issueId));
-        } catch (error) {
+            
+            // Update local state immediately
+            setIssues(prevIssues => prevIssues.filter(issue => issue.id !== issueId));
+            
+        } catch (error: any) {
             console.error('Error deleting issue:', error);
-            toast.error('Failed to delete issue');
+            console.error('Error response:', error.response?.data);
+            
+            const errorMessage = error.response?.data?.error || 
+                               error.response?.data?.details || 
+                               error.message || 
+                               'Unknown error occurred';
+            
+            toast.error(`Failed to delete issue: ${errorMessage}`);
         }
     };
 
@@ -283,8 +330,13 @@ export default function Issues() {
                                                                     className="text-success-700 border-success-200 hover:bg-success-50"
                                                                     onClick={() => updateIssueStatus(issue.id, 'resolved')}
                                                                     disabled={statusUpdating === issue.id}
+                                                                    title="Mark as resolved"
                                                                 >
-                                                                    <CheckCircle className="h-3 w-3" />
+                                                                    {statusUpdating === issue.id ? (
+                                                                        <div className="h-3 w-3 border-2 border-success-700 border-t-transparent rounded-full animate-spin" />
+                                                                    ) : (
+                                                                        <CheckCircle className="h-3 w-3" />
+                                                                    )}
                                                                 </Button>
                                                             )}
 
@@ -295,8 +347,13 @@ export default function Issues() {
                                                                     className="text-error-700 border-error-200 hover:bg-error-50"
                                                                     onClick={() => updateIssueStatus(issue.id, 'rejected')}
                                                                     disabled={statusUpdating === issue.id}
+                                                                    title="Mark as rejected"
                                                                 >
-                                                                    <XCircle className="h-3 w-3" />
+                                                                    {statusUpdating === issue.id ? (
+                                                                        <div className="h-3 w-3 border-2 border-error-700 border-t-transparent rounded-full animate-spin" />
+                                                                    ) : (
+                                                                        <XCircle className="h-3 w-3" />
+                                                                    )}
                                                                 </Button>
                                                             )}
                                                         </>
@@ -307,8 +364,13 @@ export default function Issues() {
                                                             className="text-warning-700 border-warning-200 hover:bg-warning-50"
                                                             onClick={() => updateIssueStatus(issue.id, 'pending')}
                                                             disabled={statusUpdating === issue.id}
+                                                            title="Reopen issue"
                                                         >
-                                                            <Edit className="h-3 w-3" />
+                                                            {statusUpdating === issue.id ? (
+                                                                <div className="h-3 w-3 border-2 border-warning-700 border-t-transparent rounded-full animate-spin" />
+                                                            ) : (
+                                                                <Edit className="h-3 w-3" />
+                                                            )}
                                                         </Button>
                                                     )}
 

@@ -12,25 +12,36 @@ export default function NotificationBell({ className = '' }: NotificationBellPro
     const { user } = useAuth();
     const router = useRouter();
     const [pendingCount, setPendingCount] = useState(0);
-    const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
+    const [loading, setLoading] = useState(false);    useEffect(() => {
         if (user) {
             fetchPendingIssues();
             // Set up polling for real-time updates
-            const interval = setInterval(fetchPendingIssues, 30000); // Check every 30 seconds
+            const interval = setInterval(fetchPendingIssues, 15000); // Check every 15 seconds
             return () => clearInterval(interval);
         }
     }, [user]);
 
-    const fetchPendingIssues = async () => {
+    // Also update when navigating back to the page
+    useEffect(() => {
+        const handleFocus = () => {
+            if (user) fetchPendingIssues();
+        };
+        
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, [user]);const fetchPendingIssues = async () => {
         if (loading) return;
         
         setLoading(true);
         try {
-            const response = await apiClient.get('/api/issues?status=pending');
-            const issues = response.data?.issues || [];
-            setPendingCount(issues.length);
+            const response = await apiClient.get('/api/issues');
+            const allIssues = response.data?.issues || [];
+            // Filter only pending and in_review issues, exclude resolved and rejected
+            const pendingIssues = allIssues.filter((issue: any) => 
+                issue.status === 'pending' || issue.status === 'in_review'
+            );
+            setPendingCount(pendingIssues.length);
+            console.log('Notification bell - pending issues count:', pendingIssues.length);
         } catch (error) {
             console.error('Error fetching pending issues:', error);
             setPendingCount(0);
