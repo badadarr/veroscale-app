@@ -98,33 +98,45 @@ export default function MyRecords() {
             source: "Quarry",
             destination: "Warehouse C"
         }
-    ];
-
-    // Load user's records on component mount
+    ];    // Load user's records on component mount
     useEffect(() => {
         const fetchRecords = async () => {
+            if (!user?.id) {
+                setLoading(false);
+                return;
+            }
+
             setLoading(true);
             try {
-                // In production, use real API call
-                // const response = await apiClient.get('/api/weights', {
-                //   params: { user_id: user?.id }
-                // });
-                // setRecords(response.data.records);
+                // Fetch real data from API
+                const response = await apiClient.get(`/api/weights?user_id=${user?.id}&limit=50`);
+                const fetchedRecords = response.data.records || [];
 
-                // For demo, use mock data with a simulated delay
-                setTimeout(() => {
-                    setRecords(mockRecords);
-                    setFilteredRecords(mockRecords);
-                    setLoading(false);
-                }, 1000);
+                // Map API data to match the expected WeightRecord interface
+                const mappedRecords: WeightRecord[] = fetchedRecords.map((record: any) => ({
+                    id: record.id,
+                    item_name: record.item_name || 'Unknown Item',
+                    total_weight: record.weight || record.total_weight || 0,
+                    timestamp: record.timestamp,
+                    status: record.status || 'pending',
+                    source: record.source || undefined,
+                    destination: record.destination || undefined,
+                    batch_number: record.batch_number || undefined
+                }));
+
+                setRecords(mappedRecords);
+                setFilteredRecords(mappedRecords);
+                setLoading(false);
             } catch (error) {
                 console.error('Error fetching records:', error);
+                toast.error('Failed to load weight records');
+                // Fallback to empty array instead of mock data
+                setRecords([]);
+                setFilteredRecords([]);
                 setLoading(false);
             }
-        };
-
-        fetchRecords();
-    }, []);
+        }; fetchRecords();
+    }, [user?.id]); // Add user.id as dependency to refetch when user changes
 
     // Filter records based on search term and filters
     useEffect(() => {
