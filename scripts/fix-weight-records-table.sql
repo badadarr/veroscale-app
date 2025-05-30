@@ -5,6 +5,10 @@ BEGIN;
 ALTER TABLE public.weight_records
 ADD COLUMN IF NOT EXISTS sample_id INTEGER;
 
+-- Modify item_id to allow NULL values
+ALTER TABLE public.weight_records
+ALTER COLUMN item_id DROP NOT NULL;
+
 -- Add foreign key constraint to samples_item if it doesn't exist
 DO $$
 BEGIN

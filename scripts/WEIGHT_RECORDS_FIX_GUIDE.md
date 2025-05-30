@@ -4,13 +4,15 @@
 
 1. Tabel `weight_records` menggunakan `record_id` sebagai primary key, sedangkan kode di API terkadang mencoba menggunakan `id`.
 2. Kolom `sample_id` tidak ada di tabel `weight_records`, sehingga tidak bisa mengaitkan weight records dengan sampel.
+3. Kolom `item_id` masih memiliki constraint `NOT NULL` yang mencegah insert record baru dengan `sample_id` tanpa `item_id`.
 
 ## Solusi
 
 1. Menambahkan kolom `sample_id` ke tabel `weight_records`.
-2. Menghapus kolom `id` jika ada (kolom ini hanya alias dan tidak diperlukan).
-3. Memastikan kode di API menggunakan `record_id` secara konsisten.
-4. Membuat migrasi data untuk mengisi `sample_id` di records yang sudah ada.
+2. Mengubah constraint pada kolom `item_id` menjadi nullable.
+3. Menghapus kolom `id` jika ada (kolom ini hanya alias dan tidak diperlukan).
+4. Memastikan kode di API menggunakan `record_id` secara konsisten.
+5. Membuat migrasi data untuk mengisi `sample_id` di records yang sudah ada.
 
 ## Langkah Implementasi
 
@@ -31,8 +33,9 @@ Pastikan fungsi `exec_sql` tersedia di database Supabase:
 Setelah mengimplementasikan fix, verifikasi bahwa:
 
 1. Kolom `sample_id` ada di tabel `weight_records`
-2. Tidak ada kolom `id` di tabel `weight_records` (hanya `record_id`)
-3. Foreign key constraint ke tabel `samples_item` sudah terbentuk
+2. Kolom `item_id` sudah bisa menerima nilai NULL
+3. Tidak ada kolom `id` di tabel `weight_records` (hanya `record_id`)
+4. Foreign key constraint ke tabel `samples_item` sudah terbentuk
 
 Kueri SQL untuk verifikasi:
 
@@ -64,5 +67,6 @@ WHERE tc.table_name = 'weight_records'
 ## Catatan Penting
 
 - **Konsistensi API**: Pastikan semua endpoint API menggunakan `record_id` sebagai identifier, bukan `id`.
+- **Item ID**: Kolom `item_id` sekarang bisa NULL, tetapi tetap dipertahankan untuk kompatibilitas dengan data lama.
 - **Data Migration**: Script sudah mencakup upaya untuk memigrasikan data yang ada, tetapi mungkin perlu penyesuaian tambahan tergantung pada struktur data.
 - **Testing**: Setelah implementasi, uji sistem dengan membuat weight records baru dan verifikasi bahwa `sample_id` disimpan dengan benar.

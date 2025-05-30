@@ -65,12 +65,11 @@ async function addBatchWeightRecords(
       }
 
       const sample = samples[0];
-
       const result = await executeQuery<any>({
         query: `
           INSERT INTO weight_records 
-          (user_id, sample_id, total_weight, status, batch_number, source, destination, notes, unit)
-          VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)
+          (user_id, sample_id, item_id, total_weight, status, batch_number, source, destination, notes, unit)
+          VALUES (?, ?, NULL, ?, 'pending', ?, ?, ?, ?, ?)
           RETURNING *
         `,
         values: [
@@ -84,7 +83,8 @@ async function addBatchWeightRecords(
           unit || "kg",
         ],
         single: true,
-      });      insertedRecords.push({
+      });
+      insertedRecords.push({
         id: result.record_id, // Gunakan record_id sebagai id untuk kompatibilitas
         user_id: user.id,
         user_name: user.name,
