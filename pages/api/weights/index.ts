@@ -101,23 +101,31 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
     });
 
     // Create lookup maps
-    const sampleMap = Array.isArray(samples) ? samples.reduce((map, sample) => {
-      map[sample.id] = `${sample.category} - ${sample.item}`;
-      return map;
-    }, {} as Record<number, string>) : {};
+    const sampleMap = Array.isArray(samples)
+      ? samples.reduce((map, sample) => {
+          map[sample.id] = `${sample.category} - ${sample.item}`;
+          return map;
+        }, {} as Record<number, string>)
+      : {};
 
-    const userMap = Array.isArray(users) ? users.reduce((map, user) => {
-      map[user.id] = user.name;
-      return map;
-    }, {} as Record<number, string>) : {};
+    const userMap = Array.isArray(users)
+      ? users.reduce((map, user) => {
+          map[user.id] = user.name;
+          return map;
+        }, {} as Record<number, string>)
+      : {};
 
     // Add related data to weight records
-    records = Array.isArray(weightRecords) ? weightRecords.map(record => ({
-      ...record,
-      item_name: sampleMap[record.sample_id] || 'Unknown Sample',
-      user_name: userMap[record.user_id] || 'Unknown User',
-      approved_by_name: record.approved_by ? (userMap[record.approved_by] || 'Unknown Approver') : null
-    })) : [];
+    records = Array.isArray(weightRecords)
+      ? weightRecords.map((record) => ({
+          ...record,
+          item_name: sampleMap[record.sample_id] || "Unknown Sample",
+          user_name: userMap[record.user_id] || "Unknown User",
+          approved_by_name: record.approved_by
+            ? userMap[record.approved_by] || "Unknown Approver"
+            : null,
+        }))
+      : [];
 
     return res.status(200).json({
       records,
@@ -141,7 +149,8 @@ async function addWeightRecord(
   user: any
 ) {
   try {
-    const { sample_id, total_weight, notes, source, destination, unit } = req.body;
+    const { sample_id, total_weight, notes, source, destination, unit } =
+      req.body;
 
     if (!sample_id || total_weight === undefined) {
       return res
@@ -165,18 +174,19 @@ async function addWeightRecord(
     const result = await executeQuery<any>({
       query: `
         INSERT INTO weight_records 
-        (user_id, sample_id, total_weight, status, source, destination, notes, unit)
-        VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
+        (user_id, sample_id, total_weight, source, destination, notes, unit, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         RETURNING *
       `,
       values: [
-        user.id, 
-        sample_id, 
-        total_weight, 
-        source || null, 
-        destination || null, 
-        notes || null, 
-        unit || "kg"
+        user.id,
+        sample_id,
+        total_weight,
+        source || null,
+        destination || null,
+        notes || null,
+        unit || "kg",
+        "pending",
       ],
       single: true,
     });

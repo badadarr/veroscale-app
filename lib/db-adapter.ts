@@ -408,15 +408,44 @@ export async function executeQuery<T = any>(options: {
             }
           }
         }
-      }
-
-      // Handle INSERT queries with RETURNING
+      }      // Handle INSERT queries with RETURNING
       if (query.toLowerCase().startsWith("insert")) {
         const tableMatch = query.match(/insert\s+into\s+(\w+)/i);
         if (tableMatch) {
           const tableName = tableMatch[1];
 
-          // Extract column names and values
+          // Special handling for weight_records table
+          if (tableName === "weight_records") {
+            console.log("Handling weight_records INSERT");
+            console.log("Query:", query);
+            console.log("Values:", values);
+            
+            // Extract column names from the query
+            const columnsMatch = query.match(/\(([\s\S]*?)\)\s*VALUES/i);
+            if (columnsMatch && values.length > 0) {
+              const columnText = columnsMatch[1];
+              const columns = columnText.split(",").map((col) => col.trim());
+              const data: Record<string, any> = {};
+
+              console.log("Parsed columns:", columns);
+
+              columns.forEach((col, index) => {
+                if (index < values.length) {
+                  data[col] = values[index];
+                }
+              });
+
+              console.log("Data object:", data);
+
+              return supabaseDB.insert<T>({
+                table: tableName,
+                data,
+                returning: "*",
+              });
+            }
+          }
+
+          // Extract column names and values for other tables
           const columnsMatch = query.match(/\(([^)]+)\)/);
           if (columnsMatch && values.length > 0) {
             const columns = columnsMatch[1].split(",").map((col) => col.trim());

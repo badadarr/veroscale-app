@@ -82,8 +82,8 @@ async function updateWeightRecord(
       return res.status(403).json({
         message: "Only administrators and managers can change approval status",
       });
-    } 
-    
+    }
+
     // First check if record exists - use record_id instead of id
     const existingRecord = await executeQuery<any>({
       table: "weight_records",
@@ -112,7 +112,7 @@ async function updateWeightRecord(
         updateData.approved_at = null;
       }
     }
-    
+
     await executeQuery({
       table: "weight_records",
       action: "update",
@@ -150,15 +150,15 @@ async function deleteWeightRecord(
   res: NextApiResponse,
   id: string,
   user: any
-) {  
+) {
   try {
     // Only admin can delete records
     if (user.role !== "admin") {
       return res.status(403).json({
         message: "Only administrators can delete weight records",
       });
-    } 
-    
+    }
+
     // First check if record exists - use record_id
     const existingRecord = await executeQuery<any>({
       table: "weight_records",
