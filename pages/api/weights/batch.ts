@@ -27,48 +27,61 @@ async function addBatchWeightRecords(
   user: any
 ) {
   try {
-    const { item_id, batch_items, unit, batch_number, source, destination } =
+    const { weight_records, unit, batch_number, source, destination } =
       req.body;
 
     if (
-      !item_id ||
-      !batch_items ||
-      !Array.isArray(batch_items) ||
-      batch_items.length === 0
+      !weight_records ||
+      !Array.isArray(weight_records) ||
+      weight_records.length === 0
     ) {
       return res.status(400).json({
-        message: "Item ID and at least one batch item are required",
+        message: "At least one weight record is required",
       });
     }
+
     let insertedRecords = [];
 
-    // First, check if the item exists
-    const items = await executeQuery<any[]>({
-      query: "SELECT * FROM ref_items WHERE id = ?",
-      values: [item_id],
-    });
+    // Insert each weight record as a separate record
+    for (const weightRecord of weight_records) {
+      const { sample_id, weight, notes } = weightRecord;
 
-    if (!items || items.length === 0) {
-      return res.status(404).json({ message: "Item not found" });
-    }
+      if (!sample_id || weight === undefined || weight === null) {
+        return res.status(400).json({
+          message: "Sample ID and weight are required for each record",
+        });
+      }
 
-    // Insert each batch item as a separate record
-    for (const batchItem of batch_items) {
+      // First, check if the sample exists
+      const samples = await executeQuery<any[]>({
+        query: "SELECT * FROM samples_item WHERE id = ?",
+        values: [sample_id],
+      });
+
+      if (!samples || samples.length === 0) {
+        return res.status(404).json({
+          message: `Sample with ID ${sample_id} not found`,
+        });
+      }
+
+      const sample = samples[0];
+
       const result = await executeQuery<any>({
         query: `
           INSERT INTO weight_records 
-          (user_id, item_id, total_weight, status, batch_number, source, destination, notes)
-          VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
+          (user_id, sample_id, total_weight, status, batch_number, source, destination, notes, unit)
+          VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)
           RETURNING *
         `,
         values: [
           user.id,
-          item_id,
-          batchItem.weight,
+          sample_id,
+          weight,
           batch_number || null,
           source || null,
           destination || null,
-          batchItem.note || null,
+          notes || null,
+          unit || "kg",
         ],
         single: true,
       });
@@ -77,15 +90,16 @@ async function addBatchWeightRecords(
         id: result.id,
         user_id: user.id,
         user_name: user.name,
-        item_id,
-        item_name: items[0].name,
-        total_weight: batchItem.weight,
+        sample_id,
+        sample_name: `${sample.category} - ${sample.item}`,
+        total_weight: weight,
         timestamp: result.created_at || new Date(),
         status: "pending",
         batch_number,
         source,
         destination,
-        notes: batchItem.note,
+        notes,
+        unit: unit || "kg",
       });
     }
 

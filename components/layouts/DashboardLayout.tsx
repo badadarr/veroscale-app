@@ -16,7 +16,6 @@ import {
   X,
   User,
   ChevronDown,
-  Package,
   Clipboard,
   BookOpen
 } from 'lucide-react';
@@ -54,13 +53,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   // Operations navigation items (mainly for operators)
   const operationsNavigation: NavItem[] = [
-    { name: 'Multiple Material Entry', href: '/operations/weight-entry', icon: Scale },
+    { name: 'Multiple Weight Entry', href: '/operations/weight-entry', icon: Scale },
     { name: 'My Records', href: '/operations/my-records', icon: Database },
   ];
 
   // Role-specific navigation items
   const roleBasedNavigation: NavItem[] = [
-    { name: 'Materials', href: '/materials', icon: Package, roles: ['admin', 'manager'] },
     { name: 'Issues', href: '/issues', icon: BarChart2, roles: ['admin', 'manager', 'operator'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'manager'] },
     { name: 'User Management', href: '/users', icon: Users, roles: ['admin'] },
