@@ -19,11 +19,11 @@ export default async function handler(
   }
 
   try {
-    // Get summary statistics with new structure
-    const summaryStats = await getDashboardSummary();
+    // Get summary statistics with role-based filtering
+    const summaryStats = await getDashboardSummary(user);
 
-    // Get weight by day for the chart
-    const weightByDay = await getWeightByDay();
+    // Get weight by day for the chart with role-based filtering
+    const weightByDay = await getWeightByDay(user);
 
     // Get pending issues for report table
     const reportIssues = await getReportIssues();
@@ -43,32 +43,48 @@ export default async function handler(
   }
 }
 
-async function getDashboardSummary() {
+async function getDashboardSummary(user: any) {
   // Get total samples count (changed from materials to samples)
   console.log("Fetching samples count...");
   const samplesCount = await getCount("samples_item");
   console.log("Samples count result:", samplesCount);
 
-  // Get total requests/month (weight records for current month)
-  console.log("Fetching monthly requests...");
+  // Get total requests/month (weight records for current month) with role-based filtering
+  console.log(`Fetching monthly requests for user role: ${user.role}`);
   const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
-  const { data: monthlyRequests, error: requestsError } = await supabaseAdmin
+
+  let monthlyRequestsQuery = supabaseAdmin
     .from("weight_records")
     .select("record_id")
     .gte("timestamp", `${currentMonth}-01`)
     .lt("timestamp", `${getNextMonth(currentMonth)}-01`);
 
+  // For operators, only count their own records
+  if (user.role === "operator") {
+    monthlyRequestsQuery = monthlyRequestsQuery.eq("user_id", user.id);
+  }
+
+  const { data: monthlyRequests, error: requestsError } =
+    await monthlyRequestsQuery;
+
   if (requestsError) {
     console.error("Error fetching monthly requests:", requestsError);
   }
 
-  // Get total weight/month
-  console.log("Fetching monthly weight...");
-  const { data: monthlyWeight, error: weightError } = await supabaseAdmin
+  // Get total weight/month with role-based filtering
+  console.log(`Fetching monthly weight for user role: ${user.role}`);
+  let monthlyWeightQuery = supabaseAdmin
     .from("weight_records")
     .select("total_weight")
     .gte("timestamp", `${currentMonth}-01`)
     .lt("timestamp", `${getNextMonth(currentMonth)}-01`);
+
+  // For operators, only count their own records
+  if (user.role === "operator") {
+    monthlyWeightQuery = monthlyWeightQuery.eq("user_id", user.id);
+  }
+
+  const { data: monthlyWeight, error: weightError } = await monthlyWeightQuery;
 
   if (weightError) {
     console.error("Error fetching monthly weight:", weightError);
@@ -99,24 +115,40 @@ async function getDashboardSummary() {
   };
 }
 
-async function getWeightByDay() {
+async function getWeightByDay(user: any) {
   try {
-    console.log("Fetching weight by day for last 7 days...");
+    console.log(
+      `Fetching weight by day for last 7 days for user role: ${user.role}`
+    );
 
     // Get data for last 7 days
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    const { data, error } = await supabaseAdmin
+    // Build query with role-based filtering
+    let queryBuilder = supabaseAdmin
       .from("weight_records")
-      .select("timestamp, total_weight")
+      .select("timestamp, total_weight, user_id")
       .gte("timestamp", sevenDaysAgo.toISOString())
       .order("timestamp", { ascending: true });
+
+    // For operators, only show their own records
+    if (user.role === "operator") {
+      queryBuilder = queryBuilder.eq("user_id", user.id);
+      console.log(`Filtering weight data for operator ID: ${user.id}`);
+    } else {
+      console.log(`Showing all weight data for ${user.role} role`);
+    }
+    // For admin/manager, show all records (no additional filter needed)
+
+    const { data, error } = await queryBuilder;
 
     if (error) {
       console.error("Error fetching weight by day:", error);
       return [];
     }
+
+    console.log(`Found ${data?.length || 0} weight records for chart`);
 
     // Group by day
     const dailyTotals: Record<string, number> = {};
