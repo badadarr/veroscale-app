@@ -189,8 +189,7 @@ async function getRecentRecords(user: any) {
         notes,
         unit,
         approved_by,
-        approved_at,
-        created_at
+        approved_at
       `);
 
     // For operators, only show their own records
@@ -268,7 +267,6 @@ async function getRecentRecords(user: any) {
       unit: record.unit || "kg",
       approved_by: record.approved_by,
       approved_at: record.approved_at,
-      created_at: record.created_at,
     }));
   } catch (error) {
     console.error("Error in getRecentRecords:", error);
