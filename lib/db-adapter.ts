@@ -195,9 +195,7 @@ export async function executeQuery<T = any>(options: {
         // Extract table name from SQL
         const tableMatch = query.match(/from\s+(\w+)/i);
         if (tableMatch) {
-          const tableName = tableMatch[1];
-
-          // Handle COUNT queries with WHERE clause
+          const tableName = tableMatch[1];          // Handle COUNT queries with WHERE clause
           if (
             query.includes("COUNT(*)") &&
             query.includes("WHERE") &&
@@ -219,18 +217,43 @@ export async function executeQuery<T = any>(options: {
                 });
               }
 
-              const columnMatch = whereClause.match(/(\w+)\s*=\s*\?/);
-              if (columnMatch) {
-                const filters: Record<string, any> = {};
-                filters[columnMatch[1]] = values[0];
+              // Parse multiple AND conditions for count queries
+              const filters: Record<string, any> = {};
+              const conditions = whereClause.split(/\s+AND\s+/i);
+              let valueIndex = 0;
 
-                return supabaseDB.query<T>({
-                  table: tableName,
-                  select: "count",
-                  filters,
-                  single: true,
-                });
-              }
+              conditions.forEach((condition) => {
+                const trimmedCondition = condition.trim();
+                if (trimmedCondition === "1=1") return; // Skip this condition
+
+                const columnMatch = trimmedCondition.match(/(\w+)\s*=\s*\?/);
+                if (columnMatch && valueIndex < values.length) {
+                  filters[columnMatch[1]] = values[valueIndex];
+                  valueIndex++;
+                }
+                
+                // Handle >= and <= operators for date ranges
+                const gteMatch = trimmedCondition.match(/(\w+)\s*>=\s*\?/);
+                if (gteMatch && valueIndex < values.length) {
+                  filters[`${gteMatch[1]}_gte`] = values[valueIndex];
+                  valueIndex++;
+                  return;
+                }
+                
+                const lteMatch = trimmedCondition.match(/(\w+)\s*<=\s*\?/);
+                if (lteMatch && valueIndex < values.length) {
+                  filters[`${lteMatch[1]}_lte`] = values[valueIndex];
+                  valueIndex++;
+                  return;
+                }
+              });
+
+              return supabaseDB.query<T>({
+                table: tableName,
+                select: "count",
+                filters,
+                single: true,
+              });
             }
           }
 

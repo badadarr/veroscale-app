@@ -20,10 +20,20 @@ export async function query<T>({
   const tableName = table.includes(".") ? table.split(".")[1] : table;
 
   let query = supabaseAdmin.from(tableName).select(select);
-
   // Apply filters
   Object.entries(filters).forEach(([key, value]) => {
-    query = query.eq(key, value);
+    if (key.endsWith('_gte')) {
+      // Handle >= operator for date ranges
+      const column = key.replace('_gte', '');
+      query = query.gte(column, value);
+    } else if (key.endsWith('_lte')) {
+      // Handle <= operator for date ranges
+      const column = key.replace('_lte', '');
+      query = query.lte(column, value);
+    } else {
+      // Standard equality filter
+      query = query.eq(key, value);
+    }
   });
 
   // Apply order if specified

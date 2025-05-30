@@ -18,12 +18,21 @@ export async function getCount(
 
     let queryBuilder = supabaseAdmin
       .from(table)
-      .select("*", { count: "exact", head: true }); // Mengganti nama variabel agar lebih jelas
-
-    // Terapkan filter
+      .select("*", { count: "exact", head: true }); // Mengganti nama variabel agar lebih jelas    // Terapkan filter
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined) {
-        queryBuilder = queryBuilder.eq(key, value);
+        if (key.endsWith('_gte')) {
+          // Handle >= operator for date ranges
+          const column = key.replace('_gte', '');
+          queryBuilder = queryBuilder.gte(column, value);
+        } else if (key.endsWith('_lte')) {
+          // Handle <= operator for date ranges
+          const column = key.replace('_lte', '');
+          queryBuilder = queryBuilder.lte(column, value);
+        } else {
+          // Standard equality filter
+          queryBuilder = queryBuilder.eq(key, value);
+        }
       }
     });
 

@@ -78,7 +78,15 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
       values: queryParams,
     });
 
-    totalItems = countResult[0].count;
+    // Handle different possible count result structures
+    if (Array.isArray(countResult) && countResult.length > 0 && countResult[0]) {
+      totalItems = countResult[0].count || 0;
+    } else if (countResult && typeof countResult === 'object' && 'count' in countResult) {
+      totalItems = (countResult as any).count || 0;
+    } else {
+      console.warn('Unexpected count result structure:', countResult);
+      totalItems = 0;
+    }
 
     // Add pagination to main query
     query += ` ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
