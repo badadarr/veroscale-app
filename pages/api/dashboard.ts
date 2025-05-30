@@ -207,6 +207,7 @@ async function getReportIssues() {
 async function getRecentRecords(user: any) {
   try {
     console.log("Fetching recent weight records for user role:", user.role);
+    console.log("User ID:", user.id);
 
     // Build the query using Supabase query builder
     let queryBuilder = supabaseAdmin.from("weight_records").select(`
@@ -227,13 +228,21 @@ async function getRecentRecords(user: any) {
     // For operators, only show their own records
     if (user.role === "operator") {
       queryBuilder = queryBuilder.eq("user_id", user.id);
+      console.log(`Filtering for operator ID: ${user.id}`);
+    } else {
+      console.log(`Admin/Manager - showing all records`);
     }
     // For admin/manager, show all records (no additional filter needed)
 
+    console.log("Executing query...");
     // Order by timestamp descending and limit to 10 most recent records
     const { data: weightRecords, error } = await queryBuilder
       .order("timestamp", { ascending: false })
       .limit(10);
+
+    console.log("Query completed. Error:", error);
+    console.log("Data length:", weightRecords?.length);
+    console.log("Raw data sample:", weightRecords?.slice(0, 2));
 
     if (error) {
       console.error("Error fetching recent records:", error);
@@ -241,9 +250,14 @@ async function getRecentRecords(user: any) {
     }
 
     if (!Array.isArray(weightRecords) || weightRecords.length === 0) {
-      console.log("No weight records found");
+      console.log("No weight records found in getRecentRecords");
       return [];
     }
+
+    console.log(
+      `Found ${weightRecords.length} recent weight records for user role: ${user.role}`
+    );
+    console.log("Sample weight record:", weightRecords[0]);
 
     // Get sample and user information for the records
     const sampleIds = Array.from(
@@ -275,6 +289,11 @@ async function getRecentRecords(user: any) {
         sampleMap[sample.id] = `${sample.category} - ${sample.item}`;
       });
     }
+    console.log(
+      "Sample map created:",
+      Object.keys(sampleMap).length,
+      "entries"
+    );
 
     const userMap: Record<number, string> = {};
     if (users.data) {
@@ -282,9 +301,11 @@ async function getRecentRecords(user: any) {
         userMap[user.id] = user.name;
       });
     }
+    console.log("User map created:", Object.keys(userMap).length, "entries");
 
     // Map records with related data
-    return weightRecords.map((record: any) => ({
+    console.log("Starting to map records...");
+    const mappedRecords = weightRecords.map((record: any) => ({
       record_id: record.record_id,
       user_id: record.user_id,
       sample_id: record.sample_id,
@@ -300,6 +321,11 @@ async function getRecentRecords(user: any) {
       approved_by: record.approved_by,
       approved_at: record.approved_at,
     }));
+
+    console.log("Mapped records length:", mappedRecords.length);
+    console.log("Sample mapped record:", mappedRecords[0]);
+
+    return mappedRecords;
   } catch (error) {
     console.error("Error in getRecentRecords:", error);
     return [];
