@@ -15,13 +15,24 @@ import apiClient from '@/lib/api';
 
 interface WeightRecord {
     id: number;
+    record_id: number;
+    user_id: number;
+    sample_id?: number;
+    item_id?: number;
     item_name: string;
     total_weight: number;
     timestamp: string;
     status: 'pending' | 'approved' | 'rejected';
     source?: string;
     destination?: string;
-    batch_number?: string;
+    notes?: string;
+    unit?: string;
+    approved_by?: number;
+    approved_at?: string;
+    created_at?: string;
+    user_name?: string;
+    approved_by_name?: string;
+    batch_number?: string; // Keep this for potential future use or if added later
 }
 
 export default function MyRecords() {
@@ -38,69 +49,7 @@ export default function MyRecords() {
     const [selectedRecord, setSelectedRecord] = useState<WeightRecord | null>(null);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [issueType, setIssueType] = useState('');
-    const [issueDescription, setIssueDescription] = useState('');
-
-    // Mock data for demonstration
-    const mockRecords: WeightRecord[] = [
-        {
-            id: 1,
-            item_name: "Metal Sheet",
-            total_weight: 125.5,
-            timestamp: "2025-05-27T09:30:00",
-            status: "approved",
-            source: "Warehouse A",
-            destination: "Production Line 1",
-            batch_number: "B2025-05-01"
-        },
-        {
-            id: 2,
-            item_name: "Steel Rod Bundle",
-            total_weight: 355.0,
-            timestamp: "2025-05-27T10:15:00",
-            status: "pending",
-            source: "Supplier XYZ",
-            destination: "Warehouse B"
-        },
-        {
-            id: 3,
-            item_name: "Concrete Block",
-            total_weight: 227.3,
-            timestamp: "2025-05-26T11:00:00",
-            status: "rejected",
-            source: "Construction Site",
-            destination: "Recycling Center",
-            batch_number: "B2025-05-02"
-        },
-        {
-            id: 4,
-            item_name: "Metal Sheet",
-            total_weight: 130.2,
-            timestamp: "2025-05-26T14:20:00",
-            status: "approved",
-            source: "Warehouse A",
-            destination: "Production Line 2"
-        },
-        {
-            id: 5,
-            item_name: "Sand Bag",
-            total_weight: 30.0,
-            timestamp: "2025-05-25T09:10:00",
-            status: "approved",
-            source: "Supplier ABC",
-            destination: "Construction Site"
-        },
-        {
-            id: 6,
-            item_name: "Gravel Container",
-            total_weight: 18.3,
-            timestamp: "2025-05-25T11:30:00",
-            status: "pending",
-            source: "Quarry",
-            destination: "Warehouse C"
-        }
-    ];
-
-    // Load user's records on component mount
+    const [issueDescription, setIssueDescription] = useState('');    // Load user's records on component mount
     useEffect(() => {
         const fetchRecords = async () => {
             if (!user?.id) {
@@ -108,12 +57,11 @@ export default function MyRecords() {
                 return;
             }
 
-            setLoading(true); try {
+            setLoading(true);
+            try {
                 // For operators, the API will automatically filter to their records
                 // For admin/manager, they can see all records
-                const endpoint = user.role === 'operator'
-                    ? '/api/weights?limit=50'
-                    : '/api/weights?limit=50';
+                const endpoint = '/api/weights?limit=50';
 
                 const response = await apiClient.get(endpoint);
                 const fetchedRecords = response.data.records || [];
@@ -121,13 +69,24 @@ export default function MyRecords() {
                 // Map API data to match the expected WeightRecord interface
                 const mappedRecords: WeightRecord[] = fetchedRecords.map((record: any) => ({
                     id: record.record_id || record.id,
+                    record_id: record.record_id || record.id,
+                    user_id: record.user_id || 0,
+                    sample_id: record.sample_id,
+                    item_id: record.item_id,
                     item_name: record.item_name || 'Unknown Item',
                     total_weight: record.total_weight || 0,
-                    timestamp: record.timestamp,
+                    timestamp: record.timestamp || record.created_at || new Date().toISOString(),
                     status: record.status || 'pending',
-                    source: record.source || undefined,
-                    destination: record.destination || undefined,
-                    batch_number: record.batch_number || undefined
+                    source: record.source,
+                    destination: record.destination,
+                    notes: record.notes,
+                    unit: record.unit || 'kg',
+                    approved_by: record.approved_by,
+                    approved_at: record.approved_at,
+                    created_at: record.created_at,
+                    user_name: record.user_name,
+                    approved_by_name: record.approved_by_name,
+                    batch_number: record.batch_number
                 }));
 
                 setRecords(mappedRecords);
@@ -136,14 +95,15 @@ export default function MyRecords() {
             } catch (error) {
                 console.error('Error fetching records:', error);
                 toast.error('Failed to load weight records');
-                // Fallback to empty array instead of mock data                setRecords([]);
+                // Fallback to empty array instead of mock data
+                setRecords([]);
                 setFilteredRecords([]);
                 setLoading(false);
             }
         };
 
         fetchRecords();
-    }, [user?.id]); // Add user.id as dependency to refetch when user changes
+    }, [user?.id, user?.role]); // Add user.role as dependency to refetch when user changes
 
     // Filter records based on search term and filters
     useEffect(() => {

@@ -12,11 +12,22 @@ import apiClient from '@/lib/api';
 
 interface WeightRecord {
   id: number;
+  record_id: number;
+  user_id: number;
+  sample_id?: number;
   item_name: string;
   total_weight: number;
   timestamp: string;
   status: 'pending' | 'approved' | 'rejected';
-  user_name: string;
+  source?: string;
+  destination?: string;
+  notes?: string;
+  unit?: string;
+  approved_by?: number;
+  approved_at?: string;
+  created_at?: string;
+  user_name?: string;
+  approved_by_name?: string;
 }
 
 export default function WeightRecords() {
@@ -32,16 +43,25 @@ export default function WeightRecords() {
     setLoading(true);
     try {
       const response = await apiClient.get('/api/weights');
-      const data = response.data;
-
-      if (data.records && Array.isArray(data.records)) {
+      const data = response.data; if (data.records && Array.isArray(data.records)) {
         setRecords(data.records.map((record: any) => ({
-          id: record.record_id || record.id,
+          id: record.id || record.record_id,
+          record_id: record.record_id || record.id,
+          user_id: record.user_id || 0,
+          sample_id: record.sample_id,
           item_name: record.item_name || 'Unknown Item',
           total_weight: record.total_weight || 0,
           timestamp: record.timestamp || new Date().toISOString(),
           status: record.status || 'pending',
-          user_name: record.user_name || 'Unknown User'
+          source: record.source,
+          destination: record.destination,
+          notes: record.notes,
+          unit: record.unit || 'kg',
+          approved_by: record.approved_by,
+          approved_at: record.approved_at,
+          created_at: record.created_at,
+          user_name: record.user_name || 'Unknown User',
+          approved_by_name: record.approved_by_name
         })));
       } else {
         console.warn('No records found or invalid format:', data);
@@ -113,21 +133,18 @@ export default function WeightRecords() {
       setStatusUpdating(null);
     }
   };
-
   // Determine if the user can change status
   const canChangeStatus = user?.role === 'admin' || user?.role === 'manager';
-  return (
-    <DashboardLayout title="Weight Records">
-      <div className="space-y-6">
-        <StatusInfoCard role={user?.role} />
 
-        <Card>          <CardHeader className="pb-3">
+  // Determine page title based on role
+  const pageTitle = user?.role === 'operator' ? 'My Weight Records' : 'All Weight Records';
+
+  return (
+    <DashboardLayout title={pageTitle}>
+      <div className="space-y-6">
+        <StatusInfoCard role={user?.role} />        <Card>          <CardHeader className="pb-3">
           <div className="flex justify-between items-center">
-            <CardTitle>Recent Weight Records</CardTitle>
-            <div className="flex items-center gap-4">
-              <div className="text-sm text-gray-500">
-                Showing last 24 hours
-              </div>
+            <CardTitle>{user?.role === 'operator' ? 'My Weight Records' : 'Recent Weight Records'}</CardTitle>            <div className="flex items-center gap-4">
               <Button
                 variant="outline"
                 size="sm"

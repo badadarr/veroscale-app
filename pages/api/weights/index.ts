@@ -143,7 +143,20 @@ async function getWeightRecords(
     // Add related data to weight records
     records = Array.isArray(weightRecords)
       ? weightRecords.map((record) => ({
-          ...record,
+          id: record.record_id, // Use record_id as id for consistency
+          record_id: record.record_id,
+          user_id: record.user_id,
+          sample_id: record.sample_id,
+          total_weight: record.total_weight,
+          timestamp: record.timestamp,
+          status: record.status,
+          source: record.source,
+          destination: record.destination,
+          notes: record.notes,
+          unit: record.unit,
+          approved_by: record.approved_by,
+          approved_at: record.approved_at,
+          created_at: record.created_at,
           item_name: sampleMap[record.sample_id] || "Unknown Sample",
           user_name: userMap[record.user_id] || "Unknown User",
           approved_by_name: record.approved_by
