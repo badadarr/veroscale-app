@@ -1,6 +1,30 @@
 -- Fix weight_records table issues for samples functionality
 BEGIN;
 
+-- First, check and fix status constraint issues
+DO $$
+BEGIN
+  -- Drop existing status check constraint if it exists and is problematic
+  IF EXISTS (
+    SELECT 1 FROM information_schema.check_constraints 
+    WHERE constraint_name = 'weight_records_status_check'
+  ) THEN
+    ALTER TABLE public.weight_records DROP CONSTRAINT weight_records_status_check;
+    RAISE NOTICE 'Dropped existing status check constraint';
+  END IF;
+  
+  -- Add proper status constraint
+  ALTER TABLE public.weight_records 
+  ADD CONSTRAINT weight_records_status_check 
+  CHECK (status IN ('pending', 'approved', 'rejected'));
+  
+  RAISE NOTICE 'Added proper status check constraint';
+EXCEPTION
+  WHEN others THEN
+    RAISE NOTICE 'Error handling status constraint: %', SQLERRM;
+END
+$$;
+
 -- Add sample_id column if it doesn't exist
 ALTER TABLE public.weight_records
 ADD COLUMN IF NOT EXISTS sample_id INTEGER;

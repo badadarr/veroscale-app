@@ -62,14 +62,12 @@ async function addBatchWeightRecords(
         return res.status(404).json({
           message: `Sample with ID ${sample_id} not found`,
         });
-      }
-
-      const sample = samples[0];
+      }      const sample = samples[0];
       const result = await executeQuery<any>({
         query: `
           INSERT INTO weight_records 
-          (user_id, sample_id, item_id, total_weight, status, batch_number, source, destination, notes, unit)
-          VALUES (?, ?, NULL, ?, 'pending', ?, ?, ?, ?, ?)
+          (user_id, sample_id, total_weight, status, batch_number, source, destination, notes, unit)
+          VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)
           RETURNING *
         `,
         values: [
