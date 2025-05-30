@@ -176,67 +176,66 @@ async function getRecentRecords(user: any) {
   try {
     console.log("Fetching recent weight records for user role:", user.role);
 
-    let query = `
-      SELECT 
-        wr.record_id,
-        wr.user_id,
-        wr.sample_id,
-        wr.total_weight,
-        wr.timestamp,
-        wr.status,
-        wr.source,
-        wr.destination,
-        wr.notes,
-        wr.unit,
-        wr.approved_by,
-        wr.approved_at,
-        wr.created_at
-      FROM weight_records wr
-      WHERE 1=1
-    `;
-    
-    const queryParams: any[] = [];
+    // Build the query using Supabase query builder
+    let queryBuilder = supabaseAdmin.from("weight_records").select(`
+        record_id,
+        user_id,
+        sample_id,
+        total_weight,
+        timestamp,
+        status,
+        source,
+        destination,
+        notes,
+        unit,
+        approved_by,
+        approved_at,
+        created_at
+      `);
 
     // For operators, only show their own records
-    if (user.role === 'operator') {
-      query += ` AND wr.user_id = ?`;
-      queryParams.push(user.id);
+    if (user.role === "operator") {
+      queryBuilder = queryBuilder.eq("user_id", user.id);
     }
     // For admin/manager, show all records (no additional filter needed)
 
     // Order by timestamp descending and limit to 10 most recent records
-    query += ` ORDER BY wr.timestamp DESC LIMIT 10`;
-
-    const { data: weightRecords, error } = await supabaseAdmin.rpc('exec_sql', {
-      query,
-      params: queryParams
-    });
+    const { data: weightRecords, error } = await queryBuilder
+      .order("timestamp", { ascending: false })
+      .limit(10);
 
     if (error) {
       console.error("Error fetching recent records:", error);
       return [];
     }
 
-    if (!Array.isArray(weightRecords)) {
-      console.warn("Weight records is not an array:", weightRecords);
+    if (!Array.isArray(weightRecords) || weightRecords.length === 0) {
+      console.log("No weight records found");
       return [];
     }
 
     // Get sample and user information for the records
-    const sampleIds = Array.from(new Set(weightRecords.map(r => r.sample_id).filter(Boolean)));
-    const userIds = Array.from(new Set(weightRecords.map(r => r.user_id).filter(Boolean)));
+    const sampleIds = Array.from(
+      new Set(weightRecords.map((r) => r.sample_id).filter(Boolean))
+    );
+    const userIds = Array.from(
+      new Set(weightRecords.map((r) => r.user_id).filter(Boolean))
+    );
 
     // Fetch samples
-    const samples = sampleIds.length > 0 ? await supabaseAdmin
-      .from("samples_item")
-      .select("id, category, item")
-      .in("id", sampleIds) : { data: [] };
+    const samples =
+      sampleIds.length > 0
+        ? await supabaseAdmin
+            .from("samples_item")
+            .select("id, category, item")
+            .in("id", sampleIds)
+        : { data: [] };
 
     // Fetch users
-    const users = userIds.length > 0 ? await supabaseAdmin
-      .from("users")
-      .select("id, name")
-      .in("id", userIds) : { data: [] };
+    const users =
+      userIds.length > 0
+        ? await supabaseAdmin.from("users").select("id, name").in("id", userIds)
+        : { data: [] };
 
     // Create lookup maps
     const sampleMap: Record<number, string> = {};
@@ -266,12 +265,11 @@ async function getRecentRecords(user: any) {
       source: record.source,
       destination: record.destination,
       notes: record.notes,
-      unit: record.unit || 'kg',
+      unit: record.unit || "kg",
       approved_by: record.approved_by,
       approved_at: record.approved_at,
       created_at: record.created_at,
     }));
-
   } catch (error) {
     console.error("Error in getRecentRecords:", error);
     return [];
