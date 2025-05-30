@@ -49,7 +49,7 @@ export default function WeightRecords() {
       }
     } catch (error: any) {
       console.error('Error fetching weight records:', error);
-      
+
       if (error.response?.status === 500) {
         toast.error('Server error while loading records. Please try again.');
       } else if (error.response?.status === 401) {
@@ -57,7 +57,7 @@ export default function WeightRecords() {
       } else {
         toast.error('Failed to load weight records');
       }
-      
+
       setRecords([]);
     } finally {
       setLoading(false);
@@ -65,18 +65,18 @@ export default function WeightRecords() {
   };// Function to update weight record status
   const updateRecordStatus = async (recordId: number, status: 'approved' | 'rejected' | 'pending') => {
     setStatusUpdating(recordId);
-    
+
     try {
       const response = await apiClient.put(`/api/weights/${recordId}`, { status });
       const data = response.data;
 
       toast.success(`Record status updated to ${status}`);
-      
+
       // Update local state with the returned record data
       setRecords(records.map(record => {
         if (record.id === recordId) {
-          return { 
-            ...record, 
+          return {
+            ...record,
             status,
             // Update with additional data from response if available
             ...(data.record && {
@@ -87,20 +87,20 @@ export default function WeightRecords() {
         }
         return record;
       }));
-      
+
     } catch (error: any) {
       console.error('Error updating record status:', error);
-      
+
       // Check if the update might have succeeded but the response failed
       if (error.response?.status === 500) {
         // Show a different message and try to refresh the data
         toast.error('Update may have succeeded but response failed. Refreshing data...');
-        
+
         // Optimistically update the local state
         setRecords(records.map(record =>
           record.id === recordId ? { ...record, status } : record
         ));
-        
+
         // Try to refresh the data to get the latest state
         setTimeout(() => {
           fetchWeightRecords();
@@ -147,7 +147,8 @@ export default function WeightRecords() {
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow>                    <TableHead>ID</TableHead>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
                     <TableHead>Item</TableHead>
                     <TableHead>Weight</TableHead>
                     <TableHead>Timestamp</TableHead>
@@ -171,10 +172,10 @@ export default function WeightRecords() {
                           {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
                         </span>
                       </TableCell>
-                      <TableCell>{record.user_name}</TableCell>
-                      {canChangeStatus && (                        <TableCell>
-                          <div className="flex space-x-2">
-                            {record.status !== 'approved' && (
+                      <TableCell>{record.user_name}</TableCell>                      {canChangeStatus && (<TableCell>
+                        <div className="flex space-x-2">
+                          {record.status === 'pending' && (
+                            <>
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -185,22 +186,6 @@ export default function WeightRecords() {
                                 <CheckCircle className="h-3.5 w-3.5 mr-1" />
                                 Approve
                               </Button>
-                            )}
-
-                            {record.status !== 'pending' && record.status !== 'approved' && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="px-2 py-1 h-8 text-xs text-warning-700 border-warning-200 hover:bg-warning-50"
-                                onClick={() => updateRecordStatus(record.id, 'pending')}
-                                disabled={statusUpdating === record.id}
-                              >
-                                <Clock className="h-3.5 w-3.5 mr-1" />
-                                Pending
-                              </Button>
-                            )}
-
-                            {record.status !== 'rejected' && record.status !== 'approved' && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -211,9 +196,23 @@ export default function WeightRecords() {
                                 <XCircle className="h-3.5 w-3.5 mr-1" />
                                 Reject
                               </Button>
-                            )}
-                          </div>
-                        </TableCell>
+                            </>
+                          )}
+
+                          {(record.status === 'approved' || record.status === 'rejected') && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="px-2 py-1 h-8 text-xs text-warning-700 border-warning-200 hover:bg-warning-50"
+                              onClick={() => updateRecordStatus(record.id, 'pending')}
+                              disabled={statusUpdating === record.id}
+                            >
+                              <Clock className="h-3.5 w-3.5 mr-1" />
+                              Reset to Pending
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                       )}
                     </TableRow>
                   ))}
