@@ -98,7 +98,9 @@ export default function MyRecords() {
             source: "Quarry",
             destination: "Warehouse C"
         }
-    ];    // Load user's records on component mount
+    ];
+
+    // Load user's records on component mount
     useEffect(() => {
         const fetchRecords = async () => {
             if (!user?.id) {
@@ -106,17 +108,21 @@ export default function MyRecords() {
                 return;
             }
 
-            setLoading(true);
-            try {
-                // Fetch real data from API
-                const response = await apiClient.get(`/api/weights?user_id=${user?.id}&limit=50`);
+            setLoading(true); try {
+                // For operators, the API will automatically filter to their records
+                // For admin/manager, they can see all records
+                const endpoint = user.role === 'operator'
+                    ? '/api/weights?limit=50'
+                    : '/api/weights?limit=50';
+
+                const response = await apiClient.get(endpoint);
                 const fetchedRecords = response.data.records || [];
 
                 // Map API data to match the expected WeightRecord interface
                 const mappedRecords: WeightRecord[] = fetchedRecords.map((record: any) => ({
-                    id: record.id,
+                    id: record.record_id || record.id,
                     item_name: record.item_name || 'Unknown Item',
-                    total_weight: record.weight || record.total_weight || 0,
+                    total_weight: record.total_weight || 0,
                     timestamp: record.timestamp,
                     status: record.status || 'pending',
                     source: record.source || undefined,
@@ -130,12 +136,13 @@ export default function MyRecords() {
             } catch (error) {
                 console.error('Error fetching records:', error);
                 toast.error('Failed to load weight records');
-                // Fallback to empty array instead of mock data
-                setRecords([]);
+                // Fallback to empty array instead of mock data                setRecords([]);
                 setFilteredRecords([]);
                 setLoading(false);
             }
-        }; fetchRecords();
+        };
+
+        fetchRecords();
     }, [user?.id]); // Add user.id as dependency to refetch when user changes
 
     // Filter records based on search term and filters
@@ -245,10 +252,10 @@ export default function MyRecords() {
     }; return (
         <DashboardLayout title="My Records">
             <div className="max-w-6xl mx-auto">
-                <StatusInfoCard role={user?.role} />
-
-                <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2 md:mb-0">My Weight Records</h1>
+                <StatusInfoCard role={user?.role} />                <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2 md:mb-0">
+                        {user?.role === 'operator' ? 'My Weight Records' : 'All Weight Records'}
+                    </h1>
                     <div className="flex space-x-2">
                         <Button
                             variant="outline"

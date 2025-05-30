@@ -14,7 +14,7 @@ export default async function handler(
 
   switch (req.method) {
     case "GET":
-      return getWeightRecords(req, res);
+      return getWeightRecords(req, res, user);
     case "POST":
       return addWeightRecord(req, res, user);
     default:
@@ -23,7 +23,11 @@ export default async function handler(
 }
 
 // Get all weight records with filtering and pagination
-async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
+async function getWeightRecords(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  user: any
+) {
   try {
     const {
       sample_id,
@@ -46,14 +50,19 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
     let query = "SELECT * FROM weight_records WHERE 1=1";
     const queryParams: any[] = [];
 
+    // Role-based filtering: operators can only see their own records
+    if (user.role === "operator") {
+      query += ` AND user_id = ?`;
+      queryParams.push(user.id);
+    } else if (user_id) {
+      // For admin/manager, allow filtering by user_id if specified
+      query += ` AND user_id = ?`;
+      queryParams.push(user_id);
+    }
+
     if (sample_id) {
       query += ` AND sample_id = ?`;
       queryParams.push(sample_id);
-    }
-
-    if (user_id) {
-      query += ` AND user_id = ?`;
-      queryParams.push(user_id);
     }
 
     if (status) {
@@ -79,12 +88,20 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
     });
 
     // Handle different possible count result structures
-    if (Array.isArray(countResult) && countResult.length > 0 && countResult[0]) {
+    if (
+      Array.isArray(countResult) &&
+      countResult.length > 0 &&
+      countResult[0]
+    ) {
       totalItems = countResult[0].count || 0;
-    } else if (countResult && typeof countResult === 'object' && 'count' in countResult) {
+    } else if (
+      countResult &&
+      typeof countResult === "object" &&
+      "count" in countResult
+    ) {
       totalItems = (countResult as any).count || 0;
     } else {
-      console.warn('Unexpected count result structure:', countResult);
+      console.warn("Unexpected count result structure:", countResult);
       totalItems = 0;
     }
 
