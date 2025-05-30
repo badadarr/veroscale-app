@@ -66,12 +66,10 @@ async function getIssues(req: NextApiRequest, res: NextApiResponse) {
           map[user.id] = user.name;
           return map;
         }, {} as Record<number, string>)
-      : {};
-
-    // Add reporter names to issues safely
+      : {}; // Add reporter names to issues safely
     const issuesWithReporters = issues.map((issue) => ({
       ...issue,
-      user_name: userMap[issue.reporter_id || issue.user_id] || "Unknown User",
+      user_name: userMap[issue.reporter_id] || "Unknown User",
       // Ensure type field is mapped correctly
       type: issue.issue_type || issue.type || "other",
       // Ensure status is always present
@@ -80,9 +78,9 @@ async function getIssues(req: NextApiRequest, res: NextApiResponse) {
 
     console.log("Final issues with reporters:", issuesWithReporters.length);
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       issues: issuesWithReporters,
-      total: issuesWithReporters.length 
+      total: issuesWithReporters.length,
     });
   } catch (error) {
     console.error("Error fetching issues:", error);
@@ -102,14 +100,13 @@ async function createIssue(
 ) {
   try {
     const { title, description, type, priority, record_id } = req.body;
-
     console.log("Creating issue with data:", {
       title,
       description,
       type,
       priority,
       record_id,
-      user_id: user.id,
+      reporter_id: user.id,
     });
 
     if (!title || !description) {

@@ -76,7 +76,7 @@ export default function Issues() {
         } finally {
             setLoading(false);
         }
-    };    const createIssue = async () => {
+    }; const createIssue = async () => {
         if (!newIssue.title.trim() || !newIssue.description.trim()) {
             toast.error('Please fill in all required fields');
             return;
@@ -86,13 +86,13 @@ export default function Issues() {
             console.log('Creating issue with data:', newIssue);
             const response = await apiClient.post('/api/issues', newIssue);
             console.log('Create issue response:', response.data);
-            
+
             if (response.data?.issue) {
                 toast.success('Issue created successfully');
-                
+
                 // Add the new issue to the beginning of the list
                 setIssues(prevIssues => [response.data.issue, ...prevIssues]);
-                
+
                 setShowCreateModal(false);
                 setNewIssue({
                     title: '',
@@ -107,15 +107,15 @@ export default function Issues() {
         } catch (error: any) {
             console.error('Error creating issue:', error);
             console.error('Error response:', error.response?.data);
-            
-            const errorMessage = error.response?.data?.error || 
-                               error.response?.data?.details || 
-                               error.message || 
-                               'Unknown error occurred';
-            
+
+            const errorMessage = error.response?.data?.error ||
+                error.response?.data?.details ||
+                error.message ||
+                'Unknown error occurred';
+
             toast.error(`Failed to create issue: ${errorMessage}`);
         }
-    };const updateIssueStatus = async (issueId: number, status: string) => {
+    }; const updateIssueStatus = async (issueId: number, status: string) => {
         if (user?.role === 'operator' && status !== 'pending') {
             // Operators can only revise (reopen) issues
             toast.error('You can only reopen issues, not resolve or reject them');
@@ -129,9 +129,9 @@ export default function Issues() {
                 status,
                 resolver_id: status === 'resolved' ? user?.id : undefined
             });
-            
+
             console.log('Status update response:', response.data);
-            
+
             if (response.data?.issue) {
                 // Update the local state with the returned issue data
                 setIssues(issues.map(issue =>
@@ -140,47 +140,47 @@ export default function Issues() {
                         user_name: response.data.issue.user_name || issue.user_name
                     } : issue
                 ));
-                
+
                 toast.success(`Issue ${status === 'resolved' ? 'resolved' : status === 'rejected' ? 'rejected' : 'updated'} successfully`);
             } else {
                 throw new Error('No issue data returned from server');
             }
-            
+
         } catch (error: any) {
             console.error('Error updating issue status:', error);
             console.error('Error response:', error.response?.data);
-            
-            const errorMessage = error.response?.data?.error || 
-                               error.response?.data?.details || 
-                               error.message || 
-                               'Unknown error occurred';
-            
+
+            const errorMessage = error.response?.data?.error ||
+                error.response?.data?.details ||
+                error.message ||
+                'Unknown error occurred';
+
             toast.error(`Failed to update issue status: ${errorMessage}`);
         } finally {
             setStatusUpdating(null);
         }
-    };    const deleteIssue = async (issueId: number) => {
+    }; const deleteIssue = async (issueId: number) => {
         if (!confirm('Are you sure you want to delete this issue?')) return;
 
         try {
             console.log(`Deleting issue ${issueId}`);
             const response = await apiClient.delete(`/api/issues/${issueId}`);
             console.log('Delete response:', response.data);
-            
+
             toast.success('Issue deleted successfully');
-            
+
             // Update local state immediately
             setIssues(prevIssues => prevIssues.filter(issue => issue.id !== issueId));
-            
+
         } catch (error: any) {
             console.error('Error deleting issue:', error);
             console.error('Error response:', error.response?.data);
-            
-            const errorMessage = error.response?.data?.error || 
-                               error.response?.data?.details || 
-                               error.message || 
-                               'Unknown error occurred';
-            
+
+            const errorMessage = error.response?.data?.error ||
+                error.response?.data?.details ||
+                error.message ||
+                'Unknown error occurred';
+
             toast.error(`Failed to delete issue: ${errorMessage}`);
         }
     };
@@ -357,7 +357,7 @@ export default function Issues() {
                                                                 </Button>
                                                             )}
                                                         </>
-                                                    )}                                                    {user?.role === 'operator' && (issue.user_id === user.id || issue.reporter_id === user.id) && (
+                                                    )}                                                    {user?.role === 'operator' && issue.reporter_id === user.id && (
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
@@ -372,9 +372,7 @@ export default function Issues() {
                                                                 <Edit className="h-3 w-3" />
                                                             )}
                                                         </Button>
-                                                    )}
-
-                                                    {(user?.role === 'admin' || (issue.user_id === user?.id || issue.reporter_id === user?.id)) && (
+                                                    )}                                                    {(user?.role === 'admin' || issue.reporter_id === user?.id) && (
                                                         <Button
                                                             size="sm"
                                                             variant="outline"

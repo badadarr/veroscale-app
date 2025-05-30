@@ -49,14 +49,12 @@ async function handleGet(
 
     if (!issue) {
       return res.status(404).json({ error: "Issue not found" });
-    }
-
-    // Get user name for reporter
+    } // Get user name for reporter
     const user = await executeQuery({
       table: "users",
       action: "select",
       columns: "name",
-      filters: { id: issue.reporter_id || issue.user_id },
+      filters: { id: issue.reporter_id },
       single: true,
     });
 
@@ -93,13 +91,11 @@ async function handlePut(
       resolver_id,
     } = req.body;
 
-    console.log("Updating issue with data:", req.body);
-
-    // Check if issue exists
+    console.log("Updating issue with data:", req.body); // Check if issue exists
     const existingIssue = await executeQuery({
       table: "issues",
       action: "select",
-      columns: "id, status, reporter_id, user_id",
+      columns: "id, status, reporter_id",
       filters: { id },
       single: true,
     });
@@ -143,7 +139,7 @@ async function handlePut(
           updateData.resolved_by = resolver_id;
         }
       }
-      
+
       // If status is changed from resolved back to pending, clear resolution fields
       if (status === "pending" && currentStatus === "resolved") {
         updateData.resolved_at = null;
@@ -154,7 +150,8 @@ async function handlePut(
 
     if (resolution) {
       updateData.resolution = resolution;
-    }    console.log("Final update data:", updateData);
+    }
+    console.log("Final update data:", updateData);
 
     // Execute update - the issue here is that Supabase update might return array
     const updateResult = await executeQuery({
@@ -168,18 +165,18 @@ async function handlePut(
     console.log("Update result:", updateResult);
 
     // Get the updated issue (updateResult might be an array)
-    const updatedIssue = Array.isArray(updateResult) ? updateResult[0] : updateResult;
+    const updatedIssue = Array.isArray(updateResult)
+      ? updateResult[0]
+      : updateResult;
 
     if (!updatedIssue) {
       throw new Error("Failed to get updated issue data");
-    }
-
-    // Get user name for reporter
+    } // Get user name for reporter
     const user = await executeQuery({
       table: "users",
       action: "select",
       columns: "name",
-      filters: { id: updatedIssue.reporter_id || updatedIssue.user_id },
+      filters: { id: updatedIssue.reporter_id },
       single: true,
     });
 
