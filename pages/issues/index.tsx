@@ -321,43 +321,43 @@ export default function Issues() {
                                                         onClick={() => setSelectedIssue(issue)}
                                                     >
                                                         <Eye className="h-3 w-3" />
-                                                    </Button>                                                    {canManageIssues && (
+                                                    </Button>                                                    {/* Show resolve/reject buttons only for pending/in_review issues */}
+                                                    {canManageIssues && (issue.status === 'pending' || issue.status === 'in_review') && (
                                                         <>
-                                                            {issue.status !== 'resolved' && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    className="text-success-700 border-success-200 hover:bg-success-50"
-                                                                    onClick={() => updateIssueStatus(issue.id, 'resolved')}
-                                                                    disabled={statusUpdating === issue.id}
-                                                                    title="Mark as resolved"
-                                                                >
-                                                                    {statusUpdating === issue.id ? (
-                                                                        <div className="h-3 w-3 border-2 border-success-700 border-t-transparent rounded-full animate-spin" />
-                                                                    ) : (
-                                                                        <CheckCircle className="h-3 w-3" />
-                                                                    )}
-                                                                </Button>
-                                                            )}
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="text-success-700 border-success-200 hover:bg-success-50"
+                                                                onClick={() => updateIssueStatus(issue.id, 'resolved')}
+                                                                disabled={statusUpdating === issue.id}
+                                                                title="Mark as resolved"
+                                                            >
+                                                                {statusUpdating === issue.id ? (
+                                                                    <div className="h-3 w-3 border-2 border-success-700 border-t-transparent rounded-full animate-spin" />
+                                                                ) : (
+                                                                    <CheckCircle className="h-3 w-3" />
+                                                                )}
+                                                            </Button>
 
-                                                            {issue.status !== 'rejected' && issue.status !== 'resolved' && (
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    className="text-error-700 border-error-200 hover:bg-error-50"
-                                                                    onClick={() => updateIssueStatus(issue.id, 'rejected')}
-                                                                    disabled={statusUpdating === issue.id}
-                                                                    title="Mark as rejected"
-                                                                >
-                                                                    {statusUpdating === issue.id ? (
-                                                                        <div className="h-3 w-3 border-2 border-error-700 border-t-transparent rounded-full animate-spin" />
-                                                                    ) : (
-                                                                        <XCircle className="h-3 w-3" />
-                                                                    )}
-                                                                </Button>
-                                                            )}
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="text-error-700 border-error-200 hover:bg-error-50"
+                                                                onClick={() => updateIssueStatus(issue.id, 'rejected')}
+                                                                disabled={statusUpdating === issue.id}
+                                                                title="Mark as rejected"
+                                                            >
+                                                                {statusUpdating === issue.id ? (
+                                                                    <div className="h-3 w-3 border-2 border-error-700 border-t-transparent rounded-full animate-spin" />
+                                                                ) : (
+                                                                    <XCircle className="h-3 w-3" />
+                                                                )}
+                                                            </Button>
                                                         </>
-                                                    )}                                                    {user?.role === 'operator' && issue.reporter_id === user.id && (
+                                                    )}
+
+                                                    {/* Show reopen button for operators who reported resolved/rejected issues */}
+                                                    {user?.role === 'operator' && issue.reporter_id === user.id && (issue.status === 'resolved' || issue.status === 'rejected') && (
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
@@ -372,7 +372,10 @@ export default function Issues() {
                                                                 <Edit className="h-3 w-3" />
                                                             )}
                                                         </Button>
-                                                    )}                                                    {(user?.role === 'admin' || issue.reporter_id === user?.id) && (
+                                                    )}
+
+                                                    {/* Delete button - always show for admin or issue reporter */}
+                                                    {(user?.role === 'admin' || issue.reporter_id === user?.id) && (
                                                         <Button
                                                             size="sm"
                                                             variant="outline"
