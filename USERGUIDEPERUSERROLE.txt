@@ -151,9 +151,9 @@ Scanning Entry (if QR/Barcode scanning is implemented)
 - Click "Save Record"
 
 Viewing Your Records
-- Navigate to "Operations" → "My Records"
-- View all records you've entered
-- Filter by date, material, or status
+- Navigate to "My Records" in the sidebar
+- View all records you've entered with advanced filtering and search capabilities
+- Filter by date, material, or status using the provided tools
 - Click on any record to view details
 - Note: You cannot edit records after creation - contact your manager if changes are needed
 

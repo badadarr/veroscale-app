@@ -48,7 +48,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
   const baseNavigation: NavItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Samples', href: '/samples', icon: Database },
-    { name: 'Weight Records', href: '/weights', icon: Weight },
+    // Weight Records only for admin/manager - operators use "My Records" instead
+    { name: 'Weight Records', href: '/weights', icon: Weight, roles: ['admin', 'manager'] },
   ];
 
   // Operations navigation items (mainly for operators)
@@ -67,7 +68,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   // Filter navigation based on user role
   const navigation: NavItem[] = [
-    ...baseNavigation,
+    // Filter base navigation items by role if they have role restrictions
+    ...baseNavigation.filter(item =>
+      !item.roles || item.roles.includes(user?.role || '')
+    ),
     ...(user?.role === 'operator' ? operationsNavigation : []),
     ...roleBasedNavigation.filter(item =>
       item.roles?.includes(user?.role || '') || false
