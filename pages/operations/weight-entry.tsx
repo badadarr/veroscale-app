@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { Scale, PackagePlus, Layers, Info } from 'lucide-react';
+import { Scale, Truck, Package } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -8,70 +8,94 @@ import { Input } from '@/components/ui/Input';
 import StatusInfoCard from '@/components/ui/StatusInfoCard';
 import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api';
+import IoTWeightDisplay from '@/components/ui/IoTWeightDisplay';
+import RFIDUserDisplay from '@/components/ui/RFIDUserDisplay';
+import { toast } from 'react-hot-toast';
+import { formatDate } from '@/lib/utils';
 
-interface Material {
+interface Delivery {
     id: number;
-    name: string;
-    standard_weight: number;
+    item_name: string;
+    expected_quantity: number;
+    expected_weight: number;
+    scheduled_date: string;
+    delivery_status: string;
+    suppliers?: { name: string };
 }
 
 export default function WeightEntry() {
     const router = useRouter();
     const { user } = useAuth();
-    const [isBatchMode, setIsBatchMode] = useState(false);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     // Form states
-    const [selectedMaterial, setSelectedMaterial] = useState<number | null>(null);
-    const [weight, setWeight] = useState<number | null>(null);
-    const [unit, setUnit] = useState<string>('kg');
-    const [batchNumber, setBatchNumber] = useState<string>('');
-    const [source, setSource] = useState<string>('');
-    const [destination, setDestination] = useState<string>('');
-    const [batchItems, setBatchItems] = useState<{ weight: number, note: string }[]>([]);
+    const [selectedDelivery, setSelectedDelivery] = useState<number | null>(null);
+    const [actualWeight, setActualWeight] = useState<number | null>(null);
+    const [notes, setNotes] = useState<string>('');
 
-    // Mock materials data (replace with API call in production)
-    const materials: Material[] = [
-        { id: 1, name: 'Metal Sheet', standard_weight: 12.5 },
-        { id: 2, name: 'Steel Rod Bundle', standard_weight: 35.5 },
-        { id: 3, name: 'Concrete Block', standard_weight: 22.7 },
-        { id: 4, name: 'Gravel Container', standard_weight: 18.3 },
-        { id: 5, name: 'Sand Bag', standard_weight: 30.0 },
-    ];
+    // Load deliveries
+    const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+    const [selectedDeliveryData, setSelectedDeliveryData] = useState<Delivery | null>(null);
 
-    // Function to handle single record submission
-    const handleSingleSubmit = async (e: React.FormEvent) => {
+    useEffect(() => {
+        loadDeliveries();
+    }, []);
+
+    const loadDeliveries = async () => {
+        try {
+            const { data } = await apiClient.get('/api/deliveries');
+            const shippedDeliveries = data.deliveries?.filter((delivery: Delivery) => 
+                delivery.delivery_status === 'in_transit'
+            ) || [];
+            setDeliveries(shippedDeliveries);
+        } catch (error) {
+            console.error('Failed to load deliveries:', error);
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!selectedMaterial || !weight) {
-            setError('Please select a material and enter a weight.');
+        if (!selectedDelivery || !actualWeight) {
+            setError('Please select a delivery and enter actual weight.');
             return;
         }
 
+        // Check if delivery can be weighed today
+        if (selectedDeliveryData) {
+            const today = new Date().toISOString().split('T')[0];
+            const scheduled = new Date(selectedDeliveryData.scheduled_date).toISOString().split('T')[0];
+            
+            if (today < scheduled) {
+                toast.error('Cannot weigh delivery before scheduled date');
+                return;
+            }
+        }
+
         setLoading(true);
-        setError(null); try {
-            // Real API call to add weight record
+        setError(null);
+
+        try {
+            // Update delivery status to delivered and add weight record
+            await apiClient.put(`/api/deliveries/${selectedDelivery}`, {
+                delivery_status: 'delivered',
+                actual_delivery_date: new Date().toISOString().split('T')[0]
+            });
+
+            // Add weight record
             await apiClient.post('/api/weights', {
-                item_id: selectedMaterial,
-                total_weight: weight,
-                unit,
-                batch_number: batchNumber,
-                source,
-                destination
-            }); setSuccess(true);
+                delivery_id: selectedDelivery,
+                item_name: selectedDeliveryData?.item_name,
+                total_weight: actualWeight,
+                notes
+            });
 
-            // Reset form after successful submission
+            setSuccess(true);
+            toast.success('Delivery weighed and recorded successfully!');
+
             setTimeout(() => {
-                setSuccess(false);
-                setSelectedMaterial(null);
-                setWeight(null);
-                setBatchNumber('');
-                setSource('');
-                setDestination('');
-
-                // Navigate to weight records page to see the added record
                 router.push('/weights');
             }, 2000);
 
@@ -83,89 +107,38 @@ export default function WeightEntry() {
         }
     };
 
-    // Function to add item to batch
-    const addToBatch = () => {
-        if (!weight) {
-            setError('Please enter a weight value.');
-            return;
-        }
-
-        setBatchItems([...batchItems, { weight, note: `Item ${batchItems.length + 1}` }]);
-        setWeight(null);
-        setError(null);
+    const handleDeliverySelect = (deliveryId: number | null) => {
+        setSelectedDelivery(deliveryId);
+        const delivery = deliveries.find(d => d.id === deliveryId) || null;
+        setSelectedDeliveryData(delivery);
     };
 
-    // Function to handle batch submission
-    const handleBatchSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (!selectedMaterial || batchItems.length === 0) {
-            setError('Please select a material and add at least one weight record.');
-            return;
-        }
-
-        setLoading(true);
-        setError(null); try {
-            // Real API call to add batch records
-            await apiClient.post('/api/weights/batch', {
-                item_id: selectedMaterial,
-                batch_items: batchItems,
-                unit,
-                batch_number: batchNumber,
-                source,
-                destination
-            }); setSuccess(true);
-
-            // Reset form after successful submission
-            setTimeout(() => {
-                setSuccess(false);
-                setSelectedMaterial(null);
-                setBatchItems([]);
-                setBatchNumber('');
-                setSource('');
-                setDestination('');
-
-                // Navigate to weight records page to see the added records
-                router.push('/weights');
-            }, 2000);
-
-        } catch (err) {
-            console.error('Error submitting batch records:', err);
-            setError('Failed to submit batch records. Please try again.');
-        } finally {
-            setLoading(false);
-        }
+    const handleIoTWeightSelect = (iotWeight: number) => {
+        setActualWeight(iotWeight);
+        toast.success(`Weight ${iotWeight} kg taken from IoT scale`);
     }; return (
         <DashboardLayout title="Weight Entry">
             <div className="max-w-4xl mx-auto">
                 <StatusInfoCard role={user?.role} />
 
-                <div className="mb-6 flex justify-between items-center">
-                    <h1 className="text-2xl font-bold text-gray-900">Material Weight Entry</h1>
-                    <div className="flex space-x-2">
-                        <Button
-                            variant={!isBatchMode ? "default" : "outline"}
-                            onClick={() => setIsBatchMode(false)}
-                            size="sm"
-                        >
-                            <PackagePlus className="h-4 w-4 mr-1" />
-                            Single Entry
-                        </Button>
-                        <Button
-                            variant={isBatchMode ? "default" : "outline"}
-                            onClick={() => setIsBatchMode(true)}
-                            size="sm"
-                        >
-                            <Layers className="h-4 w-4 mr-1" />
-                            Batch Mode
-                        </Button>
-                    </div>
+                {/* IoT Integration Section */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <IoTWeightDisplay 
+                        showSelectButton={true} 
+                        onWeightSelect={handleIoTWeightSelect}
+                    />
+                    <RFIDUserDisplay />
+                </div>
+
+                <div className="mb-6">
+                    <h1 className="text-2xl font-bold text-gray-900">Delivery Weight Entry</h1>
+                    <p className="text-gray-600 mt-1">Weigh delivered items from suppliers</p>
                 </div>
 
                 {success && (
                     <div className="mb-6 bg-success-100 border border-success-300 text-success-700 px-4 py-3 rounded relative" role="alert">
                         <div className="flex">
-                            <span className="font-medium">{isBatchMode ? 'Batch records' : 'Weight record'} submitted successfully!</span>
+                            <span className="font-medium">Delivery weighed successfully!</span>
                         </div>
                     </div>
                 )}
@@ -182,179 +155,136 @@ export default function WeightEntry() {
                     <CardHeader className="bg-primary-50">
                         <CardTitle className="flex items-center text-primary-800">
                             <Scale className="h-5 w-5 mr-2" />
-                            {isBatchMode ? 'Batch Weight Entry' : 'Single Weight Entry'}
+                            Delivery Weight Entry
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-6">
-                        <form onSubmit={isBatchMode ? handleBatchSubmit : handleSingleSubmit}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <form onSubmit={handleSubmit}>
+                            <div className="space-y-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Select Material *
+                                        Select Delivery to Weigh *
                                     </label>
                                     <select
                                         className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-                                        value={selectedMaterial || ''}
-                                        onChange={(e) => setSelectedMaterial(Number(e.target.value) || null)}
+                                        value={selectedDelivery || ''}
+                                        onChange={(e) => handleDeliverySelect(Number(e.target.value) || null)}
                                         required
-                                        aria-label="Select Material"
                                     >
-                                        <option value="">-- Select Material --</option>
-                                        {materials.map((material) => (
-                                            <option key={material.id} value={material.id}>
-                                                {material.name} (Std: {material.standard_weight} kg)
+                                        <option value="">-- Select Delivery --</option>
+                                        {deliveries.map((delivery) => (
+                                            <option key={delivery.id} value={delivery.id}>
+                                                {delivery.item_name} - {delivery.suppliers?.name} (Expected: {delivery.expected_weight || 'N/A'} kg)
                                             </option>
                                         ))}
                                     </select>
+                                    {deliveries.length === 0 && (
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            No deliveries available for weighing. Only shipped deliveries can be weighed.
+                                        </p>
+                                    )}
                                 </div>
 
-                                {!isBatchMode && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Weight *
-                                        </label>
-                                        <div className="flex">
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="Enter weight value"
-                                                value={weight || ''}
-                                                onChange={(e) => setWeight(parseFloat(e.target.value) || null)}
-                                                required
-                                                className="rounded-r-none"
-                                            />
-                                            <select
-                                                className="p-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 focus:ring-primary-500 focus:border-primary-500"
-                                                value={unit}
-                                                onChange={(e) => setUnit(e.target.value)}
-                                                aria-label="Weight unit"
-                                            >
-                                                <option value="kg">kg</option>
-                                                <option value="g">g</option>
-                                                <option value="lb">lb</option>
-                                                <option value="ton">ton</option>
-                                            </select>
+                                {selectedDeliveryData && (
+                                    <div className="bg-gray-50 p-4 rounded-md">
+                                        <h3 className="font-medium text-gray-900 mb-2">Delivery Details</h3>
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <span className="text-gray-600">Item:</span>
+                                                <span className="ml-2 font-medium">{selectedDeliveryData.item_name}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Supplier:</span>
+                                                <span className="ml-2 font-medium">{selectedDeliveryData.suppliers?.name}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Expected Qty:</span>
+                                                <span className="ml-2 font-medium">{selectedDeliveryData.expected_quantity}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Expected Weight:</span>
+                                                <span className="ml-2 font-medium">{selectedDeliveryData.expected_weight || 'N/A'} kg</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Scheduled:</span>
+                                                <span className="ml-2 font-medium">{formatDate(selectedDeliveryData.scheduled_date)}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-600">Status:</span>
+                                                <span className="ml-2 font-medium text-blue-600">{selectedDeliveryData.delivery_status}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Batch Number
+                                        Actual Weight *
                                     </label>
-                                    <Input
-                                        type="text"
-                                        placeholder="Optional batch identifier"
-                                        value={batchNumber}
-                                        onChange={(e) => setBatchNumber(e.target.value)}
-                                    />
+                                    <div className="flex space-x-2">
+                                        <Input
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="Enter actual weight"
+                                            value={actualWeight || ''}
+                                            onChange={(e) => setActualWeight(parseFloat(e.target.value) || null)}
+                                            required
+                                            className="flex-1"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={async () => {
+                                                try {
+                                                    const response = await fetch('/api/iot/current-weight');
+                                                    const data = await response.json();
+                                                    if (data.weight && data.weight > 0) {
+                                                        setActualWeight(data.weight);
+                                                        toast.success(`IoT: ${data.weight} kg`);
+                                                    } else {
+                                                        toast.error('Invalid IoT data');
+                                                    }
+                                                } catch {
+                                                    toast.error('IoT not available');
+                                                }
+                                            }}
+                                            className="px-3"
+                                        >
+                                            IoT
+                                        </Button>
+                                        <span className="flex items-center px-3 text-gray-500">kg</span>
+                                    </div>
                                 </div>
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Source Location
+                                        Notes
                                     </label>
-                                    <Input
-                                        type="text"
-                                        placeholder="Where the material came from"
-                                        value={source}
-                                        onChange={(e) => setSource(e.target.value)}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Destination
-                                    </label>
-                                    <Input
-                                        type="text"
-                                        placeholder="Where the material is going"
-                                        value={destination}
-                                        onChange={(e) => setDestination(e.target.value)}
+                                    <textarea
+                                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                                        rows={3}
+                                        placeholder="Any notes about the weighing process..."
+                                        value={notes}
+                                        onChange={(e) => setNotes(e.target.value)}
                                     />
                                 </div>
                             </div>
 
-                            {isBatchMode && (
-                                <div className="mb-6">
-                                    <div className="flex items-end space-x-2 mb-2">
-                                        <div className="flex-1">
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                Weight Value *
-                                            </label>
-                                            <div className="flex">
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    placeholder="Enter weight value"
-                                                    value={weight || ''}
-                                                    onChange={(e) => setWeight(parseFloat(e.target.value) || null)}
-                                                    className="rounded-r-none"
-                                                />
-                                                <select
-                                                    className="p-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 focus:ring-primary-500 focus:border-primary-500"
-                                                    value={unit}
-                                                    onChange={(e) => setUnit(e.target.value)}
-                                                    aria-label="Weight unit"
-                                                >
-                                                    <option value="kg">kg</option>
-                                                    <option value="g">g</option>
-                                                    <option value="lb">lb</option>
-                                                    <option value="ton">ton</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            onClick={addToBatch}
-                                            variant="secondary"
-                                        >
-                                            Add to Batch
-                                        </Button>
-                                    </div>
 
-                                    <div className="bg-gray-50 rounded-md p-3 mt-3">
-                                        <h3 className="font-medium text-gray-700 mb-2">Batch Items ({batchItems.length})</h3>
-                                        {batchItems.length === 0 ? (
-                                            <p className="text-gray-500 text-sm italic">No items added yet. Add weight values to your batch.</p>
-                                        ) : (
-                                            <div className="space-y-2 max-h-40 overflow-y-auto">
-                                                {batchItems.map((item, index) => (
-                                                    <div key={index} className="flex justify-between items-center bg-white p-2 rounded border border-gray-200">
-                                                        <span className="font-medium">{item.note}: {item.weight} {unit}</span>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => {
-                                                                const newItems = [...batchItems];
-                                                                newItems.splice(index, 1);
-                                                                setBatchItems(newItems);
-                                                            }}
-                                                        >
-                                                            Remove
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
 
                             <div className="flex justify-end space-x-2">
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => router.push('/operations/my-records')}
+                                    onClick={() => router.push('/deliveries')}
                                 >
                                     Cancel
                                 </Button>
                                 <Button
                                     type="submit"
-                                    disabled={loading}
+                                    disabled={loading || !selectedDelivery}
                                 >
-                                    {loading ? 'Saving...' : isBatchMode ? 'Save Batch' : 'Save Record'}
+                                    {loading ? 'Processing...' : 'Complete Weighing'}
                                 </Button>
                             </div>
                         </form>

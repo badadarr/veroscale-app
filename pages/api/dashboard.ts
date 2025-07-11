@@ -32,11 +32,15 @@ export default async function handler(
     // Get top users by weight recorded
     const topUsers = await getTopUsers();
 
+    // Get materials overview
+    const materialsOverview = await getMaterialsOverview();
+
     return res.status(200).json({
       summaryStats,
       recentRecords,
       weightByCategory,
       topUsers,
+      materialsOverview,
     });
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
@@ -77,14 +81,13 @@ async function getRecentWeightRecords() {
   try {
     console.log("Fetching recent weight records with relations...");
 
-    // Use direct Supabase query with proper relation syntax
-    // Specify the exact foreign key relationship to avoid ambiguity
+    // Use direct Supabase query with samples_item instead of ref_items
     const { data, error } = await supabaseAdmin
       .from("weight_records")
       .select(
         `
         *,
-        ref_items (name),
+        samples_item (category, item),
         users!weight_records_user_id_fkey (name)
       `
       )
@@ -99,7 +102,7 @@ async function getRecentWeightRecords() {
     // Transform the data to match the expected format
     return (data || []).map((record: any) => ({
       ...record,
-      item_name: record.ref_items?.name,
+      item_name: record.samples_item ? `${record.samples_item.category} - ${record.samples_item.item}` : 'Unknown Item',
       user_name: record.users?.name,
     }));
   } catch (error) {
@@ -203,6 +206,55 @@ async function getTopUsers() {
       .slice(0, 5);
   } catch (error) {
     console.error("Error in getTopUsers:", error);
+    return [];
+  }
+}
+
+async function getMaterialsOverview() {
+  try {
+    console.log("Fetching materials overview...");
+
+    // Get all samples with usage count from weight records
+    const { data: samples, error: samplesError } = await supabaseAdmin
+      .from("samples_item")
+      .select("id, category, item, sample_weight");
+
+    if (samplesError) {
+      console.error("Error fetching samples:", samplesError);
+      return [];
+    }
+
+    // Get weight records count per item
+    const { data: weightRecords, error: recordsError } = await supabaseAdmin
+      .from("weight_records")
+      .select("item_id");
+
+    if (recordsError) {
+      console.error("Error fetching weight records:", recordsError);
+      return [];
+    }
+
+    // Count usage per item
+    const usageCount: Record<number, number> = {};
+    if (Array.isArray(weightRecords)) {
+      weightRecords.forEach((record) => {
+        if (record.item_id) {
+          usageCount[record.item_id] = (usageCount[record.item_id] || 0) + 1;
+        }
+      });
+    }
+
+    // Combine samples with usage count
+    return (samples || []).map((sample: any) => ({
+      id: sample.id,
+      name: `${sample.category} - ${sample.item}`,
+      category: sample.category,
+      item: sample.item,
+      standard_weight: sample.sample_weight,
+      usage_count: usageCount[sample.id] || 0,
+    })).sort((a, b) => b.usage_count - a.usage_count).slice(0, 10);
+  } catch (error) {
+    console.error("Error in getMaterialsOverview:", error);
     return [];
   }
 }

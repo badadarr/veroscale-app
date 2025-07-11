@@ -41,6 +41,9 @@ async function addBatchWeightRecords(
       });
     }
 
+    // Generate unique batch number if not provided
+    const finalBatchNumber = batch_number || `BATCH_${Date.now()}_${user.id}`;
+
     // Check if we're using Supabase or MySQL implementation
     const useSupabase = Boolean(
       process.env.NEXT_PUBLIC_SUPABASE_URL &&
@@ -65,7 +68,10 @@ async function addBatchWeightRecords(
 
       // Insert each batch item as a separate record
       for (const batchItem of batch_items) {
-        const result = await executeQuery<any>({
+        let result;
+        
+        // Use basic columns for now (batch columns need to be added manually to Supabase)
+        result = await executeQuery<any>({
           table: "public.weight_records",
           action: "insert",
           data: {
@@ -73,10 +79,6 @@ async function addBatchWeightRecords(
             item_id,
             total_weight: batchItem.weight,
             status: "pending",
-            batch_number,
-            source,
-            destination,
-            notes: batchItem.note,
           },
           returning: "*",
         });
@@ -90,7 +92,9 @@ async function addBatchWeightRecords(
           total_weight: batchItem.weight,
           timestamp: new Date(),
           status: "pending",
-          batch_number,
+          // Store batch info in memory for response (will be added to DB later)
+          unit: unit || 'kg',
+          batch_number: finalBatchNumber,
           source,
           destination,
           notes: batchItem.note,
@@ -112,14 +116,15 @@ async function addBatchWeightRecords(
         const result = await executeQuery<any>({
           query: `
             INSERT INTO weight_records 
-            (user_id, item_id, total_weight, status, batch_number, source, destination, notes)
-            VALUES (?, ?, ?, 'pending', ?, ?, ?, ?)
+            (user_id, item_id, total_weight, status, unit, batch_number, source, destination, notes)
+            VALUES (?, ?, ?, 'pending', ?, ?, ?, ?, ?)
           `,
           values: [
             user.id,
             item_id,
             batchItem.weight,
-            batch_number || null,
+            unit || 'kg',
+            finalBatchNumber,
             source || null,
             destination || null,
             batchItem.note || null,
@@ -135,7 +140,8 @@ async function addBatchWeightRecords(
           total_weight: batchItem.weight,
           timestamp: new Date(),
           status: "pending",
-          batch_number,
+          unit: unit || 'kg',
+          batch_number: finalBatchNumber,
           source,
           destination,
           notes: batchItem.note,
@@ -145,6 +151,9 @@ async function addBatchWeightRecords(
 
     return res.status(201).json({
       message: `${insertedRecords.length} weight records added successfully`,
+      batch_number: finalBatchNumber,
+      total_items: insertedRecords.length,
+      total_weight: insertedRecords.reduce((sum, record) => sum + record.total_weight, 0),
       records: insertedRecords,
     });
   } catch (error) {

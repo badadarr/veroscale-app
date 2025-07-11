@@ -16,9 +16,10 @@ import {
   X,
   User,
   ChevronDown,
-  Package,
   Clipboard,
-  BookOpen
+  BookOpen,
+  Building,
+  Truck
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '../ui/Button';
@@ -60,10 +61,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   // Role-specific navigation items
   const roleBasedNavigation: NavItem[] = [
-    { name: 'Materials', href: '/materials', icon: Package, roles: ['admin', 'manager'] },
     { name: 'Reports', href: '/reports', icon: BarChart2, roles: ['admin', 'manager', 'operator'] },
     { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'manager'] },
     { name: 'User Management', href: '/users', icon: Users, roles: ['admin'] },
+    { name: 'Suppliers', href: '/suppliers', icon: Building, roles: ['admin', 'marketing', 'manager', 'operator'] },
+    { name: 'Deliveries', href: '/deliveries', icon: Truck, roles: ['admin', 'marketing', 'manager', 'operator'] },
     { name: 'Operator Guide', href: '/operator-guide', icon: BookOpen, roles: ['operator'] },
   ];
 

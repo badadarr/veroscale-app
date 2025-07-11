@@ -79,7 +79,8 @@ async function setupSupabase() {
           .from('roles')
           .insert([
             { name: 'manager' },
-            { name: 'operator' }
+            { name: 'operator' },
+            { name: 'marketing' }
           ]);
         
         if (otherRolesError) {

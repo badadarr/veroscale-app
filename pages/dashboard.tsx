@@ -31,6 +31,7 @@ interface DashboardData {
   recentRecords: any[];
   weightByCategory: { category: string; total_weight: number }[];
   topUsers: { id: number; name: string; record_count: number; total_weight: number }[];
+  materialsOverview: { id: number; name: string; standard_weight: number; usage_count: number }[];
 }
 
 export default function Dashboard() {
@@ -255,56 +256,32 @@ export default function Dashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {/* Showing sample data - this should be fetched from API */}
-                  <TableRow>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 mr-2">
-                          <Package className="h-4 w-4" />
+                  {dashboardData.materialsOverview?.map((material) => (
+                    <TableRow key={material.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center">
+                          <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 mr-2">
+                            <Package className="h-4 w-4" />
+                          </div>
+                          {material.name}
                         </div>
-                        Steel Bar
-                      </div>
-                    </TableCell>
-                    <TableCell>5.75</TableCell>
-                    <TableCell>48</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 mr-2">
-                          <Package className="h-4 w-4" />
-                        </div>
-                        Aluminum Sheet
-                      </div>
-                    </TableCell>
-                    <TableCell>2.30</TableCell>
-                    <TableCell>36</TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 mr-2">
-                          <Package className="h-4 w-4" />
-                        </div>
-                        Copper Wire
-                      </div>
-                    </TableCell>
-                    <TableCell>1.25</TableCell>
-                    <TableCell>22</TableCell>
-                  </TableRow>
+                      </TableCell>
+                      <TableCell>{material.standard_weight}</TableCell>
+                      <TableCell>{material.usage_count}</TableCell>
+                    </TableRow>
+                  )) || (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center text-gray-500">
+                        No materials data available
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
               <div className="mt-4 flex justify-end">
-                {/* Only show the "View All Materials" button for admin and manager roles */}
-                {user?.role !== 'operator' ? (
-                  <Button size="sm" variant="outline" onClick={() => router.push('/materials')}>
-                    View All Materials
-                  </Button>
-                ) : (
-                  <Button size="sm" variant="outline" onClick={() => router.push('/operator-guide')}>
-                    View Operator Guide
-                  </Button>
-                )}
+                <Button size="sm" variant="outline" onClick={() => router.push('/operator-guide')}>
+                  View Operator Guide
+                </Button>
               </div>
             </CardContent>
           </Card>

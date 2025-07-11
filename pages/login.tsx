@@ -116,6 +116,64 @@ export default function Login() {
                 </Button>
               </div>
             </form>
+
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Quick Login</span>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEmail('admin@example.com');
+                    setPassword('password123');
+                  }}
+                >
+                  Admin
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEmail('marketing@example.com');
+                    setPassword('password123');
+                  }}
+                >
+                  Marketing
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEmail('manager@example.com');
+                    setPassword('password123');
+                  }}
+                >
+                  Manager
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEmail('operator@example.com');
+                    setPassword('password123');
+                  }}
+                >
+                  Operator
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
