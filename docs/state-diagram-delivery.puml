@@ -1,0 +1,23 @@
+@startuml Supplier Delivery State Diagram
+
+[*] --> Scheduled : Delivery Created
+
+state Scheduled {
+  [*] --> Confirmed : Supplier Confirms
+  Confirmed --> InPreparation : Supplier Prepares Items
+}
+
+Scheduled --> Delayed : Delay Notification
+Delayed --> Scheduled : Rescheduled
+
+Scheduled --> Cancelled : Cancellation
+
+InPreparation --> InTransit : Shipment Started
+InTransit --> Arrived : At Facility
+Arrived --> InProcessing : Receiving Process
+InProcessing --> Delivered : Process Complete
+
+Delivered --> [*] : Final State
+Cancelled --> [*] : Final State
+
+@enduml

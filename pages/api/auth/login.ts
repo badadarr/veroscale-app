@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import bcrypt from "bcryptjs";
 import { executeQuery } from "../../../lib/db-adapter";
 import { generateToken } from "../../../lib/auth";
+import { withArcjetProtection } from "../../../lib/arcjet-middleware";
 
 export default async function handler(
   req: NextApiRequest,
@@ -10,6 +11,10 @@ export default async function handler(
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
+
+  // Apply Arcjet protection for auth endpoints (5 requests per 15 minutes)
+  const arcjetResult = await withArcjetProtection(req, res, "auth");
+  if (arcjetResult) return arcjetResult;
 
   try {
     const { email, password } = req.body;

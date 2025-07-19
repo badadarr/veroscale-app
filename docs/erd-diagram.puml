@@ -1,0 +1,129 @@
+@startuml Weight Management System ERD
+
+' Style settings
+skinparam linetype ortho
+skinparam class {
+  BackgroundColor White
+  ArrowColor Black
+  BorderColor Black
+}
+
+' Entities
+class roles {
+  +id: SERIAL <<PK>>
+  name: VARCHAR(50) <<UNIQUE>>
+}
+
+class users {
+  +id: SERIAL <<PK>>
+  name: VARCHAR(100)
+  email: VARCHAR(100) <<UNIQUE>>
+  password: VARCHAR(255)
+  role_id: INTEGER <<FK>>
+  created_at: TIMESTAMP
+  updated_at: TIMESTAMP
+}
+
+class ref_items {
+  +id: SERIAL <<PK>>
+  name: VARCHAR(100) <<UNIQUE>>
+  weight: DECIMAL(10,2)
+}
+
+class weight_records {
+  +record_id: SERIAL <<PK>>
+  user_id: INTEGER <<FK>>
+  item_id: INTEGER <<FK>>
+  total_weight: DECIMAL(10,2)
+  timestamp: TIMESTAMP
+  status: VARCHAR(10)
+  approved_by: INTEGER <<FK>>
+  approved_at: TIMESTAMP
+  batch_number: VARCHAR(100)
+  source: VARCHAR(255)
+  destination: VARCHAR(255)
+  notes: TEXT
+  unit: VARCHAR(10)
+}
+
+class sessions {
+  +session_id: SERIAL <<PK>>
+  user_id: INTEGER <<FK>>
+  start_time: TIMESTAMP
+  end_time: TIMESTAMP
+  status: VARCHAR(10)
+}
+
+class samples_item {
+  +id: SERIAL <<PK>>
+  category: VARCHAR(100)
+  item: VARCHAR(100)
+  sample_weight: DECIMAL(10,2)
+  created_at: TIMESTAMP
+  updated_at: TIMESTAMP
+  <<UNIQUE>> (category, item)
+}
+
+class suppliers {
+  +id: SERIAL <<PK>>
+  name: VARCHAR(100)
+  contact_person: VARCHAR(100)
+  email: VARCHAR(100)
+  phone: VARCHAR(20)
+  address: TEXT
+  status: VARCHAR(20)
+  created_at: TIMESTAMP
+  updated_at: TIMESTAMP
+}
+
+class supplier_deliveries {
+  +id: SERIAL <<PK>>
+  supplier_id: INTEGER <<FK>>
+  marketing_user_id: INTEGER <<FK>>
+  item_name: VARCHAR(200)
+  expected_quantity: DECIMAL(10,2)
+  expected_weight: DECIMAL(10,2)
+  scheduled_date: DATE
+  delivery_status: VARCHAR(20)
+  actual_delivery_date: DATE
+  notes: TEXT
+  created_at: TIMESTAMP
+  updated_at: TIMESTAMP
+}
+
+class report_configurations {
+  +id: SERIAL <<PK>>
+  name: VARCHAR(100) <<UNIQUE>>
+  description: TEXT
+  type: VARCHAR(20)
+  fields: JSONB
+  schedule: JSONB
+  recipients: JSONB
+  created_at: TIMESTAMP
+  updated_at: TIMESTAMP
+  created_by: INTEGER <<FK>>
+}
+
+class system_settings {
+  +id: SERIAL <<PK>>
+  key: VARCHAR(100) <<UNIQUE>>
+  value: TEXT
+  category: VARCHAR(50)
+  description: TEXT
+  created_at: TIMESTAMP
+  updated_at: TIMESTAMP
+}
+
+' Relationships
+roles "1" -- "many" users : has >
+users "1" -- "many" weight_records : records >
+users "1" -- "many" sessions : has >
+users "1" -- "many" weight_records : approves >
+users "1" -- "many" supplier_deliveries : manages >
+users "1" -- "many" report_configurations : creates >
+
+ref_items "1" -- "many" weight_records : measured as >
+
+suppliers "1" -- "many" supplier_deliveries : provides >
+
+@enduml

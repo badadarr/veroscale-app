@@ -1,0 +1,72 @@
+@startuml Weight Management System Component Diagram
+
+package "Frontend" {
+  [Next.js UI Components] as UI
+  [Authentication Context] as AuthContext
+  [API Client] as APIClient
+  [Dashboard] as Dashboard
+  [Weight Entry Forms] as WeightForms
+  [Report Viewer] as ReportViewer
+  [Supplier Management UI] as SupplierUI
+}
+
+package "Backend API" {
+  [Authentication API] as AuthAPI
+  [Weight Records API] as WeightAPI
+  [Supplier API] as SupplierAPI
+  [Reports API] as ReportsAPI
+  [IoT Integration API] as IoTAPI
+  [RFID Integration API] as RFIDAPI
+}
+
+package "Services" {
+  [Authentication Service] as AuthService
+  [Weight Calculation Service] as WeightCalcService
+  [Report Generation Service] as ReportService
+  [IoT Service] as IoTService
+  [RFID Service] as RFIDService
+  [Batch Processing Service] as BatchService
+}
+
+database "Database" {
+  [Supabase PostgreSQL] as DB
+}
+
+cloud "External Systems" {
+  [IoT Devices] as IoTDevices
+  [RFID Scanners] as RFIDScanners
+}
+
+UI --> AuthContext
+UI --> APIClient
+UI --> Dashboard
+UI --> WeightForms
+UI --> ReportViewer
+UI --> SupplierUI
+
+APIClient --> AuthAPI
+APIClient --> WeightAPI
+APIClient --> SupplierAPI
+APIClient --> ReportsAPI
+APIClient --> IoTAPI
+APIClient --> RFIDAPI
+
+AuthAPI --> AuthService
+WeightAPI --> WeightCalcService
+WeightAPI --> BatchService
+SupplierAPI --> DB
+ReportsAPI --> ReportService
+IoTAPI --> IoTService
+RFIDAPI --> RFIDService
+
+AuthService --> DB
+WeightCalcService --> DB
+ReportService --> DB
+IoTService --> DB
+RFIDService --> DB
+BatchService --> DB
+
+IoTService <-- IoTDevices
+RFIDService <-- RFIDScanners
+
+@enduml

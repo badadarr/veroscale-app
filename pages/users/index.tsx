@@ -5,11 +5,8 @@ import {
   Plus,
   Edit,
   Trash2,
-  ArrowLeft,
-  ArrowRight,
   AlertCircle,
   Search,
-  UserCircle,
 } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -23,6 +20,7 @@ import {
 } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Pagination } from "@/components/ui/Pagination";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDate } from "@/lib/utils";
@@ -199,11 +197,11 @@ export default function Users() {
       <div className="space-y-6">
         {error && (
           <div
-            className="bg-error-100 border border-error-300 text-error-700 px-4 py-3 rounded relative"
+            className="relative px-4 py-3 border rounded bg-error-100 border-error-300 text-error-700"
             role="alert"
           >
             <div className="flex">
-              <AlertCircle className="h-5 w-5 mr-2" />
+              <AlertCircle className="w-5 h-5 mr-2" />
               <span>{error}</span>
             </div>
           </div>
@@ -211,10 +209,10 @@ export default function Users() {
 
         <Card>
           <CardHeader className="pb-3">
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
               <CardTitle>User Accounts</CardTitle>
               <Button onClick={openCreateForm}>
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="w-4 h-4 mr-2" />
                 Add User
               </Button>
             </div>
@@ -223,7 +221,7 @@ export default function Users() {
             {/* Search input */}
             <div className="mb-6">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Search className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
                 <Input
                   placeholder="Search users..."
                   value={searchQuery}
@@ -234,12 +232,12 @@ export default function Users() {
             </div>
 
             {showForm && (
-              <div className="bg-gray-50 p-4 rounded-md mb-6 border border-gray-200">
-                <h3 className="text-lg font-medium mb-4">
+              <div className="p-4 mb-6 border border-gray-200 rounded-md bg-gray-50">
+                <h3 className="mb-4 text-lg font-medium">
                   {formData.id ? "Edit User" : "Add New User"}
                 </h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <Input
                       label="Name"
                       placeholder="Enter name"
@@ -260,7 +258,7 @@ export default function Users() {
                       error={formErrors.email}
                     />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <Input
                       label={
                         formData.id
@@ -282,7 +280,7 @@ export default function Users() {
                     <div>
                       <label
                         htmlFor="user-role-select"
-                        className="block text-sm font-medium text-gray-700 mb-1"
+                        className="block mb-1 text-sm font-medium text-gray-700"
                       >
                         Role
                       </label>
@@ -292,7 +290,7 @@ export default function Users() {
                         onChange={(e) =>
                           setFormData({ ...formData, role: e.target.value })
                         }
-                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                        className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-md"
                       >
                         <option value="admin">Admin</option>
                         <option value="manager">Manager</option>
@@ -303,7 +301,7 @@ export default function Users() {
                     <div>
                       <label
                         htmlFor="user-department"
-                        className="block text-sm font-medium text-gray-700 mb-1"
+                        className="block mb-1 text-sm font-medium text-gray-700"
                       >
                         Department
                       </label>
@@ -316,7 +314,7 @@ export default function Users() {
                             department: e.target.value,
                           })
                         }
-                        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                        className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-md"
                       >
                         <option value="">None</option>
                         <option value="Operations">Operations</option>
@@ -330,7 +328,7 @@ export default function Users() {
                       <div>
                         <label
                           htmlFor="user-status"
-                          className="block text-sm font-medium text-gray-700 mb-1"
+                          className="block mb-1 text-sm font-medium text-gray-700"
                         >
                           Status
                         </label>
@@ -343,13 +341,13 @@ export default function Users() {
                               status: e.target.value as "active" | "inactive",
                             })
                           }
-                          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                          className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-md"
                         >
                           <option value="active">Active</option>
                           <option value="inactive">Inactive</option>
                         </select>
                         {formData.status === "inactive" && (
-                          <p className="text-xs text-red-500 mt-1">
+                          <p className="mt-1 text-xs text-red-500">
                             Inactive users cannot log in but their data will be
                             preserved.
                           </p>
@@ -371,8 +369,8 @@ export default function Users() {
 
             {/* Users table */}
             {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+              <div className="flex items-center justify-center h-64">
+                <div className="w-12 h-12 border-t-2 border-b-2 rounded-full animate-spin border-primary-600"></div>
               </div>
             ) : (
               <>
@@ -393,7 +391,7 @@ export default function Users() {
                       <TableRow>
                         <TableCell
                           colSpan={7}
-                          className="text-center py-8 text-gray-500"
+                          className="py-8 text-center text-gray-500"
                         >
                           No users found
                         </TableCell>
@@ -403,7 +401,7 @@ export default function Users() {
                         <TableRow key={user.id}>
                           <TableCell>
                             <div className="flex items-center">
-                              <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold mr-3">
+                              <div className="flex items-center justify-center w-10 h-10 mr-3 font-bold rounded-full bg-primary-100 text-primary-700">
                                 {user.name.charAt(0).toUpperCase()}
                               </div>
                               <div className="font-medium">{user.name}</div>
@@ -458,7 +456,7 @@ export default function Users() {
                               }}
                               className="mr-2"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="w-4 h-4" />
                             </Button>
                             <Button
                               size="sm"
@@ -467,18 +465,18 @@ export default function Users() {
                               onClick={() => {
                                 toast.custom(
                                   (t) => (
-                                    <div className="bg-white shadow-lg rounded-lg p-4 border border-gray-200">
-                                      <h3 className="font-medium mb-2">
+                                    <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-lg">
+                                      <h3 className="mb-2 font-medium">
                                         Confirm Deletion
                                       </h3>
-                                      <p className="text-gray-600 mb-4">
+                                      <p className="mb-4 text-gray-600">
                                         Are you sure you want to delete this
                                         user?
                                       </p>
                                       <div className="flex justify-end space-x-2">
                                         <button
                                           onClick={() => toast.dismiss(t.id)}
-                                          className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm"
+                                          className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
                                         >
                                           Cancel
                                         </button>
@@ -489,7 +487,7 @@ export default function Users() {
                                               "User deletion is disabled for demo"
                                             );
                                           }}
-                                          className="px-3 py-1 bg-error-500 hover:bg-error-600 text-white rounded text-sm"
+                                          className="px-3 py-1 text-sm text-white rounded bg-error-500 hover:bg-error-600"
                                         >
                                           Delete
                                         </button>
@@ -500,7 +498,7 @@ export default function Users() {
                                 );
                               }}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -509,8 +507,8 @@ export default function Users() {
                   </TableBody>
                 </Table>
 
-                {pagination.totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-6">
+                <div className="mt-6">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="text-sm text-gray-600">
                       Showing{" "}
                       {(pagination.currentPage - 1) * pagination.itemsPerPage +
@@ -522,35 +520,14 @@ export default function Users() {
                       )}{" "}
                       of {pagination.totalItems} users
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          handlePageChange(pagination.currentPage - 1)
-                        }
-                        disabled={pagination.currentPage === 1}
-                      >
-                        <ArrowLeft className="w-4 h-4" />
-                      </Button>
-                      <span className="text-sm">
-                        Page {pagination.currentPage} of {pagination.totalPages}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          handlePageChange(pagination.currentPage + 1)
-                        }
-                        disabled={
-                          pagination.currentPage === pagination.totalPages
-                        }
-                      >
-                        <ArrowRight className="w-4 h-4" />
-                      </Button>
-                    </div>
                   </div>
-                )}
+                  
+                  <Pagination
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    onPageChange={handlePageChange}
+                  />
+                </div>
               </>
             )}
           </CardContent>

@@ -1,36 +1,36 @@
-import React, { useState, useRef, useEffect } from 'react';
-import Head from 'next/head';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import { toast } from 'react-hot-toast';
+import React, { useState, useRef, useEffect } from "react";
+import Head from "next/head";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import { toast } from "react-hot-toast";
 import {
   Scale,
   LayoutDashboard,
   Users,
   Database,
   Weight,
-  BarChart2,
   Settings,
-  LogOut,
   Menu,
   X,
-  User,
   ChevronDown,
   Clipboard,
   BookOpen,
   Building,
-  Truck
-} from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '../ui/Button';
-import { cn } from '@/lib/utils';
+  Truck,
+  BarChart2,
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
   title: string;
 }
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) => {
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({
+  children,
+  title,
+}) => {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -47,35 +47,60 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   // Base navigation items (available to all authenticated users)
   const baseNavigation: NavItem[] = [
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Samples', href: '/samples', icon: Database },
-    { name: 'Weight Records', href: '/weights', icon: Weight },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Samples", href: "/samples", icon: Database },
+    { name: "Weight Records", href: "/weights", icon: Weight },
   ];
 
   // Operations navigation items (mainly for operators)
   const operationsNavigation: NavItem[] = [
-    { name: 'Weight Entry', href: '/operations/weight-entry', icon: Scale },
-    { name: 'Scan Entry', href: '/operations/scan-entry', icon: Clipboard },
-    { name: 'My Records', href: '/operations/my-records', icon: Database },
+    { name: "Weight Entry", href: "/operations/weight-entry", icon: Scale },
+    { name: "Scan Entry", href: "/operations/scan-entry", icon: Clipboard },
+    { name: "My Records", href: "/operations/my-records", icon: Database },
   ];
 
   // Role-specific navigation items
   const roleBasedNavigation: NavItem[] = [
-    { name: 'Reports', href: '/reports', icon: BarChart2, roles: ['admin', 'manager', 'operator'] },
-    { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin', 'manager'] },
-    { name: 'User Management', href: '/users', icon: Users, roles: ['admin'] },
-    { name: 'Suppliers', href: '/suppliers', icon: Building, roles: ['admin', 'marketing', 'manager', 'operator'] },
-    { name: 'Deliveries', href: '/deliveries', icon: Truck, roles: ['admin', 'marketing', 'manager', 'operator'] },
-    { name: 'Operator Guide', href: '/operator-guide', icon: BookOpen, roles: ['operator'] },
+    {
+      name: "Reports",
+      href: "/reports",
+      icon: BarChart2,
+      roles: ["admin", "manager", "operator"],
+    },
+    {
+      name: "Settings",
+      href: "/settings",
+      icon: Settings,
+      roles: ["admin", "manager"],
+    },
+    { name: "User Management", href: "/users", icon: Users, roles: ["admin"] },
+    {
+      name: "Suppliers",
+      href: "/suppliers",
+      icon: Building,
+      roles: ["admin", "marketing", "manager", "operator"],
+    },
+    {
+      name: "Deliveries",
+      href: "/deliveries",
+      icon: Truck,
+      roles: ["admin", "marketing", "manager", "operator"],
+    },
+    {
+      name: "Operator Guide",
+      href: "/operator-guide",
+      icon: BookOpen,
+      roles: ["operator"],
+    },
   ];
 
   // Filter navigation based on user role
   const navigation: NavItem[] = [
     ...baseNavigation,
-    ...(user?.role === 'operator' ? operationsNavigation : []),
-    ...roleBasedNavigation.filter(item =>
-      item.roles?.includes(user?.role || '') || false
-    )
+    ...(user?.role === "operator" ? operationsNavigation : []),
+    ...roleBasedNavigation.filter(
+      (item) => item.roles?.includes(user?.role || "") || false
+    ),
   ];
 
   const isActive = (path: string) => {
@@ -88,14 +113,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
 
   const handleLogout = async () => {
     await logout();
-    toast.success('Logged out successfully');
-    router.push('/login');
+    toast.success("Logged out successfully");
+    router.push("/login");
   };
 
   // Close profile menu when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
         setProfileMenuOpen(false);
       }
     }
@@ -112,34 +140,37 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
         <title>{`${title} | VeroScale Material System`}</title>
       </Head>
 
-      <div className="min-h-screen bg-gray-100 transition-colors">
+      <div className="min-h-screen transition-colors bg-gray-100">
         {/* Mobile sidebar toggle */}
-        <div className="lg:hidden fixed top-0 left-0 z-40 w-full bg-white border-b border-gray-200">
+        <div className="fixed top-0 left-0 z-40 w-full bg-white border-b border-gray-200 lg:hidden">
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex items-center">
-              <Scale className="h-6 w-6 text-primary-600 mr-2" />
+              <Scale className="w-6 h-6 mr-2 text-primary-600" />
               <span className="text-lg font-semibold">VeroScale</span>
             </div>
             <div className="flex items-center">
               <div className="relative" ref={profileMenuRef}>
                 <button
                   onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                  className="flex items-center text-gray-700 mr-2"
+                  className="flex items-center mr-2 text-gray-700"
                 >
-                  <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold">
-                    {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  <div className="flex items-center justify-center w-8 h-8 font-bold rounded-full bg-primary-100 text-primary-700">
+                    {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
                   </div>
-                  <ChevronDown className="h-4 w-4 ml-1" />
+                  <ChevronDown className="w-4 h-4 ml-1" />
                 </button>
 
                 {profileMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                    <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  <div className="absolute right-0 z-10 w-48 py-1 mt-2 bg-white rounded-md shadow-lg">
+                    <Link
+                      href="/profile"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
                       My Profile
                     </Link>
                     <button
                       onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      className="block w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
                     >
                       Logout
                     </button>
@@ -151,7 +182,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
                 onClick={toggleSidebar}
                 className="text-gray-500 hover:text-gray-700 focus:outline-none"
               >
-                {sidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+                {sidebarOpen ? (
+                  <X className="w-6 h-6" />
+                ) : (
+                  <Menu className="w-6 h-6" />
+                )}
               </button>
             </div>
           </div>
@@ -167,7 +202,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
           <div className="flex flex-col h-full">
             <div className="px-4 py-6 border-b border-gray-200">
               <div className="flex items-center">
-                <Scale className="h-8 w-8 text-primary-600" />
+                <Scale className="w-8 h-8 text-primary-600" />
                 <h1 className="text-xl font-bold text-gray-900">VeroScale</h1>
               </div>
             </div>
@@ -202,37 +237,47 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, title }) =>
         </aside>
 
         {/* Main content */}
-        <div className={cn("lg:pl-64 transition-all duration-300 ease-in-out", sidebarOpen ? "pl-64" : "pl-0")}>
-          <main className="py-6 px-4 sm:px-6 lg:px-8 mt-12 lg:mt-0">
+        <div
+          className={cn(
+            "lg:pl-64 transition-all duration-300 ease-in-out",
+            sidebarOpen ? "pl-64" : "pl-0"
+          )}
+        >
+          <main className="px-4 py-6 mt-12 sm:px-6 lg:px-8 lg:mt-0">
             <div className="mb-6 md:flex md:items-center md:justify-between">
-              <div className="min-w-0 flex-1">
+              <div className="flex-1 min-w-0">
                 <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl">
                   {title}
                 </h1>
               </div>
 
               {/* Profile dropdown for desktop */}
-              <div className="hidden lg:flex items-center">
+              <div className="items-center hidden lg:flex">
                 <div className="relative" ref={profileMenuRef}>
                   <button
                     onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                    className="flex items-center text-gray-700 bg-white rounded-full py-1 px-2 border border-gray-200 hover:bg-gray-50"
+                    className="flex items-center px-2 py-1 text-gray-700 bg-white border border-gray-200 rounded-full hover:bg-gray-50"
                   >
-                    <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold mr-2">
-                      {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    <div className="flex items-center justify-center w-8 h-8 mr-2 font-bold rounded-full bg-primary-100 text-primary-700">
+                      {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
                     </div>
-                    <span className="text-sm font-medium mr-1">{user?.name || 'User'}</span>
-                    <ChevronDown className="h-4 w-4" />
+                    <span className="mr-1 text-sm font-medium">
+                      {user?.name || "User"}
+                    </span>
+                    <ChevronDown className="w-4 h-4" />
                   </button>
 
                   {profileMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
-                      <Link href="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                    <div className="absolute right-0 z-10 w-48 py-1 mt-2 bg-white rounded-md shadow-lg">
+                      <Link
+                        href="/profile"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
                         My Profile
                       </Link>
                       <button
                         onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        className="block w-full px-4 py-2 text-sm text-left text-gray-700 hover:bg-gray-100"
                       >
                         Logout
                       </button>

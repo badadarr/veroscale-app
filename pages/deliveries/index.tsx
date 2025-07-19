@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import apiClient from '@/lib/api';
-import { Plus, Truck, Calendar, Package, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Plus, Truck, Calendar, Package } from 'lucide-react';
 import DashboardLayout from '@/components/layouts/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Pagination } from '@/components/ui/Pagination';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDate } from '@/lib/utils';
@@ -379,36 +380,21 @@ export default function Deliveries() {
                 </TableBody>
               </Table>
               
-              {pagination.totalPages > 1 && (
-                <div className="flex items-center justify-between mt-6">
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-4">
                   <div className="text-sm text-gray-600">
                     Showing {(pagination.currentPage - 1) * pagination.itemsPerPage + 1} to{' '}
                     {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
                     {pagination.totalItems} deliveries
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handlePageChange(pagination.currentPage - 1)}
-                      disabled={pagination.currentPage === 1}
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                    </Button>
-                    <span className="text-sm">
-                      Page {pagination.currentPage} of {pagination.totalPages}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handlePageChange(pagination.currentPage + 1)}
-                      disabled={pagination.currentPage === pagination.totalPages}
-                    >
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </div>
                 </div>
-              )}
+                
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  onPageChange={handlePageChange}
+                />
+              </div>
               </>
             )}
           </CardContent>

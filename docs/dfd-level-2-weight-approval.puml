@@ -1,0 +1,26 @@
+@startuml DFD Level 2 - Weight Approval Process
+
+skinparam monochrome true
+skinparam shadowing false
+
+' External entities
+actor "Manager" as manager
+actor "Operator" as operator
+
+' Processes
+circle "2.1\nView\nRecords" as viewRecords
+circle "2.2\nApprove/\nReject" as makeDecision
+
+' Data stores
+database "Weight Records" as weights
+
+' Data flows
+manager --> viewRecords : Request
+viewRecords <--> weights : Get records
+viewRecords --> manager : Display
+
+manager --> makeDecision : Decision
+makeDecision <--> weights : Update
+makeDecision --> operator : Notify
+
+@enduml

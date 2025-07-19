@@ -4,6 +4,7 @@ import { executeQuery } from "../../lib/db-adapter";
 import { getUserFromToken } from "../../lib/auth";
 import { supabaseAdmin } from "../../lib/supabase.js";
 import { getCount, getSum } from "../../lib/supabase-aggregation";
+import { withArcjetProtection } from "../../lib/arcjet-middleware";
 
 export default async function handler(
   req: NextApiRequest,
@@ -12,6 +13,10 @@ export default async function handler(
   if (req.method !== "GET") {
     return res.status(405).json({ message: "Method not allowed" });
   }
+
+  // Apply Arcjet protection for dashboard API
+  const arcjetResult = await withArcjetProtection(req, res, "api");
+  if (arcjetResult) return arcjetResult;
 
   const user = await getUserFromToken(req);
 

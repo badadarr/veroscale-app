@@ -1,0 +1,25 @@
+@startuml DFD Level 2 - Weight Recording Process
+
+skinparam monochrome true
+skinparam shadowing false
+
+' External entities
+actor "Operator" as operator
+rectangle "IoT Devices" as iot
+
+' Processes
+circle "1.1\nCapture\nWeight" as captureWeight
+circle "1.2\nSave\nRecord" as saveRecord
+
+' Data stores
+database "Weight Records" as weights
+
+' Data flows
+operator --> captureWeight : Manual input
+iot --> captureWeight : Auto measurement
+captureWeight --> saveRecord : Weight data
+
+saveRecord <--> weights : Store record
+saveRecord --> operator : Confirmation
+
+@enduml

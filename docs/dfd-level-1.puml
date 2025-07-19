@@ -1,0 +1,36 @@
+@startuml Weight Management System DFD Level 1
+
+skinparam monochrome true
+skinparam shadowing false
+
+' External entities
+actor "Operator" as operator
+actor "Manager" as manager
+rectangle "IoT Devices" as iot
+
+' Processes
+circle "1\nWeight\nRecording" as weightRec
+circle "2\nWeight\nApproval" as weightApp
+circle "3\nReport\nGeneration" as reportGen
+
+' Data stores
+database "Weight Records" as weights
+
+' Weight recording flows
+operator --> weightRec : Weight data
+iot --> weightRec : Measurements
+weightRec <--> weights : Store
+weightRec --> weightApp : New records
+
+' Weight approval flows
+weightApp --> manager : Pending approvals
+manager --> weightApp : Decisions
+weightApp <--> weights : Update
+weightApp --> operator : Notifications
+
+' Report generation flows
+manager --> reportGen : Requests
+reportGen <--> weights : Data
+reportGen --> manager : Reports
+
+@enduml

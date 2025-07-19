@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { executeQuery } from "../../../lib/db-adapter";
-import { getUserFromToken, isManagerOrAdmin } from "../../../lib/auth";
+import { getUserFromToken, canManageSamples, hasFullAccess } from "../../../lib/auth";
 
 export default async function handler(
   req: NextApiRequest,
@@ -84,8 +84,8 @@ async function updateSample(
   user: any
 ) {
   try {
-    // Only managers and admins can update samples
-    if (!isManagerOrAdmin(user)) {
+    // Allow admins, managers, and marketing to update samples
+    if (!canManageSamples(user)) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
@@ -181,8 +181,8 @@ async function updateSample(
 // Delete sample
 async function deleteSample(res: NextApiResponse, id: string, user: any) {
   try {
-    // Only managers and admins can delete samples
-    if (!isManagerOrAdmin(user)) {
+    // Allow admins, managers, and marketing to delete samples
+    if (!canManageSamples(user)) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 

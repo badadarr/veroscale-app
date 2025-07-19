@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Pagination } from "@/components/ui/Pagination";
 import StatusInfoCard from "@/components/ui/StatusInfoCard";
 import { formatDate, formatWeight } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -61,6 +62,8 @@ export default function MyRecords() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [issueType, setIssueType] = useState("");
   const [issueDescription, setIssueDescription] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   // Mock data for demonstration
   const mockRecords = useMemo<WeightRecord[]>(
@@ -207,6 +210,8 @@ export default function MyRecords() {
     }
 
     setFilteredRecords(filtered);
+    // Reset to first page when filters change
+    setCurrentPage(1);
   }, [records, searchTerm, selectedStatus, startDate, endDate]);
 
   // Handle view record details
@@ -241,6 +246,16 @@ export default function MyRecords() {
       // In production, use real API call
       // await apiClient.post('/api/issues', {
       //   record_id: selectedRecord.id,
+      //   issue_type: issue  // Handle submitting issue report
+  const handleSubmitIssue = async () => {
+    if (!selectedRecord || !issueType || !issueDescription) {
+      return;
+    }
+
+    try {
+      // In production, use real API call
+      // await apiClient.post('/api/issues', {
+      //   record_id: selectedRecord.id,
       //   issue_type: issueType,
       //   description: issueDescription,
       //   user_id: user?.id
@@ -263,6 +278,18 @@ export default function MyRecords() {
     setSelectedStatus("all");
     setStartDate("");
     setEndDate("");
+    setCurrentPage(1);
+  };
+  
+  // Calculate pagination
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredRecords.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+  
+  // Handle page change
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
   };
   // Show loading if user is not loaded yet or if user doesn't have access
   if (!user) {
@@ -456,7 +483,7 @@ export default function MyRecords() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredRecords.map((record) => (
+                  {currentItems.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">
                         #{record.id}
@@ -521,6 +548,23 @@ export default function MyRecords() {
                   ))}
                 </TableBody>
               </Table>
+              
+              {/* Pagination */}
+              {filteredRecords.length > 0 && (
+                <div className="mt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-sm text-gray-600">
+                      Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredRecords.length)} of {filteredRecords.length} records
+                    </div>
+                  </div>
+                  
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                  />
+                </div>
+              )}
             )}
           </CardContent>
         </Card>

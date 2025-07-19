@@ -1,0 +1,35 @@
+@startuml DFD Level 2 - Supplier Delivery Process
+
+skinparam monochrome true
+skinparam shadowing false
+
+' External entities
+actor "Marketing" as marketing
+actor "Operator" as operator
+rectangle "Suppliers" as suppliers
+
+' Processes
+circle "4.1\nManage\nSuppliers" as manageSuppliers
+circle "4.2\nSchedule\nDelivery" as scheduleDelivery
+circle "4.3\nTrack\nDelivery" as trackDelivery
+
+' Data stores
+database "Suppliers" as suppliersDB
+database "Deliveries" as deliveries
+
+' Data flows
+marketing --> manageSuppliers : Supplier info
+manageSuppliers <--> suppliersDB : Store data
+manageSuppliers --> suppliers : Communication
+
+marketing --> scheduleDelivery : Schedule details
+scheduleDelivery <--> suppliersDB : Get info
+scheduleDelivery <--> deliveries : Create schedule
+scheduleDelivery --> suppliers : Requirements
+
+suppliers --> trackDelivery : Status updates
+operator --> trackDelivery : Confirmations
+trackDelivery <--> deliveries : Update status
+trackDelivery --> marketing : Notifications
+
+@enduml

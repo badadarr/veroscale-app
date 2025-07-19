@@ -1,0 +1,66 @@
+@startuml Weight Management System Use Cases
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Admin" as admin
+actor "Manager" as manager
+actor "Operator" as operator
+actor "Marketing User" as marketing
+actor "IoT Device" as iot
+actor "RFID Scanner" as rfid
+
+rectangle "Weight Management System" {
+  usecase "Manage Users" as UC1
+  usecase "Configure System Settings" as UC2
+  usecase "Record Weight Manually" as UC3
+  usecase "Record Weight via IoT" as UC4
+  usecase "Record Weight via RFID" as UC5
+  usecase "Approve Weight Records" as UC6
+  usecase "Reject Weight Records" as UC7
+  usecase "Generate Reports" as UC8
+  usecase "Manage Suppliers" as UC9
+  usecase "Schedule Deliveries" as UC10
+  usecase "Track Deliveries" as UC11
+  usecase "Manage Sample Items" as UC12
+  usecase "View Dashboard" as UC13
+  usecase "Login/Logout" as UC14
+  usecase "Send Weight Data" as UC15
+  usecase "Scan Item Tags" as UC16
+}
+
+admin --> UC1
+admin --> UC2
+admin --> UC8
+admin --> UC13
+admin --> UC14
+
+manager --> UC6
+manager --> UC7
+manager --> UC8
+manager --> UC12
+manager --> UC13
+manager --> UC14
+
+operator --> UC3
+operator --> UC4
+operator --> UC5
+operator --> UC13
+operator --> UC14
+
+marketing --> UC9
+marketing --> UC10
+marketing --> UC11
+marketing --> UC13
+marketing --> UC14
+
+iot --> UC15
+rfid --> UC16
+
+UC4 ..> UC15 : includes
+UC5 ..> UC16 : includes
+UC6 ..> UC3 : extends
+UC7 ..> UC3 : extends
+UC11 ..> UC10 : extends
+
+@enduml

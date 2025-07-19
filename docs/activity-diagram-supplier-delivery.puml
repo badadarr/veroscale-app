@@ -1,0 +1,53 @@
+@startuml Supplier Delivery Process
+
+title Supplier Delivery Management Process
+
+|Marketing User|
+start
+:Login to system;
+:Create new delivery schedule;
+:Enter supplier details;
+:Enter expected items and quantities;
+:Set scheduled delivery date;
+:Submit delivery schedule;
+
+|System|
+:Save delivery with 'scheduled' status;
+:Notify relevant departments;
+
+|Supplier|
+:Prepare items for delivery;
+:Transport items;
+:Arrive at facility;
+
+|Operator|
+:Receive delivery;
+:Verify items against schedule;
+if (Items match schedule?) then (yes)
+  :Process received items;
+  :Record actual weights;
+else (no)
+  :Document discrepancies;
+  :Contact marketing department;
+endif
+:Update delivery status;
+
+|System|
+:Calculate weight variances;
+:Update delivery record;
+if (Status?) then (Delivered)
+  :Complete delivery process;
+  :Update inventory;
+else (Delayed/Cancelled)
+  :Reschedule or cancel;
+  :Notify marketing department;
+endif
+
+|Marketing User|
+:Review delivery reports;
+:Analyze supplier performance;
+:Plan future deliveries;
+
+stop
+
+@enduml

@@ -1,11 +1,16 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { executeQuery } from "../../../lib/db-adapter";
 import { getUserFromToken } from "../../../lib/auth";
+import { withArcjetProtection } from "../../../lib/arcjet-middleware";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // Apply Arcjet protection for API endpoints
+  const arcjetResult = await withArcjetProtection(req, res, "api");
+  if (arcjetResult) return arcjetResult;
+
   const user = await getUserFromToken(req);
 
   if (!user) {

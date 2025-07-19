@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import bcrypt from "bcryptjs";
 import { executeQuery } from "../../../lib/db-adapter";
 import { getUserFromToken, isAdmin } from "../../../lib/auth";
+import { withArcjetProtection } from "../../../lib/arcjet-middleware";
 
 export default async function handler(
   req: NextApiRequest,
@@ -10,6 +11,10 @@ export default async function handler(
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
+
+  // Apply Arcjet protection with email validation
+  const arcjetResult = await withArcjetProtection(req, res, "email");
+  if (arcjetResult) return arcjetResult;
 
   try {
     // Only admin can register new users

@@ -1,0 +1,29 @@
+@startuml Weight Management System DFD Level 0
+
+skinparam monochrome true
+skinparam shadowing false
+
+' External entities
+actor "Operator" as operator
+actor "Manager" as manager
+rectangle "IoT Devices" as iot
+
+' Main process
+circle "Weight\nManagement\nSystem" as WMS
+
+' Data stores
+database "Database" as db
+
+' Data flows
+operator --> WMS : Weight data
+WMS --> operator : Confirmations
+
+manager --> WMS : Approval decisions
+WMS --> manager : Reports
+
+iot --> WMS : Measurements
+
+' Data store flows
+WMS <--> db : Store/retrieve data
+
+@enduml

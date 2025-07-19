@@ -26,9 +26,52 @@ export async function query<T = any>({
     // Apply filters
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined) {
-        query = query.eq(key, value);
+        // Handle special filter names with operators (e.g., timestamp_gte)
+        if (key.includes('_')) {
+          const parts = key.split('_');
+          const fieldName = parts[0];
+          const operator = parts[1];
+          
+          switch(operator) {
+            case 'eq':
+              query = query.eq(fieldName, value);
+              break;
+            case 'neq':
+              query = query.neq(fieldName, value);
+              break;
+            case 'gt':
+              query = query.gt(fieldName, value);
+              break;
+            case 'gte':
+              query = query.gte(fieldName, value);
+              break;
+            case 'lt':
+              query = query.lt(fieldName, value);
+              break;
+            case 'lte':
+              query = query.lte(fieldName, value);
+              break;
+            case 'in':
+              query = query.in(fieldName, value);
+              break;
+            case 'like':
+              query = query.like(fieldName, value);
+              break;
+            case 'ilike':
+              query = query.ilike(fieldName, value);
+              break;
+            default:
+              console.warn(`Unsupported operator: ${operator}`);
+              query = query.eq(key, value); // Fall back to equality
+          }
+        } else {
+          // Simple equality filter
+          query = query.eq(key, value);
+        }
       }
-    }); // Execute query
+    });
+
+    // Execute query
     const { data, error } = single ? await query.single() : await query;
 
     if (error) throw error;
@@ -115,7 +158,48 @@ export async function update<T = any>({
     // Apply filters
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined) {
-        query = query.eq(key, value);
+        // Handle special filter names with operators (e.g., timestamp_gte)
+        if (key.includes('_')) {
+          const parts = key.split('_');
+          const fieldName = parts[0];
+          const operator = parts[1];
+          
+          switch(operator) {
+            case 'eq':
+              query = query.eq(fieldName, value);
+              break;
+            case 'neq':
+              query = query.neq(fieldName, value);
+              break;
+            case 'gt':
+              query = query.gt(fieldName, value);
+              break;
+            case 'gte':
+              query = query.gte(fieldName, value);
+              break;
+            case 'lt':
+              query = query.lt(fieldName, value);
+              break;
+            case 'lte':
+              query = query.lte(fieldName, value);
+              break;
+            case 'in':
+              query = query.in(fieldName, value);
+              break;
+            case 'like':
+              query = query.like(fieldName, value);
+              break;
+            case 'ilike':
+              query = query.ilike(fieldName, value);
+              break;
+            default:
+              console.warn(`Unsupported operator: ${operator}`);
+              query = query.eq(key, value); // Fall back to equality
+          }
+        } else {
+          // Simple equality filter
+          query = query.eq(key, value);
+        }
       }
     });
 
@@ -152,7 +236,48 @@ export async function remove<T = any>({
     // Apply filters
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined) {
-        query = query.eq(key, value);
+        // Handle special filter names with operators (e.g., timestamp_gte)
+        if (key.includes('_')) {
+          const parts = key.split('_');
+          const fieldName = parts[0];
+          const operator = parts[1];
+          
+          switch(operator) {
+            case 'eq':
+              query = query.eq(fieldName, value);
+              break;
+            case 'neq':
+              query = query.neq(fieldName, value);
+              break;
+            case 'gt':
+              query = query.gt(fieldName, value);
+              break;
+            case 'gte':
+              query = query.gte(fieldName, value);
+              break;
+            case 'lt':
+              query = query.lt(fieldName, value);
+              break;
+            case 'lte':
+              query = query.lte(fieldName, value);
+              break;
+            case 'in':
+              query = query.in(fieldName, value);
+              break;
+            case 'like':
+              query = query.like(fieldName, value);
+              break;
+            case 'ilike':
+              query = query.ilike(fieldName, value);
+              break;
+            default:
+              console.warn(`Unsupported operator: ${operator}`);
+              query = query.eq(key, value); // Fall back to equality
+          }
+        } else {
+          // Simple equality filter
+          query = query.eq(key, value);
+        }
       }
     });
 

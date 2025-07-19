@@ -1,0 +1,50 @@
+@startuml Weight Recording Process
+
+title Weight Recording and Approval Process
+
+|Operator|
+start
+:Login to system;
+:Select weight entry method;
+
+if (Method?) then (Manual Entry)
+  :Enter item details;
+  :Enter weight manually;
+else (IoT/RFID)
+  :Scan RFID tag;
+  :System retrieves item details;
+  :IoT scale sends weight data;
+endif
+
+:Review weight data;
+:Submit weight record;
+
+|System|
+:Validate data;
+if (Valid?) then (yes)
+  :Save weight record with 'pending' status;
+  :Notify manager for approval;
+else (no)
+  :Display validation errors;
+  :Return to weight entry;
+endif
+
+|Manager|
+:Review pending weight records;
+if (Decision?) then (Approve)
+  :Approve weight record;
+  |System|
+  :Update status to 'approved';
+  :Record approval timestamp and manager;
+else (Reject)
+  :Provide rejection reason;
+  |System|
+  :Update status to 'rejected';
+  :Notify operator of rejection;
+endif
+
+|System|
+:Update reports and dashboards;
+stop
+
+@enduml

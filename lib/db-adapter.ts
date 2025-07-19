@@ -26,6 +26,8 @@ export async function executeQuery<T = any>(options: {
   single?: boolean;
   returning?: string;
   range?: [number, number];
+  orderBy?: string;
+  orderDirection?: "asc" | "desc";
 }): Promise<T> {
   if (useSupabase) {
     let {
@@ -37,6 +39,8 @@ export async function executeQuery<T = any>(options: {
       single,
       returning,
       range,
+      orderBy,
+      orderDirection,
     } = options;
 
     if (options.query && !operationTable) {
@@ -110,12 +114,20 @@ export async function executeQuery<T = any>(options: {
       }
 
       // Kueri standar tanpa delegasi helper agregasi spesifik
-      return supabaseDB.query<T>({
+      const queryOptions: any = {
         table: tableNameWithoutSchema,
         select: selectColumnsString,
         filters: filters || {},
         single: single || false,
-      });
+      };
+
+      // Add order by if provided
+      if (orderBy) {
+        queryOptions.orderBy = orderBy;
+        queryOptions.orderDirection = orderDirection || 'asc';
+      }
+
+      return supabaseDB.query<T>(queryOptions);
     } else if (action === "insert") {
       return supabaseDB.insert<T>({
         table: tableNameWithoutSchema,

@@ -16,9 +16,11 @@
     "run-migrations": "ts-node scripts/run-migrations.ts"
   },
   "dependencies": {
+    "@arcjet/next": "^1.0.0-beta.9",
     "@supabase/supabase-js": "^2.49.7",
     "@types/express": "^5.0.2",
-    "axios": "^1.6.7",
+    "@types/jspdf": "^1.3.3",
+    "axios": "^1.10.0",
     "bcryptjs": "^2.4.3",
     "chart.js": "^4.4.1",
     "class-variance-authority": "^0.7.1",
@@ -29,8 +31,8 @@
     "firebase": "^11.9.1",
     "js-cookie": "^3.0.5",
     "jsonwebtoken": "^9.0.2",
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.1",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
     "lucide-react": "^0.344.0",
     "mysql2": "^3.9.2",
     "next": "^14.1.0",

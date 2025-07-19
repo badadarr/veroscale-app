@@ -1,0 +1,68 @@
+@startuml Weight Approval Sequence
+
+actor Manager
+participant "UI" as UI
+participant "WeightAPI" as API
+participant "WeightService" as Service
+participant "NotificationService" as Notify
+participant "Database" as DB
+
+Manager -> UI: Login
+UI -> API: POST /api/auth/login
+API -> DB: Verify credentials
+DB --> API: Authentication result
+API --> UI: Authentication token
+UI --> Manager: Login success
+
+Manager -> UI: View pending weight records
+UI -> API: GET /api/weights?status=pending
+API -> Service: getPendingWeightRecords()
+Service -> DB: Query pending records
+DB --> Service: Pending records list
+Service --> API: Pending records
+API --> UI: Display pending records
+UI --> Manager: Show pending records
+
+Manager -> UI: Select record to review
+UI -> API: GET /api/weights/{id}
+API -> Service: getWeightRecord(id)
+Service -> DB: Query record details
+DB --> Service: Record details
+Service --> API: Weight record details
+API --> UI: Display record details
+UI --> Manager: Show record details
+
+alt Approve Record
+    Manager -> UI: Approve record
+    UI -> API: PUT /api/weights/{id}/approve
+    API -> Service: approveWeightRecord(id)
+    Service -> DB: Update record status to 'approved'
+    Service -> DB: Set approved_by and approved_at
+    DB --> Service: Update success
+    Service --> API: Approval success
+    API --> UI: Success response
+    UI --> Manager: Confirmation message
+    
+    Service -> Notify: sendNotification()
+    Notify -> DB: Create notification
+    DB --> Notify: Notification created
+    Notify -> Service: Notification sent
+else Reject Record
+    Manager -> UI: Reject record
+    Manager -> UI: Enter rejection reason
+    UI -> API: PUT /api/weights/{id}/reject
+    API -> Service: rejectWeightRecord(id, reason)
+    Service -> DB: Update record status to 'rejected'
+    Service -> DB: Set approved_by and approved_at
+    DB --> Service: Update success
+    Service --> API: Rejection success
+    API --> UI: Success response
+    UI --> Manager: Confirmation message
+    
+    Service -> Notify: sendNotification()
+    Notify -> DB: Create notification
+    DB --> Notify: Notification created
+    Notify -> Service: Notification sent
+end
+
+@enduml

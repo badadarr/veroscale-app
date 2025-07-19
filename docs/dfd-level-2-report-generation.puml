@@ -1,0 +1,35 @@
+@startuml DFD Level 2 - Report Generation Process
+
+skinparam monochrome true
+skinparam shadowing false
+
+' External entities
+actor "Manager" as manager
+actor "Admin" as admin
+
+' Processes
+circle "5.1\nSelect\nReport" as selectReport
+circle "5.2\nFetch\nData" as fetchData
+circle "5.3\nGenerate\nReport" as generateReport
+
+' Data stores
+database "Templates" as templates
+database "Weight Records" as weights
+database "Suppliers" as suppliers
+database "Deliveries" as deliveries
+
+' Data flows
+manager --> selectReport : Request report
+admin --> selectReport : Request report
+selectReport <--> templates : Get template
+selectReport --> fetchData : Parameters
+
+fetchData <--> weights : Get data
+fetchData <--> suppliers : Get data
+fetchData <--> deliveries : Get data
+fetchData --> generateReport : Raw data
+
+generateReport --> manager : Deliver report
+generateReport --> admin : Deliver report
+
+@enduml

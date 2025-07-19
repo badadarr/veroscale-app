@@ -7,8 +7,6 @@ import {
   Plus,
   Edit,
   Trash2,
-  ArrowLeft,
-  ArrowRight,
   AlertCircle,
 } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
@@ -23,6 +21,7 @@ import {
 } from "@/components/ui/Table";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Pagination } from "@/components/ui/Pagination";
 
 import { formatWeight } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -499,8 +498,8 @@ export default function Samples() {
                 </Table>
 
                 {/* Pagination */}
-                {pagination.totalPages > 1 && (
-                  <div className="flex items-center justify-between mt-6">
+                <div className="mt-6">
+                  <div className="flex items-center justify-between mb-4">
                     <div className="text-sm text-gray-600">
                       Showing{" "}
                       {(pagination.currentPage - 1) * pagination.itemsPerPage +
@@ -512,35 +511,14 @@ export default function Samples() {
                       )}{" "}
                       of {pagination.totalItems} samples
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          handlePageChange(pagination.currentPage - 1)
-                        }
-                        disabled={pagination.currentPage === 1}
-                      >
-                        <ArrowLeft className="w-4 h-4" />
-                      </Button>
-                      <span className="text-sm">
-                        Page {pagination.currentPage} of {pagination.totalPages}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          handlePageChange(pagination.currentPage + 1)
-                        }
-                        disabled={
-                          pagination.currentPage === pagination.totalPages
-                        }
-                      >
-                        <ArrowRight className="w-4 h-4" />
-                      </Button>
-                    </div>
                   </div>
-                )}
+                  
+                  <Pagination
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    onPageChange={handlePageChange}
+                  />
+                </div>
               </>
             )}
           </CardContent>

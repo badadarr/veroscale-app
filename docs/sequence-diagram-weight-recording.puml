@@ -1,0 +1,53 @@
+@startuml Weight Recording Sequence
+
+actor Operator
+participant "UI" as UI
+participant "WeightAPI" as API
+participant "WeightService" as Service
+participant "IoTService" as IoT
+participant "Database" as DB
+
+Operator -> UI: Login
+UI -> API: POST /api/auth/login
+API -> DB: Verify credentials
+DB --> API: Authentication result
+API --> UI: Authentication token
+UI --> Operator: Login success
+
+Operator -> UI: Select weight entry method
+alt Manual Entry
+    Operator -> UI: Enter item details
+    Operator -> UI: Enter weight value
+    UI -> API: POST /api/weights
+    API -> Service: createWeightRecord()
+    Service -> DB: Insert weight record
+    DB --> Service: Record ID
+    Service --> API: Weight record created
+    API --> UI: Success response
+    UI --> Operator: Confirmation message
+else IoT Scale
+    Operator -> UI: Select IoT scale option
+    UI -> IoT: Request current weight
+    IoT -> IoT: Read scale data
+    IoT --> UI: Current weight data
+    Operator -> UI: Confirm weight reading
+    UI -> API: POST /api/weights
+    API -> Service: createWeightRecord()
+    Service -> DB: Insert weight record
+    DB --> Service: Record ID
+    Service --> API: Weight record created
+    API --> UI: Success response
+    UI --> Operator: Confirmation message
+end
+
+UI -> API: GET /api/users?role=manager
+API -> DB: Query managers
+DB --> API: List of managers
+API --> UI: Managers list
+
+UI -> API: POST /api/notifications
+API -> Service: notifyManagers()
+Service --> API: Notification sent
+API --> UI: Success response
+
+@enduml

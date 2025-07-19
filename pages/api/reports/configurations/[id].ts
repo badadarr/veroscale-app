@@ -5,6 +5,7 @@ import {
   isAdmin,
   isManager,
   isOperator,
+  isMarketing,
 } from "../../../../lib/auth";
 
 export default async function handler(
@@ -20,10 +21,11 @@ export default async function handler(
   // Role-based access control
   const isAdminUser = isAdmin(user);
   const isManagerUser = isManager(user);
+  const isMarketingUser = isMarketing(user);
   const isOperatorUser = isOperator(user);
 
   // Check if user has any valid role
-  if (!isAdminUser && !isManagerUser && !isOperatorUser) {
+  if (!isAdminUser && !isManagerUser && !isMarketingUser && !isOperatorUser) {
     return res
       .status(403)
       .json({ message: "Forbidden. Insufficient permissions." });
@@ -39,11 +41,11 @@ export default async function handler(
       // All roles can view report configurations
       return getReportConfigurationById(res, id);
     case "PUT":
-      // Only admin and manager can update report configurations
-      if (!isAdminUser && !isManagerUser) {
+      // Only admin, manager, and marketing can update report configurations
+      if (!isAdminUser && !isManagerUser && !isMarketingUser) {
         return res
           .status(403)
-          .json({ message: "Forbidden. Admin or Manager access required." });
+          .json({ message: "Forbidden. Admin, Manager, or Marketing access required." });
       }
       return updateReportConfiguration(req, res, id);
     case "DELETE":

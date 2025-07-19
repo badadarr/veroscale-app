@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { executeQuery } from '../../../lib/db-adapter';
-import { getUserFromToken, isManagerOrAdmin } from '../../../lib/auth';
+import { getUserFromToken, canManageSamples } from '../../../lib/auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const user = await getUserFromToken(req);
@@ -127,8 +127,8 @@ async function getSamples(req: NextApiRequest, res: NextApiResponse) {
 // Add a new sample
 async function addSample(req: NextApiRequest, res: NextApiResponse, user: any) {
   try {
-    // Allow admins, managers, and operators to add samples
-    if (!['admin', 'manager', 'operator'].includes(user.role)) {
+    // Allow admins, managers, marketing, and operators to add samples
+    if (!['admin', 'manager', 'marketing', 'operator'].includes(user.role)) {
       return res.status(403).json({ message: 'Unauthorized' });
     }
 

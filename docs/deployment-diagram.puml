@@ -1,0 +1,71 @@
+@startuml Weight Management System Deployment
+
+!define CLOUD_COLOR #E2F2F8
+!define CLIENT_COLOR #F8F8E2
+!define SERVER_COLOR #E2F8E2
+!define DB_COLOR #F8E2E2
+!define IOT_COLOR #E2E2F8
+
+skinparam node {
+  BorderColor Black
+  FontColor Black
+}
+
+node "Client Device" as client #CLIENT_COLOR {
+  artifact "Web Browser" as browser {
+    component "Next.js Frontend" as frontend
+  }
+}
+
+cloud "Vercel Platform" as vercel #CLOUD_COLOR {
+  node "Edge Network" as edge {
+    component "CDN Cache" as cdn
+  }
+  
+  node "Serverless Functions" as serverless {
+    component "Next.js API Routes" as api
+    component "Authentication Service" as auth
+    component "Weight Service" as weight
+    component "Report Service" as report
+  }
+}
+
+cloud "Supabase Cloud" as supabase #CLOUD_COLOR {
+  node "Database Server" as dbserver #DB_COLOR {
+    database "PostgreSQL Database" as db {
+      [Users Table]
+      [Weight Records Table]
+      [Suppliers Table]
+      [Deliveries Table]
+    }
+  }
+  
+  node "Authentication Server" as authserver {
+    component "Auth Service" as supaauth
+  }
+}
+
+node "IoT Environment" as iotenv #IOT_COLOR {
+  node "Scale Device" as scale {
+    component "Weight Sensor" as sensor
+    component "IoT Controller" as controller
+    component "WiFi Module" as wifi
+  }
+  
+  node "RFID Reader" as rfid {
+    component "RFID Scanner" as scanner
+    component "Network Interface" as netinterface
+  }
+}
+
+client --> vercel : HTTPS
+browser --> edge : Static Content Requests
+browser --> serverless : API Requests
+serverless --> supabase : Database Queries
+serverless --> authserver : Auth Requests
+iotenv --> serverless : Weight Data / RFID Data
+scale --> wifi : Internal Communication
+wifi --> serverless : HTTPS API Calls
+rfid --> serverless : HTTPS API Calls
+
+@enduml

@@ -1,0 +1,35 @@
+@startuml Weight Management System Context Diagram
+
+!define SYSTEM_COLOR #E2F2F8
+!define EXTERNAL_COLOR #F8E2E2
+
+skinparam componentStyle rectangle
+skinparam monochrome true
+skinparam shadowing false
+
+rectangle "Weight Management System" as WMS #SYSTEM_COLOR {
+}
+
+actor "Admin" as admin
+actor "Manager" as manager
+actor "Operator" as operator
+actor "Marketing User" as marketing
+
+rectangle "IoT Devices" as iot #EXTERNAL_COLOR
+rectangle "RFID Scanners" as rfid #EXTERNAL_COLOR
+rectangle "Suppliers" as suppliers #EXTERNAL_COLOR
+database "Supabase Database" as db #EXTERNAL_COLOR
+rectangle "Report Recipients" as recipients #EXTERNAL_COLOR
+
+admin --> WMS : Manages users and\nsystem settings
+manager --> WMS : Approves weight records\nand generates reports
+operator --> WMS : Records weights\nand processes deliveries
+marketing --> WMS : Manages suppliers\nand schedules deliveries
+
+WMS <-- iot : Sends weight data
+WMS <-- rfid : Provides item identification
+WMS --> suppliers : Sends delivery schedules\nand requirements
+WMS <--> db : Stores and retrieves data
+WMS --> recipients : Sends reports
+
+@enduml

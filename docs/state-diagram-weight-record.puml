@@ -1,0 +1,16 @@
+@startuml Weight Record State Diagram
+
+[*] --> Created : Record Created
+
+state Created {
+  [*] --> Pending : Initial State
+  Pending --> UnderReview : Manager Reviews
+  UnderReview --> Approved : Manager Approves
+  UnderReview --> Rejected : Manager Rejects
+  Rejected --> Pending : Operator Resubmits
+}
+
+Approved --> [*] : Final State
+Rejected --> [*] : Final State (if not resubmitted)
+
+@enduml

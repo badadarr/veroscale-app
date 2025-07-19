@@ -1,0 +1,154 @@
+@startuml Weight Management System Class Diagram
+
+' Style settings
+skinparam classAttributeIconSize 0
+skinparam monochrome true
+skinparam shadowing false
+skinparam linetype ortho
+
+' Classes
+class Role {
+  +id: Integer
+  +name: String
+}
+
+class User {
+  +id: Integer
+  +name: String
+  +email: String
+  +password: String
+  +created_at: Timestamp
+  +updated_at: Timestamp
+  +authenticate(): Boolean
+  +hasPermission(permission: String): Boolean
+}
+
+class RefItem {
+  +id: Integer
+  +name: String
+  +weight: Decimal
+}
+
+class WeightRecord {
+  +record_id: Integer
+  +total_weight: Decimal
+  +timestamp: Timestamp
+  +status: String
+  +approved_at: Timestamp
+  +batch_number: String
+  +source: String
+  +destination: String
+  +notes: Text
+  +unit: String
+  +approve(approver: User): Boolean
+  +reject(approver: User): Boolean
+  +calculateTotalWeight(): Decimal
+}
+
+class Session {
+  +session_id: Integer
+  +start_time: Timestamp
+  +end_time: Timestamp
+  +status: String
+  +isActive(): Boolean
+  +terminate(): Boolean
+}
+
+class SampleItem {
+  +id: Integer
+  +category: String
+  +item: String
+  +sample_weight: Decimal
+  +created_at: Timestamp
+  +updated_at: Timestamp
+  +getWeightFactor(): Decimal
+}
+
+class Supplier {
+  +id: Integer
+  +name: String
+  +contact_person: String
+  +email: String
+  +phone: String
+  +address: Text
+  +status: String
+  +created_at: Timestamp
+  +updated_at: Timestamp
+  +isActive(): Boolean
+}
+
+class SupplierDelivery {
+  +id: Integer
+  +item_name: String
+  +expected_quantity: Decimal
+  +expected_weight: Decimal
+  +scheduled_date: Date
+  +delivery_status: String
+  +actual_delivery_date: Date
+  +notes: Text
+  +created_at: Timestamp
+  +updated_at: Timestamp
+  +calculateVariance(): Decimal
+  +updateStatus(status: String): Boolean
+}
+
+class ReportConfiguration {
+  +id: Integer
+  +name: String
+  +description: Text
+  +type: String
+  +fields: JSON
+  +schedule: JSON
+  +recipients: JSON
+  +created_at: Timestamp
+  +updated_at: Timestamp
+  +generateReport(): Report
+  +scheduleReport(): Boolean
+}
+
+class SystemSetting {
+  +id: Integer
+  +key: String
+  +value: Text
+  +category: String
+  +description: Text
+  +created_at: Timestamp
+  +updated_at: Timestamp
+  +getValue(): String
+  +setValue(value: String): Boolean
+}
+
+class Report {
+  +id: Integer
+  +title: String
+  +content: Text
+  +format: String
+  +generated_at: Timestamp
+  +export(format: String): File
+}
+
+class Batch {
+  +batch_number: String
+  +creation_date: Date
+  +status: String
+  +getTotalWeight(): Decimal
+  +getItemCount(): Integer
+}
+
+' Relationships
+Role "1" -- "many" User : assigns >
+User "1" -- "many" WeightRecord : records >
+User "1" -- "many" Session : has >
+User "1" -- "many" WeightRecord : approves >
+User "1" -- "many" SupplierDelivery : manages >
+User "1" -- "many" ReportConfiguration : creates >
+
+RefItem "1" -- "many" WeightRecord : measured as >
+
+Supplier "1" -- "many" SupplierDelivery : provides >
+
+Batch "1" -- "many" WeightRecord : contains >
+
+ReportConfiguration ..> Report : generates >
+
+@enduml
