@@ -1,0 +1,30 @@
+@startuml VeroScale Project S-Curve
+scale 1.2
+title VeroScale Project S-Curve (February - June 2025)
+
+skinparam backgroundColor white
+skinparam defaultFontName Arial
+
+' Define X-axis (dates)
+scale 1.0
+' Y-axis is percentage complete (0-100%)
+
+' Create the S-curve
+create s
+s is "S-Curve"
+
+' Data points based on cumulative progress
+s -> s : 2025-02-05 = 0.0%
+s -> s : 2025-02-12 = 6.4%
+s -> s : 2025-02-25 = 16.8%
+s -> s : 2025-03-10 = 27.2%
+s -> s : 2025-03-24 = 38.4%
+s -> s : 2025-03-31 = 49.6%
+s -> s : 2025-04-14 = 60.8%
+s -> s : 2025-04-25 = 69.6%
+s -> s : 2025-05-05 = 77.6%
+s -> s : 2025-05-15 = 85.6%
+s -> s : 2025-05-31 = 98.4%
+s -> s : 2025-06-10 = 100.0%
+
+@enduml

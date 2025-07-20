@@ -2,6 +2,15 @@
 
 Dokumen ini berisi kumpulan diagram UML yang menggambarkan struktur dan perilaku Sistem Manajemen Berat.
 
+## Block Diagram
+
+Block diagram menunjukkan komponen utama sistem dan hubungannya.
+
+- [Block Diagram Lengkap](./block-diagram.puml) - Struktur sistem dengan detail komponen
+- [Block Diagram Sederhana](./block-diagram-simple.puml) - Komponen utama sistem
+- [Block Diagram Aliran Data](./block-diagram-data-flow.puml) - Aliran data dalam sistem
+- [Block Diagram Deployment](./block-diagram-deployment.puml) - Arsitektur deployment
+
 ## Data Flow Diagram (DFD)
 
 Diagram aliran data yang menggambarkan sistem manajemen berat.

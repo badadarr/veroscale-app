@@ -1,0 +1,29 @@
+@startuml Weight Management System - Simple Block Diagram
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+rectangle "User Interface" as UI {
+  rectangle "Authentication" as Auth
+  rectangle "Weight Management" as Weight
+  rectangle "Reports" as Reports
+}
+
+rectangle "Backend Services" as Backend {
+  rectangle "API Layer" as API
+  rectangle "Business Logic" as Logic
+}
+
+database "Database" as DB
+
+rectangle "External Devices" as Devices {
+  rectangle "IoT Scales" as IoT
+  rectangle "RFID Scanners" as RFID
+}
+
+UI --> Backend
+Backend --> DB
+Devices --> Backend
+
+@enduml

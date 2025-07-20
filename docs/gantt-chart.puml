@@ -1,0 +1,40 @@
+@startgantt VeroScale Project Implementation and Testing
+printscale daily
+title VeroScale Project Implementation and Testing (February - June 2025)
+
+Project starts 2025-02-05
+
+-- Project Phases --
+[Project Initiation & Requirement Analysis] as [Task1] starts 2025-02-05 and ends 2025-02-12
+[System Design (Architecture, UI/UX)] as [Task2] starts 2025-02-13 and ends 2025-02-25
+[Hardware Integration (ESP32, Sensor)] as [Task3] starts 2025-02-26 and ends 2025-03-10
+[Backend Development (Supabase, API)] as [Task4] starts 2025-03-11 and ends 2025-03-24
+[Frontend Development (Next.js, Tailwind)] as [Task5] starts 2025-03-18 and ends 2025-03-31
+[System Integration & Debugging] as [Task6] starts 2025-04-01 and ends 2025-04-14
+[Simulation & Internal Testing] as [Task7] starts 2025-04-15 and ends 2025-04-25
+[Usability Testing (Admin, Manager, Marketing)] as [Task8] starts 2025-04-26 and ends 2025-05-05
+[Final Fixes & Optimization] as [Task9] starts 2025-05-06 and ends 2025-05-15
+[Project Documentation & Deployment] as [Task10] starts 2025-05-16 and ends 2025-05-31
+[Post-Implementation Monitoring & Evaluation] as [Task11] starts 2025-06-01 and ends 2025-06-10
+
+-- Dependencies --
+[Task1] -> [Task2]
+[Task2] -> [Task3]
+[Task3] -> [Task4]
+[Task4] -> [Task6]
+[Task5] -> [Task6]
+[Task6] -> [Task7]
+[Task7] -> [Task8]
+[Task8] -> [Task9]
+[Task9] -> [Task10]
+[Task10] -> [Task11]
+
+-- Milestones --
+[Project Start] happens at [Task1]'s start
+[Design Complete] happens at [Task2]'s end
+[Development Complete] happens at [Task6]'s end
+[Testing Complete] happens at [Task9]'s end
+[Project Deployment] happens at [Task10]'s end
+[Project Complete] happens at [Task11]'s end
+
+@endgantt

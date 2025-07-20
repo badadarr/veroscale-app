@@ -1,0 +1,66 @@
+@startuml Weight Management System Block Diagram
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam rectangleBorderThickness 1
+
+rectangle "Frontend Layer" {
+  rectangle "User Interface" {
+    rectangle "Authentication" as FE_Auth
+    rectangle "Weight Recording" as FE_Weight
+    rectangle "Weight Approval" as FE_Approval
+    rectangle "Reports" as FE_Reports
+  }
+}
+
+rectangle "API Layer" {
+  rectangle "API Routes" {
+    rectangle "Auth API" as API_Auth
+    rectangle "Weight API" as API_Weight
+    rectangle "Reports API" as API_Reports
+  }
+}
+
+rectangle "Service Layer" {
+  rectangle "Business Logic" {
+    rectangle "Auth Service" as SVC_Auth
+    rectangle "Weight Service" as SVC_Weight
+    rectangle "Report Service" as SVC_Reports
+    rectangle "IoT Service" as SVC_IoT
+  }
+}
+
+rectangle "Data Layer" {
+  database "Database" {
+    rectangle "Users" as DB_Users
+    rectangle "Weight Records" as DB_Weight
+    rectangle "Reports" as DB_Reports
+  }
+}
+
+rectangle "External Systems" {
+  rectangle "IoT Devices" as EXT_IoT
+  rectangle "RFID Scanners" as EXT_RFID
+}
+
+' Connections
+FE_Auth --> API_Auth
+FE_Weight --> API_Weight
+FE_Approval --> API_Weight
+FE_Reports --> API_Reports
+
+API_Auth --> SVC_Auth
+API_Weight --> SVC_Weight
+API_Reports --> SVC_Reports
+
+SVC_Auth --> DB_Users
+SVC_Weight --> DB_Weight
+SVC_Reports --> DB_Reports
+SVC_Reports --> DB_Weight
+SVC_IoT --> DB_Weight
+
+EXT_IoT --> SVC_IoT
+EXT_RFID --> SVC_Weight
+
+@enduml

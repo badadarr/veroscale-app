@@ -1,0 +1,35 @@
+@startuml Weight Management System - Data Flow Block Diagram
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam arrowThickness 2
+
+rectangle "Data Sources" as Sources {
+  rectangle "Manual Entry" as Manual
+  rectangle "IoT Scales" as IoT
+  rectangle "RFID Scanners" as RFID
+}
+
+rectangle "Processing" as Processing {
+  rectangle "Data Validation" as Validation
+  rectangle "Weight Calculation" as Calculation
+  rectangle "Approval Workflow" as Approval
+}
+
+rectangle "Storage" as Storage {
+  database "Weight Records" as Records
+  database "User Data" as Users
+}
+
+rectangle "Output" as Output {
+  rectangle "Reports" as Reports
+  rectangle "Dashboards" as Dashboards
+  rectangle "Notifications" as Notifications
+}
+
+Sources --> Processing : Raw Data
+Processing --> Storage : Processed Data
+Storage --> Output : Retrieved Data
+
+@enduml

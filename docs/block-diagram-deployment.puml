@@ -1,0 +1,34 @@
+@startuml Weight Management System - Deployment Block Diagram
+
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+rectangle "Client Side" as Client {
+  rectangle "Web Browser" as Browser {
+    rectangle "Next.js Frontend" as Frontend
+  }
+}
+
+rectangle "Server Side" as Server {
+  rectangle "Vercel" as Vercel {
+    rectangle "Next.js API Routes" as API
+    rectangle "Serverless Functions" as Functions
+  }
+  
+  rectangle "Supabase" as Supabase {
+    database "PostgreSQL" as DB
+    rectangle "Auth Services" as Auth
+  }
+}
+
+rectangle "IoT Environment" as IoT {
+  rectangle "Weight Scales" as Scales
+  rectangle "RFID Readers" as Readers
+}
+
+Client --> Server : HTTPS
+IoT --> Server : API Calls
+API --> Supabase : Database Queries
+
+@enduml
