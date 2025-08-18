@@ -39,7 +39,7 @@ export function generateToken(user: UserPayload): string {
 export function verifyToken(token: string): AuthToken | null {
   try {
     return jwt.verify(token, JWT_SECRET) as AuthToken;
-  } catch (error) {
+  } catch (err) {
     return null;
   }
 }
@@ -138,4 +138,19 @@ export function isOperator(user: UserPayload | null): boolean {
 // Check if user has manager role or higher
 export function isManagerOrAdmin(user: UserPayload | null): boolean {
   return user?.role === "admin" || user?.role === "manager";
+}
+
+// Check if user has marketing role
+export function isMarketing(user: UserPayload | null): boolean {
+  return user?.role === "marketing";
+}
+
+// Check if user can manage samples (admin, manager, marketing)
+export function canManageSamples(user: UserPayload | null): boolean {
+  return user?.role === "admin" || user?.role === "manager" || user?.role === "marketing";
+}
+
+// Check if user has admin role (full access)
+export function hasFullAccess(user: UserPayload | null): boolean {
+  return user?.role === "admin";
 }

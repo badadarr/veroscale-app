@@ -1,10 +1,10 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
 
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'VeroScale-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || "VeroScale-secret-key";
 
 // Extend the Express Request interface to include a user property
 declare global {
@@ -18,35 +18,48 @@ declare global {
   }
 }
 
-export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+export const authMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
+    const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) {
-      return res.status(401).json({ message: 'Authentication token is required' });
+      return res
+        .status(401)
+        .json({ message: "Authentication token is required" });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: number; role: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      id: number;
+      role: string;
+    };
     req.user = decoded;
-    
+
     next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Invalid or expired token' });
+  } catch {
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 
-export const adminMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+export const adminMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: 'Authentication required' });
+      return res.status(401).json({ message: "Authentication required" });
     }
 
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Admin access required' });
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
     }
-    
+
     next();
-  } catch (error) {
-    return res.status(403).json({ message: 'Access denied' });
+  } catch {
+    return res.status(403).json({ message: "Access denied" });
   }
 };

@@ -25,7 +25,11 @@ export async function executeQuery<T = any>(options: {
   single?: boolean;
   returning?: string;
   range?: [number, number];
+  orderBy?: string;
+  orderDirection?: "asc" | "desc";
   order?: Record<string, "asc" | "desc">;
+  limit?: number;
+  offset?: number;
 }): Promise<T> {
   if (useSupabase) {
     try {
@@ -38,6 +42,8 @@ export async function executeQuery<T = any>(options: {
         single,
         returning,
         range,
+        orderBy,
+        orderDirection,
         order,
       } = options;
 
@@ -60,9 +66,9 @@ export async function executeQuery<T = any>(options: {
             );
             const orderMatch = query.match(/ORDER BY\s+([\w\s,.]+)/i);
 
-            let issuesFilters: Record<string, any> = {};
+            const issuesFilters: Record<string, any> = {};
             let valueIndex = 0;
-            let orderBy: Record<string, string> = {};
+            const orderBy: Record<string, string> = {};
 
             if (whereMatch) {
               const whereClause = whereMatch[1].trim();
@@ -124,7 +130,7 @@ export async function executeQuery<T = any>(options: {
               /WHERE\s+(.*?)(?:\s+ORDER|\s+LIMIT|$)/i
             );
 
-            let filters: Record<string, any> = {};
+            const filters: Record<string, any> = {};
             let valueIndex = 0;
 
             if (whereMatch) {
@@ -188,11 +194,9 @@ export async function executeQuery<T = any>(options: {
               const whereClause = whereMatch[1].trim();
 
               if (whereClause === "1=1") {
-                return supabaseDB.query<T>({
+                return supabaseDB.queryCount<T>({
                   table: tableName,
-                  select: "count",
                   filters: {},
-                  single: true,
                 });
               }
 
@@ -204,10 +208,29 @@ export async function executeQuery<T = any>(options: {
                 const trimmedCondition = condition.trim();
                 if (trimmedCondition === "1=1") return;
 
-                const columnMatch = trimmedCondition.match(/(\w+)\s*=\s*\?/);
+                const columnMatch =
+                  trimmedCondition.match(/(\w+)\s*LIKE\s*\?/i);
                 if (columnMatch && valueIndex < values.length) {
-                  filters[columnMatch[1]] = values[valueIndex];
+                  const fieldName = columnMatch[1];
+                  let searchValue = values[valueIndex];
+                  if (
+                    typeof searchValue === "string" &&
+                    searchValue.includes("%")
+                  ) {
+                    searchValue = searchValue.replace(/%/g, "");
+                    filters[`${fieldName}_ilike`] = `%${searchValue}%`;
+                  } else {
+                    filters[fieldName] = searchValue;
+                  }
                   valueIndex++;
+                  return;
+                }
+
+                const eqMatch = trimmedCondition.match(/(\w+)\s*=\s*\?/);
+                if (eqMatch && valueIndex < values.length) {
+                  filters[eqMatch[1]] = values[valueIndex];
+                  valueIndex++;
+                  return;
                 }
 
                 const gteMatch = trimmedCondition.match(/(\w+)\s*>=\s*\?/);
@@ -225,22 +248,18 @@ export async function executeQuery<T = any>(options: {
                 }
               });
 
-              return supabaseDB.query<T>({
+              return supabaseDB.queryCount<T>({
                 table: tableName,
-                select: "count",
                 filters,
-                single: true,
               });
             }
           }
 
           // Handle simple COUNT queries without WHERE
           if (query.includes("COUNT(*)") && !query.includes("WHERE")) {
-            return supabaseDB.query<T>({
+            return supabaseDB.queryCount<T>({
               table: tableName,
-              select: "count",
               filters: {},
-              single: true,
             });
           }
 
@@ -320,7 +339,7 @@ export async function executeQuery<T = any>(options: {
           }
 
           // Handle WHERE with multiple conditions (AND logic)
-          if (query.includes("AND") && values.length >= 2) {
+          if (query.includes("AND") && values.length >= 1) {
             const whereSection = query.match(
               /WHERE\s+(.*?)(?:\s+ORDER|\s+LIMIT|$)/i
             );
@@ -334,9 +353,28 @@ export async function executeQuery<T = any>(options: {
               conditions.forEach((condition) => {
                 if (condition === "1=1") return;
 
-                const match = condition.match(/(\w+)\s*=\s*\?/);
-                if (match && valueIndex < values.length) {
-                  filters[match[1]] = values[valueIndex];
+                // Handle LIKE conditions
+                const likeMatch = condition.match(/(\w+)\s+LIKE\s*\?/i);
+                if (likeMatch && valueIndex < values.length) {
+                  const fieldName = likeMatch[1];
+                  let searchValue = values[valueIndex];
+                  if (
+                    typeof searchValue === "string" &&
+                    searchValue.includes("%")
+                  ) {
+                    searchValue = searchValue.replace(/%/g, "");
+                    filters[`${fieldName}_ilike`] = `%${searchValue}%`;
+                  } else {
+                    filters[fieldName] = searchValue;
+                  }
+                  valueIndex++;
+                  return;
+                }
+
+                // Handle equality conditions
+                const eqMatch = condition.match(/(\w+)\s*=\s*\?/);
+                if (eqMatch && valueIndex < values.length) {
+                  filters[eqMatch[1]] = values[valueIndex];
                   valueIndex++;
                 }
               });
@@ -567,11 +605,20 @@ export async function executeQuery<T = any>(options: {
           }
         }
 
+        // Convert orderBy and orderDirection to order format
+        const orderParam: Record<string, "asc" | "desc"> = {};
+        if (orderBy && orderDirection) {
+          orderParam[orderBy] = orderDirection;
+        }
+
         return supabaseDB.query<T>({
           table: tableNameWithoutSchema,
           select: selectColumnsString,
           filters: filters || {},
           single: single || false,
+          order: orderParam,
+          limit: options.limit,
+          offset: options.offset,
         });
       } else if (action === "insert") {
         return supabaseDB.insert<T>({

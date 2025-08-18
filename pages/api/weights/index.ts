@@ -1,11 +1,16 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { executeQuery } from "../../../lib/db-adapter";
 import { getUserFromToken } from "../../../lib/auth";
+import { withArcjetProtection } from "../../../lib/arcjet-middleware";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // Apply Arcjet protection for API endpoints
+  const arcjetResult = await withArcjetProtection(req, res, "api");
+  if (arcjetResult) return arcjetResult;
+
   const user = await getUserFromToken(req);
 
   if (!user) {
@@ -14,23 +19,26 @@ export default async function handler(
 
   switch (req.method) {
     case "GET":
-      return getWeightRecords(req, res, user);
+      return getWeightRecords(req, res);
     case "POST":
       return addWeightRecord(req, res, user);
+    case "DELETE":
+      return deleteWeightRecords(req, res, user);
     default:
       return res.status(405).json({ message: "Method not allowed" });
   }
 }
 
 // Get all weight records with filtering and pagination
-async function getWeightRecords(
-  req: NextApiRequest,
-  res: NextApiResponse,
-  user: any
-) {
+async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const user = await getUserFromToken(req);
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const {
-      sample_id,
+      item_id,
       user_id,
       status,
       startDate,
@@ -43,127 +51,183 @@ async function getWeightRecords(
     const itemsPerPage = parseInt(limit as string, 10);
     const offset = (currentPage - 1) * itemsPerPage;
 
+    // Check if we're using Supabase or MySQL implementation
+    const useSupabase = Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+
     let totalItems = 0;
     let records: any[] = [];
 
-    // Build filters for weight_records query using sample_id instead of item_id
-    let query = "SELECT * FROM weight_records WHERE 1=1";
-    const queryParams: any[] = [];
+    if (useSupabase) {
+      // Supabase implementation
+      const filters: Record<string, any> = {};
 
-    // Role-based filtering: operators can only see their own records
-    if (user.role === "operator") {
-      query += ` AND user_id = ?`;
-      queryParams.push(user.id);
-    } else if (user_id) {
-      // For admin/manager, allow filtering by user_id if specified
-      query += ` AND user_id = ?`;
-      queryParams.push(user_id);
-    }
+      if (item_id) filters.item_id = item_id;
+      if (user_id) filters.user_id = user_id;
+      if (status) filters.status = status;
+      
+      // Filter by user role - operators only see their own records
+      if (user.role === 'operator') {
+        filters.user_id = user.id;
+      }
 
-    if (sample_id) {
-      query += ` AND sample_id = ?`;
-      queryParams.push(sample_id);
-    }
+      // Date filters handled differently in RPC call or custom query
+      // Using direct query would be more efficient but for now we'll go with a simple approach
 
-    if (status) {
-      query += ` AND status = ?`;
-      queryParams.push(status);
-    }
+      // Get total count for pagination - this is a simple count of filtered records
+      const countResult = await executeQuery<any[]>({
+        table: "public.weight_records",
+        action: "select",
+        columns: "count(*)",
+        filters: filters,
+      });
 
-    if (startDate) {
-      query += ` AND timestamp >= ?`;
-      queryParams.push(startDate);
-    }
+      totalItems = countResult[0]?.count || 0;
 
-    if (endDate) {
-      query += ` AND timestamp <= ?`;
-      queryParams.push(endDate);
-    }
+      // Get weight records with basic info first
+      const weightRecords = await executeQuery<any[]>({
+        table: "public.weight_records",
+        action: "select",
+        columns: `
+          record_id, 
+          user_id, 
+          item_id, 
+          total_weight,
+          iot_weight,
+          manager_weight,
+          weight_variance,
+          weight_variance_percentage,
+          variance_status,
+          iot_device_id,
+          verification_required,
+          timestamp, 
+          status,
+          approved_by,
+          approved_at,
+          notes,
+          unit
+        `,
+        filters: filters,
+        orderBy: "timestamp",
+        orderDirection: "desc",
+        limit: itemsPerPage,
+        offset: offset,
+      });
 
-    // Get total count for pagination
-    const countQuery = query.replace("SELECT *", "SELECT COUNT(*) as count");
-    const countResult = await executeQuery<any[]>({
-      query: countQuery,
-      values: queryParams,
-    });
+      // Get all items and users (simpler approach)
+      const items = await executeQuery<any[]>({
+        table: "public.samples_item",
+        action: "select",
+        columns: "id, category, item",
+      });
 
-    // Handle different possible count result structures
-    if (
-      Array.isArray(countResult) &&
-      countResult.length > 0 &&
-      countResult[0]
-    ) {
-      totalItems = countResult[0].count || 0;
-    } else if (
-      countResult &&
-      typeof countResult === "object" &&
-      "count" in countResult
-    ) {
-      totalItems = (countResult as any).count || 0;
+      const users = await executeQuery<any[]>({
+        table: "public.users",
+        action: "select",
+        columns: "id, name",
+      });
+
+      // Process the records to match the expected format
+      records = weightRecords.map((record) => {
+        const item = items.find((i) => i.id === record.item_id);
+        const user = users.find((u) => u.id === record.user_id);
+
+        return {
+          ...record,
+          item_name: item
+            ? `${item.category} - ${item.item}`
+            : `Sample Item ${record.item_id}`,
+          user_name: user?.name || "Unknown User",
+          approved_by_name: null,
+        };
+      });
+
+      // Manual filtering for dates since we can't do it easily in the query
+      if (startDate) {
+        records = records.filter(
+          (r) => new Date(r.timestamp) >= new Date(startDate as string)
+        );
+      }
+
+      if (endDate) {
+        records = records.filter(
+          (r) => new Date(r.timestamp) <= new Date(endDate as string)
+        );
+      }
+
+      // Records already ordered and paginated by query
     } else {
-      console.warn("Unexpected count result structure:", countResult);
-      totalItems = 0;
+      // MySQL implementation - original code
+      let query = `
+        SELECT wr.record_id, wr.user_id, wr.item_id, wr.total_weight, wr.quantity, 
+               wr.unit, wr.batch_number, wr.source, wr.destination, wr.notes,
+               wr.variance_amount, wr.variance_percentage, wr.variance_status,
+               wr.timestamp, wr.status, wr.approved_by, wr.approved_at,
+               CONCAT(ri.category, ' - ', ri.item) as item_name, u.name as user_name, 
+               approver.name as approved_by_name
+        FROM weight_records wr
+        LEFT JOIN samples_item ri ON wr.item_id = ri.id
+        JOIN users u ON wr.user_id = u.id
+        LEFT JOIN users approver ON wr.approved_by = approver.id
+        WHERE 1=1
+      `;
+
+      const queryParams: any[] = [];
+
+      if (item_id) {
+        query += ` AND wr.item_id = ?`;
+        queryParams.push(item_id);
+      }
+
+      if (user_id) {
+        query += ` AND wr.user_id = ?`;
+        queryParams.push(user_id);
+      }
+      
+      // Filter by user role - operators only see their own records
+      if (user.role === 'operator') {
+        query += ` AND wr.user_id = ?`;
+        queryParams.push(user.id);
+      }
+
+      if (status) {
+        query += ` AND wr.status = ?`;
+        queryParams.push(status);
+      }
+
+      if (startDate) {
+        query += ` AND wr.timestamp >= ?`;
+        queryParams.push(startDate);
+      }
+
+      if (endDate) {
+        query += ` AND wr.timestamp <= ?`;
+        queryParams.push(endDate);
+      }
+
+      // Get total count for pagination
+      const countQuery = query.replace(
+        "SELECT wr.*, ri.name as item_name, u.name as user_name, \n               approver.name as approved_by_name",
+        "SELECT COUNT(*) as count"
+      );
+      const countResult = await executeQuery<any[]>({
+        query: countQuery,
+        values: queryParams,
+      });
+
+      totalItems = countResult[0].count;
+
+      // Add pagination to main query
+      query += ` ORDER BY wr.timestamp DESC LIMIT ? OFFSET ?`;
+      queryParams.push(itemsPerPage, offset);
+
+      records = await executeQuery<any[]>({
+        query,
+        values: queryParams,
+      });
     }
-
-    // Add pagination to main query
-    query += ` ORDER BY timestamp DESC LIMIT ? OFFSET ?`;
-    queryParams.push(itemsPerPage, offset);
-
-    // Get weight records
-    const weightRecords = await executeQuery<any[]>({
-      query,
-      values: queryParams,
-    });
-
-    // Get all samples for sample name lookup
-    const samples = await executeQuery<any[]>({
-      query: "SELECT id, category, item FROM samples_item",
-    });
-
-    // Get all users for user name and approver lookup
-    const users = await executeQuery<any[]>({
-      query: "SELECT id, name FROM users",
-    });
-
-    // Create lookup maps
-    const sampleMap = Array.isArray(samples)
-      ? samples.reduce((map, sample) => {
-          map[sample.id] = `${sample.category} - ${sample.item}`;
-          return map;
-        }, {} as Record<number, string>)
-      : {};
-
-    const userMap = Array.isArray(users)
-      ? users.reduce((map, user) => {
-          map[user.id] = user.name;
-          return map;
-        }, {} as Record<number, string>)
-      : {};
-
-    // Add related data to weight records
-    records = Array.isArray(weightRecords)
-      ? weightRecords.map((record) => ({
-          id: record.record_id, // Use record_id as id for consistency
-          record_id: record.record_id,
-          user_id: record.user_id,
-          sample_id: record.sample_id,
-          total_weight: record.total_weight,
-          timestamp: record.timestamp,
-          status: record.status,
-          source: record.source,
-          destination: record.destination,
-          notes: record.notes,
-          unit: record.unit,
-          approved_by: record.approved_by,
-          approved_at: record.approved_at,
-          created_at: record.created_at,
-          item_name: sampleMap[record.sample_id] || "Unknown Sample",
-          user_name: userMap[record.user_id] || "Unknown User",
-          approved_by_name: record.approved_by
-            ? userMap[record.approved_by] || "Unknown Approver"
-            : null,
-        }))
-      : [];
 
     return res.status(200).json({
       records,
@@ -180,68 +244,381 @@ async function getWeightRecords(
   }
 }
 
-// Add a new weight record (single entry with sample)
 async function addWeightRecord(
   req: NextApiRequest,
   res: NextApiResponse,
   user: any
 ) {
   try {
-    const { sample_id, total_weight, notes, source, destination, unit } =
-      req.body;
+    const {
+      item_id,
+      sample_id,
+      delivery_id,
+      item_name,
+      total_weight,
+      iot_weight,
+      manager_weight,
+      iot_device_id,
+      quantity,
+      unit,
+      batch_number,
+      source,
+      destination,
+      notes,
+      variance_amount,
+      variance_percentage,
+      variance_status,
+      rfid_device_id,
+      scan_time,
+      operator_id,
+    } = req.body;
 
-    if (!sample_id || total_weight === undefined) {
+    // For weight entries, we need total_weight and either item_id, sample_id, or delivery_id
+    if (total_weight === undefined) {
+      return res.status(400).json({ message: "Total weight is required" });
+    }
+
+    // Handle sample-based weight entry (new format) with IoT and manager weight tracking
+    if (sample_id) {
+      // Use sample_id as item_id since our current schema only supports item_id
+      const result = await executeQuery<any>({
+        query: `
+          INSERT INTO weight_records 
+          (user_id, item_id, total_weight, iot_weight, manager_weight, iot_device_id, status, notes, unit)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          RETURNING *
+        `,
+        values: [
+          user.id,
+          sample_id, // Using sample_id as item_id
+          total_weight,
+          iot_weight || null,
+          manager_weight || null,
+          iot_device_id || null,
+          "pending",
+          notes || null,
+          unit || "kg",
+        ],
+        single: true,
+      });
+
+      // Get sample information for response
+      const sample = await executeQuery<any>({
+        query: "SELECT category, item FROM samples_item WHERE id = ?",
+        values: [sample_id],
+        single: true,
+      });
+
+      // Update delivery status if delivery_id is provided
+      if (delivery_id) {
+        const useSupabase = Boolean(
+          process.env.NEXT_PUBLIC_SUPABASE_URL &&
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        );
+
+        if (useSupabase) {
+          const { supabaseAdmin } = await import("../../../lib/supabase.js");
+          await supabaseAdmin
+            .from("supplier_deliveries")
+            .update({
+              delivery_status: "delivered",
+              actual_delivery_date: new Date().toISOString(),
+            })
+            .eq("id", delivery_id);
+        } else {
+          await executeQuery({
+            query:
+              "UPDATE supplier_deliveries SET delivery_status = 'delivered', actual_delivery_date = NOW() WHERE id = ?",
+            values: [delivery_id],
+          });
+        }
+      }
+
+      // Calculate variance information for response
+      let varianceInfo = null;
+      if (iot_weight && manager_weight) {
+        const variance = iot_weight - manager_weight;
+        const variancePercentage = manager_weight !== 0 ? (variance / manager_weight) * 100 : 0;
+        let status = 'normal';
+        
+        if (Math.abs(variancePercentage) >= 10) {
+          status = 'critical';
+        } else if (Math.abs(variancePercentage) >= 5) {
+          status = 'warning';
+        }
+
+        varianceInfo = {
+          variance,
+          variancePercentage: Math.round(variancePercentage * 100) / 100,
+          status,
+          requiresVerification: Math.abs(variancePercentage) >= 5
+        };
+      }
+
+      const record = {
+        id: result.record_id,
+        user_id: user.id,
+        user_name: user.name,
+        sample_id,
+        sample_name: sample
+          ? `${sample.category} - ${sample.item}`
+          : "Unknown Sample",
+        total_weight,
+        iot_weight,
+        manager_weight,
+        iot_device_id,
+        timestamp: result.timestamp || new Date(),
+        status: "pending",
+        variance: varianceInfo,
+      };
+
+      return res.status(201).json({
+        message: "Weight record added successfully",
+        record,
+      });
+    }
+
+    // Handle delivery-based weight entry
+    if (delivery_id && !item_id) {
+      const useSupabase = Boolean(
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      );
+
+      // Get a sample item to use as reference (since we need item_id for the table)
+      let sampleItem;
+      if (useSupabase) {
+        const samples = await executeQuery<any[]>({
+          table: "public.samples_item",
+          action: "select",
+          columns: "id, category, item",
+          limit: 1,
+        });
+        sampleItem = samples[0];
+      } else {
+        const samples = await executeQuery<any[]>({
+          query: "SELECT id, category, item FROM samples_item LIMIT 1",
+        });
+        sampleItem = samples[0];
+      }
+
+      if (!sampleItem) {
+        return res.status(500).json({ message: "No sample items found" });
+      }
+
+      let result;
+      if (useSupabase) {
+        result = await executeQuery<any>({
+          table: "public.weight_records",
+          action: "insert",
+          data: {
+            user_id: user.id,
+            item_id: sampleItem.id,
+            total_weight,
+            status: "pending",
+          },
+          returning: "*",
+        });
+      } else {
+        result = await executeQuery<any>({
+          query: `
+            INSERT INTO weight_records (user_id, item_id, total_weight, status, notes)
+            VALUES (?, ?, ?, 'pending', ?)
+          `,
+          values: [user.id, sampleItem.id, total_weight, notes || ""],
+        });
+      }
+
+      const newRecord = {
+        record_id: useSupabase ? result[0].record_id : result.insertId,
+        user_id: user.id,
+        user_name: user.name,
+        item_id: sampleItem.id,
+        item_name: item_name || `${sampleItem.category} - ${sampleItem.item}`,
+        total_weight,
+        timestamp: new Date(),
+        status: "pending",
+        delivery_id,
+        notes,
+      };
+
+      return res.status(201).json({
+        message: "Delivery weight record added successfully",
+        record: newRecord,
+      });
+    }
+
+    // If RFID data is provided, handle it differently
+    if (rfid_device_id && !item_id) {
+      // Create a generic entry for RFID scan
+      const rfidRecord = {
+        user_id: operator_id || user.id,
+        rfid_device_id,
+        total_weight,
+        unit: unit || "kg",
+        source,
+        destination,
+        scan_time,
+        status: "pending",
+        timestamp: new Date(),
+      };
+
+      // For now, we'll store RFID entries as weight records with a special marker
+      const useSupabase = Boolean(
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      );
+
+      let result;
+      if (useSupabase) {
+        // For RFID entries, we need a dummy item_id since it's required
+        // Get the first available item as a placeholder
+        const dummyItem = await executeQuery<any[]>({
+          table: "public.samples_item",
+          action: "select",
+          columns: "id",
+          limit: 1,
+        });
+
+        result = await executeQuery<any>({
+          table: "public.weight_records",
+          action: "insert",
+          data: {
+            user_id: rfidRecord.user_id,
+            item_id: dummyItem[0]?.id || 1, // Use dummy item or fallback to 1
+            total_weight: rfidRecord.total_weight,
+            status: rfidRecord.status,
+          },
+          returning: "*",
+        });
+      } else {
+        result = await executeQuery<any>({
+          query: `
+            INSERT INTO weight_records (user_id, item_id, total_weight, status)
+            VALUES (?, 1, ?, 'pending')
+          `,
+          values: [rfidRecord.user_id, rfidRecord.total_weight],
+        });
+      }
+
+      return res.status(201).json({
+        message: "RFID weight record added successfully",
+        record: {
+          record_id: useSupabase ? result[0].record_id : result.insertId,
+          user_id: rfidRecord.user_id,
+          total_weight: rfidRecord.total_weight,
+          unit: rfidRecord.unit,
+          source: rfidRecord.source,
+          destination: rfidRecord.destination,
+          status: rfidRecord.status,
+          timestamp: new Date(),
+          item_name: "RFID Entry",
+          rfid_device_id,
+          scan_time,
+        },
+      });
+    }
+
+    if (!item_id && !delivery_id) {
       return res
         .status(400)
-        .json({ message: "Sample ID and total weight are required" });
+        .json({ message: "Item ID or Delivery ID is required" });
     }
 
-    // Check if sample exists
-    const samples = await executeQuery<any[]>({
-      query: "SELECT * FROM samples_item WHERE id = ?",
-      values: [sample_id],
-    });
+    // Check if we're using Supabase or MySQL implementation
+    const useSupabase = Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
 
-    if (!samples || samples.length === 0) {
-      return res.status(404).json({ message: "Sample not found" });
+    let items;
+    let result;
+
+    if (useSupabase) {
+      if (item_id) {
+        // Check if item exists in samples_item table
+        items = await executeQuery<any[]>({
+          table: "public.samples_item",
+          action: "select",
+          columns: "*",
+          filters: { id: item_id },
+        });
+
+        if (!items || items.length === 0) {
+          return res.status(404).json({ message: "Item not found" });
+        }
+      } else {
+        // Use first available sample item as fallback
+        items = await executeQuery<any[]>({
+          table: "public.samples_item",
+          action: "select",
+          columns: "*",
+          limit: 1,
+        });
+      }
+
+      // Insert weight record (only use columns that exist in the table)
+      result = await executeQuery<any>({
+        table: "public.weight_records",
+        action: "insert",
+        data: {
+          user_id: user.id,
+          item_id: item_id || items[0]?.id,
+          total_weight,
+          status: "pending",
+        },
+        returning: "*",
+      });
+    } else {
+      // Original MySQL implementation
+      if (item_id) {
+        // Check if item exists
+        items = await executeQuery<any[]>({
+          query: "SELECT * FROM samples_item WHERE id = ?",
+          values: [item_id],
+        });
+
+        if (!items || items.length === 0) {
+          return res.status(404).json({ message: "Item not found" });
+        }
+      } else {
+        // Use first available sample item as fallback
+        items = await executeQuery<any[]>({
+          query: "SELECT * FROM samples_item LIMIT 1",
+        });
+      }
+
+      result = await executeQuery<any>({
+        query: `
+          INSERT INTO weight_records (user_id, item_id, total_weight, quantity, status, unit, batch_number, source, destination, notes, variance_amount, variance_percentage, variance_status)
+          VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        values: [
+          user.id,
+          item_id || items[0]?.id,
+          total_weight,
+          quantity || 1,
+          unit || "kg",
+          batch_number,
+          source,
+          destination,
+          notes,
+          variance_amount,
+          variance_percentage,
+          variance_status,
+        ],
+      });
     }
-
-    const sample = samples[0];
-
-    // Insert new weight record using samples
-    const result = await executeQuery<any>({
-      query: `
-        INSERT INTO weight_records 
-        (user_id, sample_id, total_weight, source, destination, notes, unit, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        RETURNING *
-      `,
-      values: [
-        user.id,
-        sample_id,
-        total_weight,
-        source || null,
-        destination || null,
-        notes || null,
-        unit || "kg",
-        "pending",
-      ],
-      single: true,
-    });
 
     const newRecord = {
-      id: result.record_id,
+      record_id: useSupabase ? result[0].record_id : result.insertId,
       user_id: user.id,
       user_name: user.name,
-      sample_id,
-      sample_name: `${sample.category} - ${sample.item}`,
+      item_id,
+      item_name: `${items[0].category} - ${items[0].item}` || "Sample Item",
       total_weight,
-      timestamp: result.created_at || new Date(),
+      timestamp: new Date(),
       status: "pending",
-      source: source || null,
-      destination: destination || null,
-      notes: notes || null,
-      unit: unit || "kg",
     };
 
     return res.status(201).json({
@@ -250,6 +627,57 @@ async function addWeightRecord(
     });
   } catch (error) {
     console.error("Error adding weight record:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+// Delete multiple weight records
+async function deleteWeightRecords(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  user: any
+) {
+  try {
+    const { record_ids } = req.body;
+
+    if (!record_ids || !Array.isArray(record_ids) || record_ids.length === 0) {
+      return res.status(400).json({ message: "Record IDs array is required" });
+    }
+
+    const useSupabase = Boolean(
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    );
+
+    let deletedCount = 0;
+
+    if (useSupabase) {
+      // Delete records using Supabase with direct query
+      const { supabaseAdmin } = await import("../../../lib/supabase.js");
+      const { data, error } = await supabaseAdmin
+        .from("weight_records")
+        .delete()
+        .in("record_id", record_ids)
+        .select("record_id");
+
+      if (error) throw error;
+      deletedCount = data?.length || 0;
+    } else {
+      // Delete records using MySQL
+      const placeholders = record_ids.map(() => "?").join(",");
+      const result = await executeQuery<any>({
+        query: `DELETE FROM weight_records WHERE record_id IN (${placeholders})`,
+        values: record_ids,
+      });
+      deletedCount = result.affectedRows || 0;
+    }
+
+    return res.status(200).json({
+      message: `Successfully deleted ${deletedCount} weight record(s)`,
+      deleted_count: deletedCount,
+    });
+  } catch (error) {
+    console.error("Error deleting weight records:", error);
     return res.status(500).json({ message: "Server error" });
   }
 }
