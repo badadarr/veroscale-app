@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Scale, Zap, RefreshCw } from 'lucide-react';
-import { Input } from './Input';
-import { Button } from './Button';
-import IoTService from '@/lib/iot-service';
+import { useState, useEffect } from "react";
+import { Scale, Zap } from "lucide-react";
+import { Input } from "./Input";
+import { Button } from "./Button";
+import IoTService from "@/lib/iot-service";
 
 interface SmartWeightInputProps {
   value: string;
@@ -10,30 +10,35 @@ interface SmartWeightInputProps {
   error?: string;
   label?: string;
   placeholder?: string;
+  iotOnly?: boolean; // New prop to enforce IoT-only input
 }
 
-export default function SmartWeightInput({ 
-  value, 
-  onChange, 
-  error, 
-  label = "Weight (kg)",
-  placeholder = "Enter weight"
+export default function SmartWeightInput({
+  value,
+  onChange,
+  error,
+  label = "Weight from IoT Scale (kg)",
+  placeholder = "Use 'Get from IoT' to capture weight",
+  iotOnly = true, // Default to IoT-only
 }: SmartWeightInputProps) {
   const [iotWeight, setIotWeight] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [showSuggestion, setShowSuggestion] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = IoTService.subscribeToWeightData('esp32_timbangan_001', (data) => {
-      const weight = parseFloat(data.berat_terakhir);
-      setIotWeight(weight);
-      setIsConnected(true);
-      
-      // Show suggestion if weight is stable and different from current value
-      if (weight > 0.05 && weight.toString() !== value) {
-        setShowSuggestion(true);
+    const unsubscribe = IoTService.subscribeToWeightData(
+      "esp32_timbangan_001",
+      (data) => {
+        const weight = parseFloat(data.weight);
+        setIotWeight(weight);
+        setIsConnected(true);
+
+        // Show suggestion if weight is stable and different from current value
+        if (weight > 0.05 && weight.toString() !== value) {
+          setShowSuggestion(true);
+        }
       }
-    });
+    );
 
     return unsubscribe;
   }, [value]);
@@ -51,10 +56,8 @@ export default function SmartWeightInput({
 
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-medium text-gray-700">
-        {label}
-      </label>
-      
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+
       <div className="relative">
         <div className="flex space-x-2">
           <Input
@@ -62,31 +65,50 @@ export default function SmartWeightInput({
             step="0.01"
             placeholder={placeholder}
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={iotOnly ? undefined : (e) => onChange(e.target.value)}
+            readOnly={iotOnly}
             error={error}
-            className="flex-1"
+            className={`flex-1 ${iotOnly ? "bg-gray-50" : ""}`}
           />
-          
+
+          <Button
+            type="button"
+            onClick={useIoTWeight}
+            variant="outline"
+            className="px-3 text-white bg-blue-500 hover:bg-blue-600"
+            disabled={!iotWeight || iotWeight < 0.01}
+          >
+            From IoT
+          </Button>
+
           <div className="flex items-center">
             {isConnected ? (
-              <Scale className="h-4 w-4 text-green-600" />
+              <Scale className="w-4 h-4 text-green-600" />
             ) : (
-              <Scale className="h-4 w-4 text-gray-400" />
+              <Scale className="w-4 h-4 text-gray-400" />
             )}
           </div>
         </div>
 
-        {showSuggestion && iotWeight && (
-          <div className="absolute top-full left-0 right-0 mt-1 p-3 bg-blue-50 border border-blue-200 rounded-md shadow-sm z-10">
+        {iotOnly && value && (
+          <div className="mt-1 text-xs text-green-600">
+            ✅ Weight captured from IoT Scale: {value} kg
+          </div>
+        )}
+
+        {showSuggestion && iotWeight && !iotOnly && (
+          <div className="absolute left-0 right-0 z-10 p-3 mt-1 border border-blue-200 rounded-md shadow-sm top-full bg-blue-50">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <Zap className="h-4 w-4 text-blue-600 mr-2" />
+                <Zap className="w-4 h-4 mr-2 text-blue-600" />
                 <div>
                   <span className="text-sm text-blue-800">
                     Timbangan IoT: <strong>{iotWeight} kg</strong>
                   </span>
                   {(iotWeight < 0.05 || iotWeight > 1000) && (
-                    <div className="text-xs text-orange-600">⚠️ Nilai tidak normal</div>
+                    <div className="text-xs text-orange-600">
+                      ⚠️ Nilai tidak normal
+                    </div>
                   )}
                 </div>
               </div>

@@ -43,12 +43,12 @@ export default function IoTWeightDisplay({
       setDataHistory((prev) => [
         ...prev.slice(-9),
         {
-          weight: data.berat_terakhir,
+          weight: data.weight,
           time: now.toLocaleTimeString("id-ID"),
         },
       ]);
 
-      addToLog(`Data diterima: ${data.berat_terakhir} kg`);
+      addToLog(`Data diterima: ${data.weight} kg`);
     });
 
     // Check connection status
@@ -73,7 +73,7 @@ export default function IoTWeightDisplay({
 
   const handleSelectWeight = () => {
     if (weightData && onWeightSelect) {
-      const weight = parseFloat(weightData.berat_terakhir);
+      const weight = parseFloat(weightData.weight);
       if (!isNaN(weight)) {
         onWeightSelect(weight);
         addToLog(`Berat dipilih: ${weight} kg`);
@@ -87,7 +87,7 @@ export default function IoTWeightDisplay({
     try {
       const currentWeight = await IoTService.getCurrentWeight(deviceId);
       if (currentWeight) {
-        addToLog(`Test berhasil: ${currentWeight.berat_terakhir} kg`);
+        addToLog(`Test berhasil: ${currentWeight.weight} kg`);
         setWeightData(currentWeight);
         setIsConnected(true);
         setLastUpdate(new Date());
@@ -113,7 +113,7 @@ export default function IoTWeightDisplay({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-primary-800">
           <div className="flex items-center">
-            <Scale className="h-5 w-5 mr-2" />
+            <Scale className="w-5 h-5 mr-2" />
             Timbangan IoT Real-time
           </div>
           <div className="flex items-center space-x-2">
@@ -123,7 +123,7 @@ export default function IoTWeightDisplay({
               onClick={() => setDebugMode(!debugMode)}
               className="p-1"
             >
-              <Bug className="h-4 w-4" />
+              <Bug className="w-4 h-4" />
             </Button>
             <Button
               variant="ghost"
@@ -131,12 +131,12 @@ export default function IoTWeightDisplay({
               onClick={testConnection}
               className="p-1"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="w-4 h-4" />
             </Button>
             {isConnected ? (
-              <Wifi className="h-4 w-4 text-green-600" />
+              <Wifi className="w-4 h-4 text-green-600" />
             ) : (
-              <WifiOff className="h-4 w-4 text-red-600" />
+              <WifiOff className="w-4 h-4 text-red-600" />
             )}
             <span
               className={`ml-1 text-xs ${
@@ -150,15 +150,15 @@ export default function IoTWeightDisplay({
       </CardHeader>
       <CardContent>
         <div className="text-center">
-          <div className="text-4xl font-bold text-primary-900 mb-2">
-            {weightData ? formatWeight(weightData.berat_terakhir) : "---.--"}
-            <span className="text-lg ml-2 text-gray-600">kg</span>
+          <div className="mb-2 text-4xl font-bold text-primary-900">
+            {weightData ? formatWeight(weightData.weight) : "---.--"}
+            <span className="ml-2 text-lg text-gray-600">kg</span>
           </div>
 
-          <div className="text-sm text-gray-600 mb-4">
+          <div className="mb-4 text-sm text-gray-600">
             Device: {deviceId}
             {lastUpdate && (
-              <div className="text-xs mt-1">
+              <div className="mt-1 text-xs">
                 Update terakhir: {lastUpdate.toLocaleTimeString("id-ID")}
               </div>
             )}
@@ -170,23 +170,23 @@ export default function IoTWeightDisplay({
               size="sm"
               className="w-full mb-3"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Gunakan Berat Ini ({formatWeight(weightData.berat_terakhir)} kg)
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Gunakan Berat Ini ({formatWeight(weightData.weight)} kg)
             </Button>
           )}
 
           {!isConnected && (
-            <div className="text-xs text-red-600 mt-2">
+            <div className="mt-2 text-xs text-red-600">
               Periksa koneksi timbangan IoT
             </div>
           )}
 
           {/* Debug Panel */}
           {debugMode && (
-            <div className="mt-4 border-t pt-4">
+            <div className="pt-4 mt-4 border-t">
               <div className="text-left">
-                <h4 className="text-sm font-medium mb-2 flex items-center">
-                  <Activity className="h-4 w-4 mr-1" />
+                <h4 className="flex items-center mb-2 text-sm font-medium">
+                  <Activity className="w-4 h-4 mr-1" />
                   Debug Info
                 </h4>
 
@@ -195,7 +195,7 @@ export default function IoTWeightDisplay({
                   <div className="text-xs font-medium text-gray-700">
                     Connection Log:
                   </div>
-                  <div className="bg-gray-900 text-green-400 p-2 rounded text-xs font-mono h-24 overflow-y-auto">
+                  <div className="h-24 p-2 overflow-y-auto font-mono text-xs text-green-400 bg-gray-900 rounded">
                     {connectionLog.map((log, i) => (
                       <div key={i}>{log}</div>
                     ))}
@@ -207,7 +207,7 @@ export default function IoTWeightDisplay({
                   <div className="text-xs font-medium text-gray-700">
                     Data History:
                   </div>
-                  <div className="bg-blue-50 p-2 rounded text-xs max-h-20 overflow-y-auto">
+                  <div className="p-2 overflow-y-auto text-xs rounded bg-blue-50 max-h-20">
                     {dataHistory.map((entry, i) => (
                       <div key={i}>
                         {entry.time}: {entry.weight} kg

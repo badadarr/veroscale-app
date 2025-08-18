@@ -365,14 +365,7 @@ export default function Deliveries() {
                               Ship
                             </Button>
                           )}
-                          {delivery.delivery_status === 'in_transit' && (
-                            <Button
-                              size="sm"
-                              onClick={() => handleStatusUpdate(delivery.id, 'delivered', new Date().toISOString().split('T')[0])}
-                            >
-                              Deliver
-                            </Button>
-                          )}
+                          {/* Deliver button removed - status will update automatically after weight entry */}
                         </div>
                       </TableCell>
                     </TableRow>

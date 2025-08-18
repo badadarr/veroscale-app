@@ -249,7 +249,7 @@ export default function Reports() {
           </button>
 
           {/* Hanya tampilkan tab template dan konfigurasi untuk admin dan manager */}
-          {(user?.role === "admin" || user?.role === "manager") && (
+          {/* {(user?.role === "admin" || user?.role === "manager") && (
             <>
               <button
                 className={`px-4 py-2 font-medium text-sm ${
@@ -272,7 +272,7 @@ export default function Reports() {
                 Report Configuration
               </button>
             </>
-          )}
+          )} */}
         </div>
 
         {activeTab === "available" && (
@@ -285,11 +285,11 @@ export default function Reports() {
                 {reports.map((report) => (
                   <div
                     key={report.id}
-                    className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-white rounded-lg border border-gray-200"
+                    className="flex flex-col justify-between p-4 bg-white border border-gray-200 rounded-lg md:flex-row md:items-center"
                   >
-                    <div className="flex items-center space-x-4 mb-3 md:mb-0">
-                      <div className="p-2 bg-primary-100 rounded-lg">
-                        <FileText className="h-6 w-6 text-primary-600" />
+                    <div className="flex items-center mb-3 space-x-4 md:mb-0">
+                      <div className="p-2 rounded-lg bg-primary-100">
+                        <FileText className="w-6 h-6 text-primary-600" />
                       </div>
                       <div>
                         <h3 className="text-sm font-medium">{report.name}</h3>
@@ -305,7 +305,7 @@ export default function Reports() {
                         onClick={() => handleLoadPreview(report.id)}
                         disabled={loadingPreview}
                       >
-                        <Eye className="h-4 w-4 mr-2" />
+                        <Eye className="w-4 h-4 mr-2" />
                         Preview
                       </Button>
                       <Button
@@ -315,10 +315,11 @@ export default function Reports() {
                           handleDownload(report.id, report.type.toLowerCase())
                         }
                       >
-                        <Download className="h-4 w-4 mr-2" />
+                        <Download className="w-4 h-4 mr-2" />
                         Download {report.type}
                       </Button>
-                      <div className="relative dropdown">
+                      {/* TODO */}
+                      {/* <div className="relative dropdown">
                         <Button
                           variant="outline"
                           size="sm"
@@ -331,7 +332,7 @@ export default function Reports() {
                           }}
                         >
                           More
-                          <ChevronDown className="h-4 w-4 ml-1" />
+                          <ChevronDown className="w-4 h-4 ml-1" />
                         </Button>
                         <div className="absolute right-0 z-10 hidden w-40 mt-2 bg-white border border-gray-200 rounded-md shadow-lg dropdown-menu">
                           <div className="py-1">
@@ -355,7 +356,7 @@ export default function Reports() {
                             </button>
                           </div>
                         </div>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
                 ))}
@@ -367,7 +368,7 @@ export default function Reports() {
         {activeTab === "templates" && (
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex justify-between items-center">
+              <div className="flex items-center justify-between">
                 <CardTitle>Report Templates</CardTitle>
                 <Button
                   onClick={() => {
@@ -385,7 +386,7 @@ export default function Reports() {
                     setShowForm(true);
                   }}
                 >
-                  <Plus className="h-4 w-4 mr-2" />
+                  <Plus className="w-4 h-4 mr-2" />
                   Create Template
                 </Button>
               </div>
@@ -394,7 +395,7 @@ export default function Reports() {
               {showForm && (
                 <Card className="mb-6 border border-primary-200 bg-primary-50">
                   <CardHeader className="pb-3">
-                    <div className="flex justify-between items-center">
+                    <div className="flex items-center justify-between">
                       <CardTitle>
                         {formData.id
                           ? "Edit Report Template"
@@ -405,17 +406,17 @@ export default function Reports() {
                         variant="ghost"
                         onClick={() => setShowForm(false)}
                       >
-                        <X className="h-4 w-4" />
+                        <X className="w-4 h-4" />
                       </Button>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <form className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div>
                           <label
                             htmlFor="template-name"
-                            className="block text-sm font-medium text-gray-700 mb-1"
+                            className="block mb-1 text-sm font-medium text-gray-700"
                           >
                             Template Name
                           </label>
@@ -431,7 +432,7 @@ export default function Reports() {
                         <div>
                           <label
                             htmlFor="template-type"
-                            className="block text-sm font-medium text-gray-700 mb-1"
+                            className="block mb-1 text-sm font-medium text-gray-700"
                           >
                             Report Type
                           </label>
@@ -441,7 +442,7 @@ export default function Reports() {
                             onChange={(e) =>
                               setFormData({ ...formData, type: e.target.value })
                             }
-                            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                            className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-md"
                           >
                             <option value="PDF">PDF</option>
                             <option value="Excel">Excel</option>
@@ -451,7 +452,7 @@ export default function Reports() {
                         <div className="md:col-span-2">
                           <label
                             htmlFor="template-description"
-                            className="block text-sm font-medium text-gray-700 mb-1"
+                            className="block mb-1 text-sm font-medium text-gray-700"
                           >
                             Description
                           </label>
@@ -470,7 +471,7 @@ export default function Reports() {
                         <div>
                           <label
                             htmlFor="template-schedule"
-                            className="block text-sm font-medium text-gray-700 mb-1"
+                            className="block mb-1 text-sm font-medium text-gray-700"
                           >
                             Schedule
                           </label>
@@ -483,7 +484,7 @@ export default function Reports() {
                                 schedule: e.target.value,
                               })
                             }
-                            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                            className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-md"
                           >
                             <option value="daily">Daily</option>
                             <option value="weekly">Weekly</option>
@@ -494,7 +495,7 @@ export default function Reports() {
                         <div>
                           <label
                             htmlFor="template-recipients"
-                            className="block text-sm font-medium text-gray-700 mb-1"
+                            className="block mb-1 text-sm font-medium text-gray-700"
                           >
                             Recipients (comma separated)
                           </label>
@@ -512,7 +513,7 @@ export default function Reports() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                          <label className="block mb-1 text-sm font-medium text-gray-700">
                             Include Charts
                           </label>
                           <div className="flex items-center mt-2">
@@ -526,7 +527,7 @@ export default function Reports() {
                                   includeCharts: e.target.checked,
                                 })
                               }
-                              className="h-4 w-4 text-primary-600 rounded border-gray-300"
+                              className="w-4 h-4 border-gray-300 rounded text-primary-600"
                             />
                             <label
                               htmlFor="include-charts"
@@ -536,7 +537,7 @@ export default function Reports() {
                             </label>
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block mb-1 text-sm font-medium text-gray-700">
                               Include Raw Data
                             </label>
                             <div className="flex items-center mt-2">
@@ -550,7 +551,7 @@ export default function Reports() {
                                     includeRawData: e.target.checked,
                                   })
                                 }
-                                className="h-4 w-4 text-primary-600 rounded border-gray-300"
+                                className="w-4 h-4 border-gray-300 rounded text-primary-600"
                               />
                               <label
                                 htmlFor="include-raw-data"
@@ -581,7 +582,7 @@ export default function Reports() {
                             setShowForm(false);
                           }}
                         >
-                          <Save className="h-4 w-4 mr-2" />
+                          <Save className="w-4 h-4 mr-2" />
                           {formData.id ? "Update Template" : "Create Template"}
                         </Button>
                       </div>
@@ -609,7 +610,7 @@ export default function Reports() {
                       <TableCell>{template.description}</TableCell>
                       <TableCell>
                         <div className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1 text-gray-500" />
+                          <Clock className="w-4 h-4 mr-1 text-gray-500" />
                           <span>{template.schedule}</span>
                         </div>
                       </TableCell>
@@ -634,7 +635,7 @@ export default function Reports() {
                           }}
                           className="mr-2"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="w-4 h-4" />
                         </Button>
                         <Button
                           size="sm"
@@ -649,7 +650,7 @@ export default function Reports() {
                             }
                           }}
                         >
-                          <Trash2 className="h-4 w-4 text-error-500" />
+                          <Trash2 className="w-4 h-4 text-error-500" />
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -678,11 +679,11 @@ export default function Reports() {
             </CardHeader>
             <CardContent>
               <form className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                   <div>
                     <label
                       htmlFor="company-name"
-                      className="block text-sm font-medium text-gray-700 mb-1"
+                      className="block mb-1 text-sm font-medium text-gray-700"
                     >
                       Company Name
                     </label>
@@ -696,7 +697,7 @@ export default function Reports() {
                   <div>
                     <label
                       htmlFor="company-logo"
-                      className="block text-sm font-medium text-gray-700 mb-1"
+                      className="block mb-1 text-sm font-medium text-gray-700"
                     >
                       Company Logo
                     </label>
@@ -706,7 +707,7 @@ export default function Reports() {
                   <div>
                     <label
                       htmlFor="report-footer"
-                      className="block text-sm font-medium text-gray-700 mb-1"
+                      className="block mb-1 text-sm font-medium text-gray-700"
                     >
                       Report Footer Text
                     </label>
@@ -720,14 +721,14 @@ export default function Reports() {
                   <div>
                     <label
                       htmlFor="default-report-format"
-                      className="block text-sm font-medium text-gray-700 mb-1"
+                      className="block mb-1 text-sm font-medium text-gray-700"
                     >
                       Default Report Format
                     </label>
                     <select
                       id="default-report-format"
                       defaultValue="PDF"
-                      className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                      className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-md"
                     >
                       <option value="PDF">PDF</option>
                       <option value="Excel">Excel</option>
@@ -736,7 +737,7 @@ export default function Reports() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block mb-1 text-sm font-medium text-gray-700">
                       Email Notification Settings
                     </label>
                     <div className="mt-2 space-y-2">
@@ -745,7 +746,7 @@ export default function Reports() {
                           type="checkbox"
                           id="notify-admin"
                           defaultChecked
-                          className="h-4 w-4 text-primary-600 rounded border-gray-300"
+                          className="w-4 h-4 border-gray-300 rounded text-primary-600"
                         />
                         <label
                           htmlFor="notify-admin"
@@ -759,7 +760,7 @@ export default function Reports() {
                           type="checkbox"
                           id="notify-fail"
                           defaultChecked
-                          className="h-4 w-4 text-primary-600 rounded border-gray-300"
+                          className="w-4 h-4 border-gray-300 rounded text-primary-600"
                         />
                         <label
                           htmlFor="notify-fail"
@@ -777,7 +778,7 @@ export default function Reports() {
                     type="button"
                     onClick={() => toast.success("Report configuration saved")}
                   >
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="w-4 h-4 mr-2" />
                     Save Configuration
                   </Button>
                 </div>

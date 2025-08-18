@@ -1,5 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import IoTService, { IoTWeightData, RFIDUser } from '@/lib/iot-service';
+import { useState, useEffect, useCallback } from "react";
+import IoTService, {
+  IoTWeightData,
+  AuthorizedUser,
+  RFIDUser,
+} from "@/lib/iot-service";
 
 export interface IoTStatus {
   isConnected: boolean;
@@ -8,12 +12,12 @@ export interface IoTStatus {
   deviceId: string;
 }
 
-export function useIoTWeight(deviceId: string = 'esp32_timbangan_001') {
+export function useIoTWeight(deviceId: string = "esp32_timbangan_001") {
   const [status, setStatus] = useState<IoTStatus>({
     isConnected: false,
     lastUpdate: null,
     currentWeight: null,
-    deviceId
+    deviceId,
   });
 
   const [weightData, setWeightData] = useState<IoTWeightData | null>(null);
@@ -21,17 +25,17 @@ export function useIoTWeight(deviceId: string = 'esp32_timbangan_001') {
   useEffect(() => {
     const unsubscribe = IoTService.subscribeToWeightData(deviceId, (data) => {
       setWeightData(data);
-      setStatus(prev => ({
+      setStatus((prev) => ({
         ...prev,
         isConnected: true,
         lastUpdate: new Date(),
-        currentWeight: parseFloat(data.berat_terakhir)
+        currentWeight: parseFloat(data.weight),
       }));
     });
 
     // Connection timeout check
     const connectionTimer = setInterval(() => {
-      setStatus(prev => {
+      setStatus((prev) => {
         if (prev.lastUpdate && Date.now() - prev.lastUpdate.getTime() > 10000) {
           return { ...prev, isConnected: false };
         }
@@ -47,49 +51,100 @@ export function useIoTWeight(deviceId: string = 'esp32_timbangan_001') {
 
   const getCurrentWeight = useCallback(async () => {
     const data = await IoTService.getCurrentWeight(deviceId);
-    return data ? parseFloat(data.berat_terakhir) : null;
+    return data ? parseFloat(data.weight) : null;
   }, [deviceId]);
 
   return {
     status,
     weightData,
-    getCurrentWeight
+    getCurrentWeight,
   };
 }
 
 export function useRFIDUsers() {
-  const [users, setUsers] = useState<Record<string, RFIDUser>>({});
-  const [lastScan, setLastScan] = useState<RFIDUser | null>(null);
+  const [authorizedUsers, setAuthorizedUsers] = useState<
+    Record<string, AuthorizedUser>
+  >({});
+  const [rfidRequests, setRfidRequests] = useState<Record<string, string>>({});
+  const [rfidUsers, setRfidUsers] = useState<Record<string, RFIDUser>>({});
+  const [activeUsers, setActiveUsers] = useState<Record<string, RFIDUser>>({});
 
   useEffect(() => {
-    const unsubscribe = IoTService.subscribeToRFIDUsers((userData) => {
-      setUsers(userData);
-      
-      // Find most recent scan
-      const userEntries = Object.entries(userData);
-      if (userEntries.length > 0) {
-        const mostRecent = userEntries.reduce((latest, [id, user]) => {
-          const userTime = new Date(user.waktu).getTime();
-          const latestTime = new Date(latest[1].waktu).getTime();
-          return userTime > latestTime ? [id, user] : latest;
-        });
-        setLastScan(mostRecent[1]);
+    const unsubscribeAuth = IoTService.subscribeToAuthorizedUsers(
+      (userData) => {
+        setAuthorizedUsers(userData);
       }
+    );
+
+    const unsubscribeRequests = IoTService.subscribeToRFIDRequests(
+      (requestData) => {
+        setRfidRequests(requestData);
+      }
+    );
+
+    const unsubscribeUsers = IoTService.subscribeToRFIDUsers((userData) => {
+      setRfidUsers(userData);
+
+      // Filter active users
+      const activeOnly = Object.fromEntries(
+        Object.entries(userData).filter(([, user]) => user.active === true)
+      );
+      setActiveUsers(activeOnly);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribeAuth();
+      unsubscribeRequests();
+      unsubscribeUsers();
+    };
   }, []);
 
-  const getRecentUsers = useCallback((limit: number = 5) => {
-    const entries = Object.entries(users);
-    return entries
-      .sort(([,a], [,b]) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime())
-      .slice(0, limit);
-  }, [users]);
+  const checkUserAuthorization = useCallback(async (rfidId: string) => {
+    return await IoTService.checkUserAuthorization(rfidId);
+  }, []);
+
+  const getRFIDUser = useCallback(async (uid: string) => {
+    return await IoTService.getRFIDUser(uid);
+  }, []);
+
+  const isUserActiveAndAuthorized = useCallback(async (uid: string) => {
+    return await IoTService.isUserActiveAndAuthorized(uid);
+  }, []);
+
+  const getRecentRequests = useCallback(
+    (limit: number = 5) => {
+      const entries = Object.entries(rfidRequests);
+      return entries
+        .sort(([a], [b]) => parseInt(b) - parseInt(a)) // Sort by timestamp (descending)
+        .slice(0, limit);
+    },
+    [rfidRequests]
+  );
+
+  const getActiveUsersList = useCallback(() => {
+    return Object.entries(activeUsers).map(([uid, user]) => ({
+      id: uid,
+      ...user,
+    }));
+  }, [activeUsers]);
+
+  const getUserByEmail = useCallback(
+    (email: string) => {
+      return Object.entries(rfidUsers).find(([, user]) => user.email === email);
+    },
+    [rfidUsers]
+  );
 
   return {
-    users,
-    lastScan,
-    getRecentUsers
+    authorizedUsers,
+    rfidRequests,
+    rfidUsers,
+    activeUsers,
+    checkUserAuthorization,
+    getRFIDUser,
+    isUserActiveAndAuthorized,
+    getRecentRequests,
+    getActiveUsersList,
+    getUserByEmail,
   };
 }

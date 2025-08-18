@@ -32,6 +32,11 @@ export default async function handler(
 // Get all weight records with filtering and pagination
 async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
   try {
+    const user = await getUserFromToken(req);
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const {
       item_id,
       user_id,
@@ -62,6 +67,11 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
       if (item_id) filters.item_id = item_id;
       if (user_id) filters.user_id = user_id;
       if (status) filters.status = status;
+      
+      // Filter by user role - operators only see their own records
+      if (user.role === 'operator') {
+        filters.user_id = user.id;
+      }
 
       // Date filters handled differently in RPC call or custom query
       // Using direct query would be more efficient but for now we'll go with a simple approach
@@ -85,10 +95,19 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
           user_id, 
           item_id, 
           total_weight,
+          iot_weight,
+          manager_weight,
+          weight_variance,
+          weight_variance_percentage,
+          variance_status,
+          iot_device_id,
+          verification_required,
           timestamp, 
           status,
           approved_by,
-          approved_at
+          approved_at,
+          notes,
+          unit
         `,
         filters: filters,
         orderBy: "timestamp",
@@ -101,24 +120,26 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
       const items = await executeQuery<any[]>({
         table: "public.samples_item",
         action: "select",
-        columns: "id, category, item"
+        columns: "id, category, item",
       });
 
       const users = await executeQuery<any[]>({
         table: "public.users",
         action: "select",
-        columns: "id, name"
+        columns: "id, name",
       });
 
       // Process the records to match the expected format
       records = weightRecords.map((record) => {
-        const item = items.find(i => i.id === record.item_id);
-        const user = users.find(u => u.id === record.user_id);
-        
+        const item = items.find((i) => i.id === record.item_id);
+        const user = users.find((u) => u.id === record.user_id);
+
         return {
           ...record,
-          item_name: item ? `${item.category} - ${item.item}` : `Sample Item ${record.item_id}`,
-          user_name: user?.name || 'Unknown User',
+          item_name: item
+            ? `${item.category} - ${item.item}`
+            : `Sample Item ${record.item_id}`,
+          user_name: user?.name || "Unknown User",
           approved_by_name: null,
         };
       });
@@ -163,6 +184,12 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
       if (user_id) {
         query += ` AND wr.user_id = ?`;
         queryParams.push(user_id);
+      }
+      
+      // Filter by user role - operators only see their own records
+      if (user.role === 'operator') {
+        query += ` AND wr.user_id = ?`;
+        queryParams.push(user.id);
       }
 
       if (status) {
@@ -217,7 +244,6 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
   }
 }
 
-// Add a new weight record
 async function addWeightRecord(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -226,9 +252,13 @@ async function addWeightRecord(
   try {
     const {
       item_id,
+      sample_id,
       delivery_id,
       item_name,
       total_weight,
+      iot_weight,
+      manager_weight,
+      iot_device_id,
       quantity,
       unit,
       batch_number,
@@ -243,11 +273,109 @@ async function addWeightRecord(
       operator_id,
     } = req.body;
 
-    // For delivery-based entries, we need either item_id or delivery_id
+    // For weight entries, we need total_weight and either item_id, sample_id, or delivery_id
     if (total_weight === undefined) {
-      return res
-        .status(400)
-        .json({ message: "Total weight is required" });
+      return res.status(400).json({ message: "Total weight is required" });
+    }
+
+    // Handle sample-based weight entry (new format) with IoT and manager weight tracking
+    if (sample_id) {
+      // Use sample_id as item_id since our current schema only supports item_id
+      const result = await executeQuery<any>({
+        query: `
+          INSERT INTO weight_records 
+          (user_id, item_id, total_weight, iot_weight, manager_weight, iot_device_id, status, notes, unit)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          RETURNING *
+        `,
+        values: [
+          user.id,
+          sample_id, // Using sample_id as item_id
+          total_weight,
+          iot_weight || null,
+          manager_weight || null,
+          iot_device_id || null,
+          "pending",
+          notes || null,
+          unit || "kg",
+        ],
+        single: true,
+      });
+
+      // Get sample information for response
+      const sample = await executeQuery<any>({
+        query: "SELECT category, item FROM samples_item WHERE id = ?",
+        values: [sample_id],
+        single: true,
+      });
+
+      // Update delivery status if delivery_id is provided
+      if (delivery_id) {
+        const useSupabase = Boolean(
+          process.env.NEXT_PUBLIC_SUPABASE_URL &&
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        );
+
+        if (useSupabase) {
+          const { supabaseAdmin } = await import("../../../lib/supabase.js");
+          await supabaseAdmin
+            .from("supplier_deliveries")
+            .update({
+              delivery_status: "delivered",
+              actual_delivery_date: new Date().toISOString(),
+            })
+            .eq("id", delivery_id);
+        } else {
+          await executeQuery({
+            query:
+              "UPDATE supplier_deliveries SET delivery_status = 'delivered', actual_delivery_date = NOW() WHERE id = ?",
+            values: [delivery_id],
+          });
+        }
+      }
+
+      // Calculate variance information for response
+      let varianceInfo = null;
+      if (iot_weight && manager_weight) {
+        const variance = iot_weight - manager_weight;
+        const variancePercentage = manager_weight !== 0 ? (variance / manager_weight) * 100 : 0;
+        let status = 'normal';
+        
+        if (Math.abs(variancePercentage) >= 10) {
+          status = 'critical';
+        } else if (Math.abs(variancePercentage) >= 5) {
+          status = 'warning';
+        }
+
+        varianceInfo = {
+          variance,
+          variancePercentage: Math.round(variancePercentage * 100) / 100,
+          status,
+          requiresVerification: Math.abs(variancePercentage) >= 5
+        };
+      }
+
+      const record = {
+        id: result.record_id,
+        user_id: user.id,
+        user_name: user.name,
+        sample_id,
+        sample_name: sample
+          ? `${sample.category} - ${sample.item}`
+          : "Unknown Sample",
+        total_weight,
+        iot_weight,
+        manager_weight,
+        iot_device_id,
+        timestamp: result.timestamp || new Date(),
+        status: "pending",
+        variance: varianceInfo,
+      };
+
+      return res.status(201).json({
+        message: "Weight record added successfully",
+        record,
+      });
     }
 
     // Handle delivery-based weight entry
@@ -297,7 +425,7 @@ async function addWeightRecord(
             INSERT INTO weight_records (user_id, item_id, total_weight, status, notes)
             VALUES (?, ?, ?, 'pending', ?)
           `,
-          values: [user.id, sampleItem.id, total_weight, notes || ''],
+          values: [user.id, sampleItem.id, total_weight, notes || ""],
         });
       }
 
@@ -351,7 +479,7 @@ async function addWeightRecord(
           columns: "id",
           limit: 1,
         });
-        
+
         result = await executeQuery<any>({
           table: "public.weight_records",
           action: "insert",
@@ -369,10 +497,7 @@ async function addWeightRecord(
             INSERT INTO weight_records (user_id, item_id, total_weight, status)
             VALUES (?, 1, ?, 'pending')
           `,
-          values: [
-            rfidRecord.user_id,
-            rfidRecord.total_weight,
-          ],
+          values: [rfidRecord.user_id, rfidRecord.total_weight],
         });
       }
 
@@ -534,12 +659,12 @@ async function deleteWeightRecords(
         .delete()
         .in("record_id", record_ids)
         .select("record_id");
-      
+
       if (error) throw error;
       deletedCount = data?.length || 0;
     } else {
       // Delete records using MySQL
-      const placeholders = record_ids.map(() => '?').join(',');
+      const placeholders = record_ids.map(() => "?").join(",");
       const result = await executeQuery<any>({
         query: `DELETE FROM weight_records WHERE record_id IN (${placeholders})`,
         values: record_ids,

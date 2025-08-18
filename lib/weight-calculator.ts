@@ -5,6 +5,10 @@ export interface SampleReference {
   category: string;
   item: string;
   sample_weight: number;
+  source?: string;
+  destination?: string;
+  supplier_name?: string;
+  delivery_id?: number;
 }
 
 export interface WeightCalculation {
@@ -15,13 +19,40 @@ export interface WeightCalculation {
   variance: number;
   variance_percentage: number;
   status: 'normal' | 'over' | 'under';
+  delivery_id?: number;
 }
 
 export class WeightCalculator {
   static async getSamplesByCategory(category?: string): Promise<SampleReference[]> {
     try {
-      const { data } = await apiClient.get(`/api/samples${category ? `?category=${category}` : ''}`);
-      return data.samples || [];
+      // Fetch all samples
+      const { data: samplesData } = await apiClient.get(`/api/samples${category ? `?category=${category}` : ''}`);
+      const allSamples = samplesData.samples || [];
+      
+      // Fetch deliveries with in_transit status
+      const { data: deliveriesData } = await apiClient.get('/api/deliveries?status=in_transit');
+      const inTransitDeliveries = deliveriesData.deliveries || [];
+      
+      // Filter samples that match item names in in_transit deliveries
+      if (inTransitDeliveries.length > 0) {
+        const inTransitItemNames = inTransitDeliveries.map(d => d.item_name);
+        const filteredSamples = allSamples.filter(sample => {
+          const sampleFullName = `${sample.category} - ${sample.item}`;
+          return inTransitItemNames.includes(sampleFullName);
+        });
+        
+        // Add delivery_id to samples
+        return filteredSamples.map(sample => {
+          const sampleFullName = `${sample.category} - ${sample.item}`;
+          const matchingDelivery = inTransitDeliveries.find(d => d.item_name === sampleFullName);
+          return {
+            ...sample,
+            delivery_id: matchingDelivery ? matchingDelivery.id : null
+          };
+        });
+      } else {
+        return [];
+      }
     } catch (error) {
       console.error('Failed to fetch samples:', error);
       return [];

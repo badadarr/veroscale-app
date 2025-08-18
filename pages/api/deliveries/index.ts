@@ -8,7 +8,10 @@ export default async function handler(
 ) {
   const user = await getUserFromToken(req);
 
-  if (!user || !['admin', 'marketing', 'manager', 'operator'].includes(user.role)) {
+  if (
+    !user ||
+    !["admin", "marketing", "manager", "operator"].includes(user.role)
+  ) {
     return res.status(403).json({ message: "Unauthorized" });
   }
 
@@ -24,7 +27,7 @@ export default async function handler(
 
 async function getDeliveries(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const { page = '1', limit = '10' } = req.query;
+    const { page = "1", limit = "10", status } = req.query;
     const currentPage = parseInt(page as string, 10);
     const itemsPerPage = parseInt(limit as string, 10);
     const offset = (currentPage - 1) * itemsPerPage;
@@ -38,50 +41,66 @@ async function getDeliveries(req: NextApiRequest, res: NextApiResponse) {
 
     if (useSupabase) {
       const { supabaseAdmin } = await import("../../../lib/supabase.js");
-      
-      const { count } = await supabaseAdmin
-        .from('supplier_deliveries')
-        .select('*', { count: 'exact', head: true });
-      
-      const { data } = await supabaseAdmin
-        .from('supplier_deliveries')
-        .select(`
+
+      let query = supabaseAdmin
+        .from("supplier_deliveries")
+        .select("*", { count: "exact", head: true });
+
+      if (status) {
+        query = query.eq("delivery_status", status);
+      }
+
+      const { count } = await query;
+
+      let dataQuery = supabaseAdmin.from("supplier_deliveries").select(`
           *,
           suppliers (name, contact_person),
           users!supplier_deliveries_marketing_user_id_fkey (name)
-        `)
-        .order('scheduled_date', { ascending: false })
+        `);
+
+      if (status) {
+        dataQuery = dataQuery.eq("delivery_status", status);
+      }
+
+      const { data } = await dataQuery
+        .order("created_at", { ascending: false })
         .range(offset, offset + itemsPerPage - 1);
-      
+
       deliveries = data;
       totalItems = count || 0;
     } else {
+      const whereClause = status ? "WHERE delivery_status = ?" : "";
+      const countValues = status ? [status] : [];
+
       const countResult = await executeQuery<any[]>({
-        query: "SELECT COUNT(*) as count FROM supplier_deliveries",
+        query: `SELECT COUNT(*) as count FROM supplier_deliveries ${whereClause}`,
+        values: countValues,
       });
       totalItems = countResult[0].count;
 
+      const queryValues = status
+        ? [status, itemsPerPage, offset]
+        : [itemsPerPage, offset];
+
       deliveries = await executeQuery<any[]>({
         query: `
-          SELECT sd.*, s.name as supplier_name, s.contact_person, u.name as marketing_user_name
-          FROM supplier_deliveries sd
-          JOIN suppliers s ON sd.supplier_id = s.id
-          JOIN users u ON sd.marketing_user_id = u.id
-          ORDER BY sd.scheduled_date DESC
+          SELECT * FROM supplier_deliveries 
+          ${whereClause}
+          ORDER BY created_at DESC 
           LIMIT ? OFFSET ?
         `,
-        values: [itemsPerPage, offset],
+        values: queryValues,
       });
     }
 
-    return res.status(200).json({ 
+    return res.status(200).json({
       deliveries,
       pagination: {
         currentPage,
         itemsPerPage,
         totalItems,
         totalPages: Math.ceil(totalItems / itemsPerPage),
-      }
+      },
     });
   } catch (error) {
     console.error("Error fetching deliveries:", error);
@@ -89,9 +108,20 @@ async function getDeliveries(req: NextApiRequest, res: NextApiResponse) {
   }
 }
 
-async function createDelivery(req: NextApiRequest, res: NextApiResponse, user: any) {
+async function createDelivery(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  user: any
+) {
   try {
-    const { supplier_id, item_name, expected_quantity, expected_weight, scheduled_date, notes } = req.body;
+    const {
+      supplier_id,
+      item_name,
+      expected_quantity,
+      expected_weight,
+      scheduled_date,
+      notes,
+    } = req.body;
 
     if (!supplier_id || !item_name || !expected_quantity || !scheduled_date) {
       return res.status(400).json({ message: "Required fields missing" });
@@ -107,8 +137,8 @@ async function createDelivery(req: NextApiRequest, res: NextApiResponse, user: a
         expected_quantity,
         expected_weight,
         scheduled_date,
-        delivery_status: 'scheduled',
-        notes
+        delivery_status: "scheduled",
+        notes,
       },
     });
 

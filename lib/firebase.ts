@@ -3,15 +3,14 @@ import { getDatabase, ref, onValue, off } from "firebase/database";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDwdYrP2FEYV2hAS1QrYEcjXDJqcvUI4WQ",
-  authDomain: "timbangan-online-3cd46.firebaseapp.com",
-  databaseURL:
-    "https://timbangan-online-3cd46-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "timbangan-online-3cd46",
-  storageBucket: "timbangan-online-3cd46.firebasestorage.app",
-  messagingSenderId: "200904460259",
-  appId: "1:200904460259:web:4cebd33928a3190ac382d6",
-  measurementId: "G-1N8YW11PM8",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = initializeApp(firebaseConfig);

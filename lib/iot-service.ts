@@ -1,20 +1,32 @@
 import { database, ref, onValue, ensureAuth } from "./firebase";
 
 export interface IoTWeightData {
-  berat_terakhir: string;
-  timestamp?: string;
+  weight: string;
+  timestamp: number;
+  device_id: string;
+}
+
+export interface AuthorizedUser {
+  authorized: boolean;
+  name: string;
 }
 
 export interface RFIDUser {
+  active: boolean;
+  created_at: string;
   device_id: string;
-  nama?: string;
-  waktu: string;
+  email: string;
+  name: string;
+  uid: string;
 }
 
-export interface RFIDRequest {
-  device_id: string;
-  waktu: string;
-  processed?: boolean;
+export interface DeviceData {
+  current: {
+    device_id: string;
+    timestamp: number;
+    weight: string;
+  };
+  history?: Record<string, unknown>; // History data structure can be expanded as needed
 }
 
 export class IoTService {
@@ -42,15 +54,16 @@ export class IoTService {
     // Ensure authentication before subscribing
     ensureAuth()
       .then(() => {
-        const weightRef = ref(database, `devices/${deviceId}/berat_terakhir`);
+        const weightRef = ref(database, `devices/${deviceId}/current`);
         const unsubscribe = onValue(
           weightRef,
           (snapshot) => {
-            const weight = snapshot.val();
-            if (weight) {
+            const currentData = snapshot.val();
+            if (currentData) {
               callback({
-                berat_terakhir: weight,
-                timestamp: new Date().toISOString(),
+                weight: currentData.weight,
+                timestamp: currentData.timestamp,
+                device_id: currentData.device_id,
               });
             }
           },
@@ -69,24 +82,26 @@ export class IoTService {
     return () => this.unsubscribe(`weight_${deviceId}`);
   }
 
-  // Listen to RFID user scans
-  subscribeToRFIDUsers(callback: (users: Record<string, RFIDUser>) => void) {
-    const rfidRef = ref(database, "rfid_users");
-    const unsubscribe = onValue(rfidRef, (snapshot) => {
+  // Listen to authorized users
+  subscribeToAuthorizedUsers(
+    callback: (users: Record<string, AuthorizedUser>) => void
+  ) {
+    const authorizedRef = ref(database, "authorized_users");
+    const unsubscribe = onValue(authorizedRef, (snapshot) => {
       const users = snapshot.val();
       if (users) {
         callback(users);
       }
     });
 
-    const key = "rfid_users";
-    this.listeners.set(key, { ref: rfidRef, unsubscribe });
+    const key = "authorized_users";
+    this.listeners.set(key, { ref: authorizedRef, unsubscribe });
     return () => this.unsubscribe(key);
   }
 
   // Listen to RFID requests
   subscribeToRFIDRequests(
-    callback: (requests: Record<string, RFIDRequest>) => void
+    callback: (requests: Record<string, string>) => void
   ) {
     const requestsRef = ref(database, "rfid_requests");
     const unsubscribe = onValue(requestsRef, (snapshot) => {
@@ -101,26 +116,82 @@ export class IoTService {
     return () => this.unsubscribe(key);
   }
 
-  // Get unprocessed RFID requests
-  async getUnprocessedRFIDRequests(): Promise<Record<
-    string,
-    RFIDRequest
-  > | null> {
+  // Listen to RFID users
+  subscribeToRFIDUsers(callback: (users: Record<string, RFIDUser>) => void) {
+    const rfidRef = ref(database, "rfid_users");
+    const unsubscribe = onValue(rfidRef, (snapshot) => {
+      const users = snapshot.val();
+      if (users) {
+        callback(users);
+      }
+    });
+
+    const key = "rfid_users";
+    this.listeners.set(key, { ref: rfidRef, unsubscribe });
+    return () => this.unsubscribe(key);
+  }
+
+  // Get all RFID requests
+  async getAllRFIDRequests(): Promise<Record<string, string> | null> {
     return new Promise((resolve) => {
       const requestsRef = ref(database, "rfid_requests");
       onValue(
         requestsRef,
         (snapshot) => {
           const requests = snapshot.val();
-          if (requests) {
-            // Filter for unprocessed requests (you might want to add a 'processed' field to your data structure)
-            const unprocessed = Object.fromEntries(
-              Object.entries(requests).filter(([, request]) => {
-                // Assuming requests without a 'processed' field are unprocessed
-                return !(request as RFIDRequest).processed;
+          resolve(requests || null);
+        },
+        { onlyOnce: true }
+      );
+    });
+  }
+
+  // Check if user is authorized (legacy method - kept for compatibility)
+  async checkUserAuthorization(rfidId: string): Promise<AuthorizedUser | null> {
+    return new Promise((resolve) => {
+      const userRef = ref(database, `authorized_users/${rfidId}`);
+      onValue(
+        userRef,
+        (snapshot) => {
+          const userData = snapshot.val();
+          resolve(userData || null);
+        },
+        { onlyOnce: true }
+      );
+    });
+  }
+
+  // Get RFID user information by UID
+  async getRFIDUser(uid: string): Promise<RFIDUser | null> {
+    return new Promise((resolve) => {
+      const userRef = ref(database, `rfid_users/${uid}`);
+      onValue(
+        userRef,
+        (snapshot) => {
+          const userData = snapshot.val();
+          resolve(userData || null);
+        },
+        { onlyOnce: true }
+      );
+    });
+  }
+
+  // Get all active RFID users
+  async getActiveRFIDUsers(): Promise<Record<string, RFIDUser> | null> {
+    return new Promise((resolve) => {
+      const usersRef = ref(database, "rfid_users");
+      onValue(
+        usersRef,
+        (snapshot) => {
+          const users = snapshot.val();
+          if (users) {
+            // Filter only active users
+            const activeUsers = Object.fromEntries(
+              Object.entries(users).filter(([, user]) => {
+                return (user as RFIDUser).active === true;
               })
             );
-            resolve(unprocessed as Record<string, RFIDRequest>);
+            resolve(activeUsers as Record<string, RFIDUser>);
           } else {
             resolve(null);
           }
@@ -130,26 +201,31 @@ export class IoTService {
     });
   }
 
-  // Mark RFID request as processed
-  async markRFIDRequestProcessed(requestId: string): Promise<void> {
-    const { set } = await import("firebase/database");
-    const requestRef = ref(database, `rfid_requests/${requestId}/processed`);
-    await set(requestRef, true);
+  // Check if RFID user is active and authorized
+  async isUserActiveAndAuthorized(
+    uid: string
+  ): Promise<{ isActive: boolean; user: RFIDUser | null }> {
+    const user = await this.getRFIDUser(uid);
+    return {
+      isActive: user ? user.active : false,
+      user,
+    };
   }
 
   // Get current weight data (one-time read)
   async getCurrentWeight(deviceId: string): Promise<IoTWeightData | null> {
     return new Promise((resolve) => {
-      const weightRef = ref(database, `devices/${deviceId}/berat_terakhir`);
+      const weightRef = ref(database, `devices/${deviceId}/current`);
       onValue(
         weightRef,
         (snapshot) => {
-          const weight = snapshot.val();
+          const currentData = snapshot.val();
           resolve(
-            weight
+            currentData
               ? {
-                  berat_terakhir: weight,
-                  timestamp: new Date().toISOString(),
+                  weight: currentData.weight,
+                  timestamp: currentData.timestamp,
+                  device_id: currentData.device_id,
                 }
               : null
           );

@@ -135,8 +135,17 @@ async function getDailyWeightSummary() {
         user_id,
         item_id,
         total_weight,
+        iot_weight,
+        manager_weight,
+        weight_variance,
+        weight_variance_percentage,
+        variance_status,
+        iot_device_id,
+        verification_required,
         timestamp, 
-        status
+        status,
+        notes,
+        unit
       `,
       filters: {
         // Use string comparison for timestamp to avoid object serialization issues
@@ -219,8 +228,27 @@ async function getDailyWeightSummary() {
     0
   );
   const avgWeight = records.length > 0 ? totalWeight / records.length : 0;
+  
+  // Calculate variance statistics
+  const recordsWithVariance = records.filter(record => 
+    record.iot_weight && record.manager_weight && record.weight_variance !== null
+  );
+  const varianceStats = {
+    totalWithVariance: recordsWithVariance.length,
+    normalVariance: recordsWithVariance.filter(r => r.variance_status === 'normal').length,
+    warningVariance: recordsWithVariance.filter(r => r.variance_status === 'warning').length,
+    criticalVariance: recordsWithVariance.filter(r => r.variance_status === 'critical').length,
+    averageVariance: recordsWithVariance.length > 0 
+      ? recordsWithVariance.reduce((sum, r) => sum + Math.abs(r.weight_variance || 0), 0) / recordsWithVariance.length 
+      : 0,
+    averageVariancePercentage: recordsWithVariance.length > 0 
+      ? recordsWithVariance.reduce((sum, r) => sum + Math.abs(r.weight_variance_percentage || 0), 0) / recordsWithVariance.length 
+      : 0,
+  };
+  
   const statusCounts = records.reduce((counts: any, record) => {
-    counts[record.status] = (counts[record.status] || 0) + 1;
+    const status = record.status || "unknown";
+    counts[status] = (counts[status] || 0) + 1;
     return counts;
   }, {});
 
@@ -232,6 +260,7 @@ async function getDailyWeightSummary() {
       totalWeight,
       avgWeight,
       statusCounts,
+      varianceStats,
     },
     records,
   };

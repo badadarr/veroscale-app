@@ -1,5 +1,5 @@
-import IoTService, { IoTWeightData } from './iot-service';
-import apiClient from './api';
+import IoTService from "./iot-service";
+import apiClient from "./api";
 
 export class IoTWeightSync {
   private static instance: IoTWeightSync;
@@ -18,21 +18,29 @@ export class IoTWeightSync {
     if (this.isAutoSyncEnabled) return;
 
     this.isAutoSyncEnabled = true;
-    
-    const unsubscribe = IoTService.subscribeToWeightData('esp32_timbangan_001', async (data) => {
-      const currentWeight = parseFloat(data.berat_terakhir);
-      const lastWeight = this.lastSyncedWeight ? parseFloat(this.lastSyncedWeight) : 0;
-      
-      // Only sync if weight change is significant
-      if (Math.abs(currentWeight - lastWeight) >= threshold && currentWeight > 0.05) {
-        try {
-          await this.syncWeightToDatabase(materialId, currentWeight);
-          this.lastSyncedWeight = data.berat_terakhir;
-        } catch (error) {
-          console.error('Auto sync failed:', error);
+
+    const unsubscribe = IoTService.subscribeToWeightData(
+      "esp32_timbangan_001",
+      async (data) => {
+        const currentWeight = parseFloat(data.weight);
+        const lastWeight = this.lastSyncedWeight
+          ? parseFloat(this.lastSyncedWeight)
+          : 0;
+
+        // Only sync if weight change is significant
+        if (
+          Math.abs(currentWeight - lastWeight) >= threshold &&
+          currentWeight > 0.05
+        ) {
+          try {
+            await this.syncWeightToDatabase(materialId, currentWeight);
+            this.lastSyncedWeight = data.weight;
+          } catch (error) {
+            console.error("Auto sync failed:", error);
+          }
         }
       }
-    });
+    );
 
     return unsubscribe;
   }
@@ -40,9 +48,11 @@ export class IoTWeightSync {
   // Manually sync current weight to database
   async syncCurrentWeight(materialId: number): Promise<boolean> {
     try {
-      const weightData = await IoTService.getCurrentWeight('esp32_timbangan_001');
+      const weightData = await IoTService.getCurrentWeight(
+        "esp32_timbangan_001"
+      );
       if (weightData) {
-        const weight = parseFloat(weightData.berat_terakhir);
+        const weight = parseFloat(weightData.weight);
         if (weight > 0) {
           await this.syncWeightToDatabase(materialId, weight);
           return true;
@@ -50,7 +60,7 @@ export class IoTWeightSync {
       }
       return false;
     } catch (error) {
-      console.error('Manual sync failed:', error);
+      console.error("Manual sync failed:", error);
       return false;
     }
   }
@@ -60,15 +70,15 @@ export class IoTWeightSync {
     const weightRecord = {
       item_id: materialId,
       total_weight: weight,
-      unit: 'kg',
-      source: 'IoT_ESP32',
-      destination: 'Warehouse',
+      unit: "kg",
+      source: "IoT_ESP32",
+      destination: "Warehouse",
       batch_number: `IOT_${Date.now()}`,
-      notes: 'Auto-synced from IoT scale',
-      recorded_by: 'IoT_System'
+      notes: "Auto-synced from IoT scale",
+      recorded_by: "IoT_System",
     };
 
-    await apiClient.post('/api/weights', weightRecord);
+    await apiClient.post("/api/weights", weightRecord);
   }
 
   disableAutoSync() {

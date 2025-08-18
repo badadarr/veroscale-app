@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { database, ref, onValue } from '@/lib/firebase';
+import { DataSnapshot } from 'firebase/database';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -8,15 +9,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const deviceId = req.query.device || 'esp32_timbangan_001';
-    const weightRef = ref(database, `devices/${deviceId}/berat_terakhir`);
+    const weightRef = ref(database, `devices/${deviceId}/current`);
     
-    const snapshot = await new Promise((resolve) => {
+    const snapshot = await new Promise<DataSnapshot>((resolve) => {
       onValue(weightRef, resolve, { onlyOnce: true });
     });
-    const weight = snapshot.val();
+    const currentData = snapshot.val();
     
-    if (weight) {
-      const weightValue = parseFloat(weight);
+    if (currentData && currentData.weight) {
+      const weightValue = parseFloat(currentData.weight);
       
       // Validate weight data
       if (isNaN(weightValue) || weightValue < 0) {
@@ -25,8 +26,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       res.status(200).json({
         weight: weightValue,
-        device_id: deviceId,
-        timestamp: new Date().toISOString(),
+        device_id: currentData.device_id || deviceId,
+        timestamp: currentData.timestamp || Date.now(),
         is_valid: weightValue >= 0.01 && weightValue <= 1000
       });
     } else {

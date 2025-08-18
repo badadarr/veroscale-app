@@ -1,8 +1,22 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Download, FileText, BarChart2, Table as TableIcon, Loader2 } from 'lucide-react';
-import { Button } from './Button';
-import { Card, CardContent, CardHeader, CardTitle } from './Card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './Table';
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  X,
+  Download,
+  FileText,
+  BarChart2,
+  Table as TableIcon,
+  Loader2,
+} from "lucide-react";
+import { Button } from "./Button";
+import { Card, CardContent, CardHeader, CardTitle } from "./Card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "./Table";
 
 interface ReportPreviewProps {
   reportData: any;
@@ -10,34 +24,39 @@ interface ReportPreviewProps {
   onDownload: (format: string) => void;
 }
 
-export const ReportPreview: React.FC<ReportPreviewProps> = ({ 
-  reportData, 
+export const ReportPreview: React.FC<ReportPreviewProps> = ({
+  reportData,
   onClose,
-  onDownload
+  onDownload,
 }) => {
-  const [activeTab, setActiveTab] = useState<'summary' | 'data' | 'charts'>('summary');
+  const [activeTab, setActiveTab] = useState<"summary" | "data" | "charts">(
+    "summary"
+  );
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Format timestamps in the report data
   const formattedReportData = useMemo(() => {
     if (!reportData) return null;
-    
-    const formatted = {...reportData};
-    
+
+    const formatted = { ...reportData };
+
     // Format timestamps in records
     if (formatted.records && Array.isArray(formatted.records)) {
-      formatted.records = formatted.records.map(record => {
-        const newRecord = {...record};
+      formatted.records = formatted.records.map((record) => {
+        const newRecord = { ...record };
         if (newRecord.timestamp) {
           try {
-            newRecord.timestamp = new Date(newRecord.timestamp).toLocaleString('id-ID', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            });
+            newRecord.timestamp = new Date(newRecord.timestamp).toLocaleString(
+              "id-ID",
+              {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              }
+            );
           } catch (e) {
             // Keep original if parsing fails
           }
@@ -45,82 +64,82 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
         return newRecord;
       });
     }
-    
+
     // Format date ranges for weekly reports
     if (formatted.dateRange) {
       try {
         if (formatted.dateRange.from) {
           const fromDate = new Date(formatted.dateRange.from);
           if (!isNaN(fromDate.getTime())) {
-            formatted.dateRange.from = fromDate.toLocaleDateString('id-ID', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric'
+            formatted.dateRange.from = fromDate.toLocaleDateString("id-ID", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
             });
           }
         }
         if (formatted.dateRange.to) {
           const toDate = new Date(formatted.dateRange.to);
           if (!isNaN(toDate.getTime())) {
-            formatted.dateRange.to = toDate.toLocaleDateString('id-ID', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric'
+            formatted.dateRange.to = toDate.toLocaleDateString("id-ID", {
+              day: "2-digit",
+              month: "2-digit",
+              year: "numeric",
             });
           }
         }
       } catch (e) {
-        console.error('Error formatting date range:', e);
+        console.error("Error formatting date range:", e);
         // Keep original if parsing fails
       }
     }
-    
+
     // Format date for daily reports
     if (formatted.date) {
       try {
-        formatted.date = new Date(formatted.date).toLocaleDateString('id-ID', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric'
+        formatted.date = new Date(formatted.date).toLocaleDateString("id-ID", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
         });
       } catch (e) {
         // Keep original if parsing fails
       }
     }
-    
+
     // Format month for monthly reports
     if (formatted.month) {
       try {
         // If month is in YYYY-MM format, convert to month name and year
         if (/^\d{4}-\d{2}$/.test(formatted.month)) {
-          const [year, month] = formatted.month.split('-');
+          const [year, month] = formatted.month.split("-");
           const date = new Date(parseInt(year), parseInt(month) - 1, 1);
-          formatted.month = date.toLocaleDateString('id-ID', {
-            month: 'long',
-            year: 'numeric'
+          formatted.month = date.toLocaleDateString("id-ID", {
+            month: "long",
+            year: "numeric",
           });
         }
       } catch (e) {
         // Keep original if parsing fails
       }
     }
-    
+
     return formatted;
   }, [reportData]);
-  
+
   useEffect(() => {
     // Simulate loading time for better UX
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 500);
-    
+
     return () => clearTimeout(timer);
   }, []);
-  
+
   if (!formattedReportData) return null;
-  
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 bg-black bg-opacity-50 sm:p-4">
       <div className="w-full max-w-4xl max-h-[95vh] bg-white rounded-lg shadow-xl overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold">{formattedReportData.title}</h2>
@@ -128,32 +147,47 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
             <X className="w-5 h-5" />
           </Button>
         </div>
-        
+
         <div className="flex overflow-x-auto border-b border-gray-200">
           <button
-            className={`px-3 sm:px-4 py-2 font-medium text-xs sm:text-sm whitespace-nowrap ${activeTab === 'summary' ? 'border-b-2 border-primary-500 text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('summary')}
+            className={`px-3 sm:px-4 py-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
+              activeTab === "summary"
+                ? "border-b-2 border-primary-500 text-primary-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => setActiveTab("summary")}
           >
-            <FileText className="inline w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+            <FileText className="inline w-3 h-3 mr-1 sm:w-4 sm:h-4" />
             Summary
           </button>
           <button
-            className={`px-3 sm:px-4 py-2 font-medium text-xs sm:text-sm whitespace-nowrap ${activeTab === 'data' ? 'border-b-2 border-primary-500 text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('data')}
+            className={`px-3 sm:px-4 py-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
+              activeTab === "data"
+                ? "border-b-2 border-primary-500 text-primary-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => setActiveTab("data")}
           >
-            <TableIcon className="inline w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+            <TableIcon className="inline w-3 h-3 mr-1 sm:w-4 sm:h-4" />
             Data
           </button>
-          <button
-            className={`px-3 sm:px-4 py-2 font-medium text-xs sm:text-sm whitespace-nowrap ${activeTab === 'charts' ? 'border-b-2 border-primary-500 text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
-            onClick={() => setActiveTab('charts')}
+          {/* <button
+            className={`px-3 sm:px-4 py-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
+              activeTab === "charts"
+                ? "border-b-2 border-primary-500 text-primary-600"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => setActiveTab("charts")}
           >
-            <BarChart2 className="inline w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+            <BarChart2 className="inline w-3 h-3 mr-1 sm:w-4 sm:h-4" />
             Charts
-          </button>
+          </button> */}
         </div>
-        
-        <div className="p-2 sm:p-4 overflow-y-auto" style={{ maxHeight: 'calc(95vh - 120px)' }}>
+
+        <div
+          className="p-2 overflow-y-auto sm:p-4"
+          style={{ maxHeight: "calc(95vh - 120px)" }}
+        >
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
@@ -163,7 +197,7 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
             </div>
           ) : (
             <>
-              {activeTab === 'summary' && (
+              {activeTab === "summary" && (
                 <div className="space-y-4">
                   <Card>
                     <CardHeader>
@@ -173,194 +207,299 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         {formattedReportData.date && (
                           <div>
-                            <p className="text-sm font-medium text-gray-500">Date</p>
-                            <p className="text-lg">{formattedReportData.date}</p>
+                            <p className="text-sm font-medium text-gray-500">
+                              Date
+                            </p>
+                            <p className="text-lg">
+                              {formattedReportData.date}
+                            </p>
                           </div>
                         )}
                         {formattedReportData.dateRange && (
                           <div>
-                            <p className="text-sm font-medium text-gray-500">Date Range</p>
+                            <p className="text-sm font-medium text-gray-500">
+                              Date Range
+                            </p>
                             <p className="text-lg">
-                              {formattedReportData.dateRange.from || 'N/A'} to {formattedReportData.dateRange.to || 'N/A'}
+                              {formattedReportData.dateRange.from || "N/A"} to{" "}
+                              {formattedReportData.dateRange.to || "N/A"}
                             </p>
                           </div>
                         )}
                         {formattedReportData.month && (
                           <div>
-                            <p className="text-sm font-medium text-gray-500">Month</p>
-                            <p className="text-lg">{formattedReportData.month}</p>
+                            <p className="text-sm font-medium text-gray-500">
+                              Month
+                            </p>
+                            <p className="text-lg">
+                              {formattedReportData.month}
+                            </p>
                           </div>
                         )}
                       </div>
-                      
+
                       {formattedReportData.summary && (
                         <div className="mt-4">
-                          <h3 className="mb-2 text-lg font-medium">Key Metrics</h3>
+                          <h3 className="mb-2 text-lg font-medium">
+                            Key Metrics
+                          </h3>
                           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                            {formattedReportData.summary.totalRecords !== undefined && (
-                              <div className="p-3 bg-blue-50 rounded-lg">
-                                <p className="text-sm font-medium text-blue-700">Total Records</p>
-                                <p className="text-2xl font-bold text-blue-900">{formattedReportData.summary.totalRecords}</p>
+                            {formattedReportData.summary.totalRecords !==
+                              undefined && (
+                              <div className="p-3 rounded-lg bg-blue-50">
+                                <p className="text-sm font-medium text-blue-700">
+                                  Total Records
+                                </p>
+                                <p className="text-2xl font-bold text-blue-900">
+                                  {formattedReportData.summary.totalRecords}
+                                </p>
                               </div>
                             )}
-                            {formattedReportData.summary.totalWeight !== undefined && (
-                              <div className="p-3 bg-green-50 rounded-lg">
-                                <p className="text-sm font-medium text-green-700">Total Weight</p>
-                                <p className="text-2xl font-bold text-green-900">{formattedReportData.summary.totalWeight.toFixed(2)} kg</p>
+                            {formattedReportData.summary.totalWeight !==
+                              undefined && (
+                              <div className="p-3 rounded-lg bg-green-50">
+                                <p className="text-sm font-medium text-green-700">
+                                  Total Weight
+                                </p>
+                                <p className="text-2xl font-bold text-green-900">
+                                  {formattedReportData.summary.totalWeight.toFixed(
+                                    2
+                                  )}{" "}
+                                  kg
+                                </p>
                               </div>
                             )}
-                            {formattedReportData.summary.avgWeight !== undefined && (
-                              <div className="p-3 bg-yellow-50 rounded-lg">
-                                <p className="text-sm font-medium text-yellow-700">Average Weight</p>
-                                <p className="text-2xl font-bold text-yellow-900">{formattedReportData.summary.avgWeight.toFixed(2)} kg</p>
+                            {formattedReportData.summary.avgWeight !==
+                              undefined && (
+                              <div className="p-3 rounded-lg bg-yellow-50">
+                                <p className="text-sm font-medium text-yellow-700">
+                                  Average Weight
+                                </p>
+                                <p className="text-2xl font-bold text-yellow-900">
+                                  {formattedReportData.summary.avgWeight.toFixed(
+                                    2
+                                  )}{" "}
+                                  kg
+                                </p>
                               </div>
                             )}
-                            {formattedReportData.summary.totalUsers !== undefined && (
-                              <div className="p-3 bg-purple-50 rounded-lg">
-                                <p className="text-sm font-medium text-purple-700">Total Users</p>
-                                <p className="text-2xl font-bold text-purple-900">{formattedReportData.summary.totalUsers}</p>
+                            {formattedReportData.summary.totalUsers !==
+                              undefined && (
+                              <div className="p-3 rounded-lg bg-purple-50">
+                                <p className="text-sm font-medium text-purple-700">
+                                  Total Users
+                                </p>
+                                <p className="text-2xl font-bold text-purple-900">
+                                  {formattedReportData.summary.totalUsers}
+                                </p>
                               </div>
                             )}
-                            {formattedReportData.summary.totalItems !== undefined && (
-                              <div className="p-3 bg-indigo-50 rounded-lg">
-                                <p className="text-sm font-medium text-indigo-700">Total Items</p>
-                                <p className="text-2xl font-bold text-indigo-900">{formattedReportData.summary.totalItems}</p>
+                            {formattedReportData.summary.totalItems !==
+                              undefined && (
+                              <div className="p-3 rounded-lg bg-indigo-50">
+                                <p className="text-sm font-medium text-indigo-700">
+                                  Total Items
+                                </p>
+                                <p className="text-2xl font-bold text-indigo-900">
+                                  {formattedReportData.summary.totalItems}
+                                </p>
                               </div>
                             )}
                           </div>
                         </div>
                       )}
-                      
-                      {formattedReportData.summary?.statusCounts && (
-                        <div className="mt-4">
-                          <h3 className="mb-2 text-lg font-medium">Status Distribution</h3>
-                          <div className="grid grid-cols-3 gap-4">
-                            {Object.entries(formattedReportData.summary.statusCounts).map(([status, count]: [string, any]) => (
-                              <div key={status} className="p-3 bg-gray-50 rounded-lg">
-                                <p className="text-sm font-medium text-gray-700">{status.charAt(0).toUpperCase() + status.slice(1)}</p>
-                                <p className="text-2xl font-bold text-gray-900">{count}</p>
-                              </div>
-                            ))}
+
+                      {formattedReportData.summary?.statusCounts &&
+                        Object.keys(formattedReportData.summary.statusCounts)
+                          .length > 0 && (
+                          <div className="mt-4">
+                            <h3 className="mb-2 text-lg font-medium">
+                              Status Distribution
+                            </h3>
+                            <div className="grid grid-cols-3 gap-4">
+                              {Object.entries(
+                                formattedReportData.summary.statusCounts
+                              ).map(([status, count]: [string, unknown]) => {
+                                // Format status label for display
+                                const getStatusLabel = (status: string) => {
+                                  switch (status.toLowerCase()) {
+                                    case "pending":
+                                      return "Pending";
+                                    case "approved":
+                                      return "Approved";
+                                    case "rejected":
+                                      return "Rejected";
+                                    case "unknown":
+                                      return "Unknown Status";
+                                    default:
+                                      return (
+                                        status.charAt(0).toUpperCase() +
+                                        status.slice(1)
+                                      );
+                                  }
+                                };
+
+                                return (
+                                  <div
+                                    key={status}
+                                    className="p-3 rounded-lg bg-gray-50"
+                                  >
+                                    <p className="text-sm font-medium text-gray-700">
+                                      {getStatusLabel(status)}
+                                    </p>
+                                    <p className="text-2xl font-bold text-gray-900">
+                                      {count}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </CardContent>
                   </Card>
                 </div>
               )}
-              
-              {activeTab === 'data' && (
+
+              {activeTab === "data" && (
                 <div className="space-y-4">
-                  {formattedReportData.records && formattedReportData.records.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Records</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                {Object.keys(formattedReportData.records[0]).map((header) => (
-                                  <TableHead key={header}>{header}</TableHead>
-                                ))}
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {formattedReportData.records.slice(0, 50).map((record: any, index: number) => (
-                                <TableRow key={index}>
-                                  {Object.values(record).map((value: any, i: number) => (
-                                    <TableCell key={i}>
-                                      {typeof value === 'object' ? JSON.stringify(value) : value}
-                                    </TableCell>
+                  {formattedReportData.records &&
+                    formattedReportData.records.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Records</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  {Object.keys(
+                                    formattedReportData.records[0]
+                                  ).map((header) => (
+                                    <TableHead key={header}>{header}</TableHead>
                                   ))}
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                          {formattedReportData.records.length > 50 && (
-                            <p className="mt-2 text-sm text-gray-500">
-                              Showing 50 of {formattedReportData.records.length} records
-                            </p>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                  
-                  {formattedReportData.userActivity && formattedReportData.userActivity.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>User Activity</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>User</TableHead>
-                                <TableHead>Records</TableHead>
-                                <TableHead>Total Weight</TableHead>
-                                <TableHead>Status Distribution</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {formattedReportData.userActivity.map((user: any) => (
-                                <TableRow key={user.userId}>
-                                  <TableCell>{user.userName}</TableCell>
-                                  <TableCell>{user.recordCount}</TableCell>
-                                  <TableCell>{user.totalWeight.toFixed(2)} kg</TableCell>
-                                  <TableCell>
-                                    {Object.entries(user.statuses).map(([status, count]: [string, any]) => (
-                                      <span key={status} className="inline-block px-2 py-1 mr-1 text-xs rounded-full bg-gray-100">
-                                        {status}: {count}
-                                      </span>
-                                    ))}
-                                  </TableCell>
+                              </TableHeader>
+                              <TableBody>
+                                {formattedReportData.records
+                                  .slice(0, 50)
+                                  .map((record: any, index: number) => (
+                                    <TableRow key={index}>
+                                      {Object.values(record).map(
+                                        (value: any, i: number) => (
+                                          <TableCell key={i}>
+                                            {typeof value === "object"
+                                              ? JSON.stringify(value)
+                                              : value}
+                                          </TableCell>
+                                        )
+                                      )}
+                                    </TableRow>
+                                  ))}
+                              </TableBody>
+                            </Table>
+                            {formattedReportData.records.length > 50 && (
+                              <p className="mt-2 text-sm text-gray-500">
+                                Showing 50 of{" "}
+                                {formattedReportData.records.length} records
+                              </p>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                  {formattedReportData.userActivity &&
+                    formattedReportData.userActivity.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>User Activity</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>User</TableHead>
+                                  <TableHead>Records</TableHead>
+                                  <TableHead>Total Weight</TableHead>
+                                  <TableHead>Status Distribution</TableHead>
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                  
-                  {formattedReportData.itemStats && formattedReportData.itemStats.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Item Statistics</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Item</TableHead>
-                                <TableHead>Records</TableHead>
-                                <TableHead>Total Weight</TableHead>
-                                <TableHead>Average Weight</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {formattedReportData.itemStats.map((item: any) => (
-                                <TableRow key={item.itemId}>
-                                  <TableCell>{item.itemName}</TableCell>
-                                  <TableCell>{item.recordCount}</TableCell>
-                                  <TableCell>{item.totalWeight.toFixed(2)} kg</TableCell>
-                                  <TableCell>{item.avgWeight.toFixed(2)} kg</TableCell>
+                              </TableHeader>
+                              <TableBody>
+                                {formattedReportData.userActivity.map(
+                                  (user: any) => (
+                                    <TableRow key={user.userId}>
+                                      <TableCell>{user.userName}</TableCell>
+                                      <TableCell>{user.recordCount}</TableCell>
+                                      <TableCell>
+                                        {user.totalWeight.toFixed(2)} kg
+                                      </TableCell>
+                                      <TableCell>
+                                        {Object.entries(user.statuses).map(
+                                          ([status, count]: [string, any]) => (
+                                            <span
+                                              key={status}
+                                              className="inline-block px-2 py-1 mr-1 text-xs bg-gray-100 rounded-full"
+                                            >
+                                              {status}: {count}
+                                            </span>
+                                          )
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  )
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                  {formattedReportData.itemStats &&
+                    formattedReportData.itemStats.length > 0 && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Item Statistics</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Item</TableHead>
+                                  <TableHead>Records</TableHead>
+                                  <TableHead>Total Weight</TableHead>
+                                  <TableHead>Average Weight</TableHead>
                                 </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
+                              </TableHeader>
+                              <TableBody>
+                                {formattedReportData.itemStats.map(
+                                  (item: any) => (
+                                    <TableRow key={item.itemId}>
+                                      <TableCell>{item.itemName}</TableCell>
+                                      <TableCell>{item.recordCount}</TableCell>
+                                      <TableCell>
+                                        {item.totalWeight.toFixed(2)} kg
+                                      </TableCell>
+                                      <TableCell>
+                                        {item.avgWeight.toFixed(2)} kg
+                                      </TableCell>
+                                    </TableRow>
+                                  )
+                                )}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
                 </div>
               )}
-              
-              {activeTab === 'charts' && (
+
+              {activeTab === "charts" && (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center">
                     <BarChart2 className="w-16 h-16 mx-auto text-gray-300" />
@@ -368,7 +507,8 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
                       Charts would be displayed here in a real implementation.
                     </p>
                     <p className="text-sm text-gray-400">
-                      You would use libraries like Chart.js or Recharts to visualize the data.
+                      You would use libraries like Chart.js or Recharts to
+                      visualize the data.
                     </p>
                   </div>
                 </div>
@@ -376,19 +516,27 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
             </>
           )}
         </div>
-        
-        <div className="flex items-center justify-end p-2 sm:p-4 border-t">
+
+        <div className="flex items-center justify-end p-2 border-t sm:p-4">
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={() => onDownload('csv')}>
-              <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+            {/* <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onDownload("csv")}
+            >
+              <Download className="w-3 h-3 mr-1 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Download</span> CSV
             </Button>
-            <Button variant="outline" size="sm" onClick={() => onDownload('excel')}>
-              <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onDownload("excel")}
+            >
+              <Download className="w-3 h-3 mr-1 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Download</span> Excel
-            </Button>
-            <Button size="sm" onClick={() => onDownload('pdf')}>
-              <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+            </Button> */}
+            <Button size="sm" onClick={() => onDownload("pdf")}>
+              <Download className="w-3 h-3 mr-1 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Download</span> PDF
             </Button>
           </div>

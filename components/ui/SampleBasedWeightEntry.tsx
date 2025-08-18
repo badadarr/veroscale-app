@@ -42,6 +42,7 @@ export default function SampleBasedWeightEntry({ onWeightCalculated }: SampleBas
     );
     
     calc.sample_id = selectedSample.id;
+    calc.delivery_id = selectedSample.delivery_id;
     setCalculation(calc);
     
     if (onWeightCalculated) {
@@ -103,7 +104,7 @@ export default function SampleBasedWeightEntry({ onWeightCalculated }: SampleBas
               <option value="">-- Select Sample --</option>
               {samples.map((sample) => (
                 <option key={sample.id} value={sample.id}>
-                  {sample.category} - {sample.item} ({sample.sample_weight} kg)
+                  {sample.category} - {sample.item} ({sample.sample_weight} kg) {sample.supplier_name ? `- From: ${sample.supplier_name}` : ''}
                 </option>
               ))}
             </select>
@@ -148,6 +149,8 @@ export default function SampleBasedWeightEntry({ onWeightCalculated }: SampleBas
             </div>
           </div>
 
+          {/* Source and Destination Info removed */}
+
           {/* Calculate Button */}
           <Button
             onClick={handleCalculate}
@@ -190,6 +193,8 @@ export default function SampleBasedWeightEntry({ onWeightCalculated }: SampleBas
                   {calculation.status.toUpperCase()}
                 </span>
               </div>
+              
+              {/* Source and Destination display removed */}
             </div>
           )}
         </div>

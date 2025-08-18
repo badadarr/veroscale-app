@@ -27,8 +27,6 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
   const [currentWeight, setCurrentWeight] = useState<IoTWeightData | null>(null);
   const [manualWeight, setManualWeight] = useState<number | null>(null);
   const [unit, setUnit] = useState<string>('kg');
-  const [source, setSource] = useState<string>('');
-  const [destination, setDestination] = useState<string>('');
   const [deviceId] = useState<string>('ESP32_001');
 
   // Subscribe to RFID requests and weight data
@@ -101,8 +99,6 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
           rfid_device_id: selectedEntry.device_id,
           total_weight: manualWeight,
           unit,
-          source,
-          destination,
           scan_time: selectedEntry.waktu,
           operator_id: userId
         }),
@@ -134,8 +130,6 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
         setSuccess(false);
         setSelectedEntry(null);
         setManualWeight(null);
-        setSource('');
-        setDestination('');
       }, 3000);
 
     } catch (err) {
@@ -310,30 +304,7 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Source
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="Source location"
-                    value={source}
-                    onChange={(e) => setSource(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Destination
-                  </label>
-                  <Input
-                    type="text"
-                    placeholder="Destination"
-                    value={destination}
-                    onChange={(e) => setDestination(e.target.value)}
-                  />
-                </div>
-              </div>
+              {/* Source and destination fields removed */}
 
               <div className="flex justify-between mt-4">
                 <Button

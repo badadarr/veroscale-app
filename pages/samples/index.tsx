@@ -2,13 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { toast } from "react-hot-toast";
 import apiClient from "@/lib/api";
-import {
-  Filter,
-  Plus,
-  Edit,
-  Trash2,
-  AlertCircle,
-} from "lucide-react";
+import { Filter, Plus, Edit, Trash2, AlertCircle } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
@@ -154,7 +148,7 @@ export default function Samples() {
           ...prev,
           sample_weight: data.weight.toString(),
         }));
-        toast.success(`✅ Data IoT: ${data.weight} kg`);
+        toast.success(`Data IoT: ${data.weight} kg`);
       } else {
         toast.error("❌ Data tidak valid, isi manual");
       }
@@ -298,12 +292,11 @@ export default function Samples() {
     <DashboardLayout title="Material Samples">
       <div className="space-y-6">
         {/* IoT Integration Section */}
-        <div className="grid grid-cols-1 gap-6 mb-6 lg:grid-cols-2">
+        <div className="grid gap-6 mb-6">
           <IoTWeightDisplay
             showSelectButton={showForm}
             onWeightSelect={handleIoTWeightSelect}
           />
-          <RFIDUserDisplay />
         </div>
         {error && (
           <div
@@ -409,7 +402,7 @@ export default function Samples() {
                           disabled={formLoading}
                           className="px-4"
                         >
-                          {formLoading ? "Loading..." : "Get IoT"}
+                          {formLoading ? "Loading..." : "IoT"}
                         </Button>
                       </div>
                       {formErrors.sample_weight && (
@@ -512,7 +505,7 @@ export default function Samples() {
                       of {pagination.totalItems} samples
                     </div>
                   </div>
-                  
+
                   <Pagination
                     currentPage={pagination.currentPage}
                     totalPages={pagination.totalPages}
