@@ -110,14 +110,19 @@ export default function OperatorGuide() {
               <ClipboardList className="h-5 w-5 mr-2" />
               Viewing Your Records
             </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-4 space-y-4">
+          </CardHeader>          <CardContent className="pt-4 space-y-4">
             <ol className="list-decimal ml-5 space-y-2 text-gray-700">
-              <li>Navigate to <span className="text-primary-600 font-medium">"Operations" → "My Records"</span></li>
-              <li>View all records you've entered</li>
-              <li>Filter by date, material, or status</li>
-              <li>Click on any record to view details or make corrections (if allowed)</li>
+              <li>Navigate to <span className="text-primary-600 font-medium">"My Records"</span> in the sidebar</li>
+              <li>View all records you've entered with advanced filtering options</li>
+              <li>Filter by date, material, or status using the search and filter tools</li>
+              <li>Click on any record to view details or report issues if needed</li>
             </ol>
+            <button
+              onClick={() => router.push('/operations/my-records')}
+              className="px-3 py-1 bg-primary-100 text-primary-700 rounded-md text-sm hover:bg-primary-200 transition-colors"
+            >
+              Go to My Records
+            </button>
 
             <button
               onClick={() => router.push('/operations/my-records')}

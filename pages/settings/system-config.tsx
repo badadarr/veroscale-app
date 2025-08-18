@@ -71,8 +71,7 @@ export default function SystemConfiguration() {
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label htmlFor="defaultWeightUnit" className="block text-sm font-medium text-gray-700 mb-1">
+                                <div>                                    <label htmlFor="defaultWeightUnit" className="block text-sm font-medium text-gray-700 mb-1">
                                         Default Weight Unit
                                     </label>
                                     <select
@@ -80,11 +79,11 @@ export default function SystemConfiguration() {
                                         value={formData.defaultWeightUnit}
                                         onChange={(e) => setFormData({ ...formData, defaultWeightUnit: e.target.value })}
                                         className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
+                                        disabled
                                     >
                                         <option value="kg">Kilograms (kg)</option>
-                                        <option value="g">Grams (g)</option>
-                                        <option value="lb">Pounds (lb)</option>
                                     </select>
+                                    <p className="text-xs text-gray-500 mt-1">System is configured to use kilograms (kg) only</p>
                                 </div>
 
                                 <div>

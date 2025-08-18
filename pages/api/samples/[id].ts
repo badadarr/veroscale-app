@@ -33,37 +33,11 @@ export default async function handler(
 // Get sample by ID
 async function getSampleById(res: NextApiResponse, id: string) {
   try {
-    // Check if we're using Supabase or MySQL implementation
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
-    let sample;
-
-    if (useSupabase) {
-      // Supabase implementation
-      const samples = await executeQuery<any[]>({
-        table: "samples_item",
-        action: "select",
-        filters: { id },
-        single: true,
-      });
-
-      sample = samples;
-    } else {
-      // MySQL implementation
-      const samples = await executeQuery<any[]>({
-        query: "SELECT * FROM samples_item WHERE id = ?",
-        values: [id],
-      });
-
-      if (!samples || samples.length === 0) {
-        return res.status(404).json({ message: "Sample not found" });
-      }
-
-      sample = samples[0];
-    }
+    const sample = await executeQuery<any>({
+      query: "SELECT * FROM samples_item WHERE id = ?",
+      values: [id],
+      single: true
+    });
 
     if (!sample) {
       return res.status(404).json({ message: "Sample not found" });
@@ -95,82 +69,36 @@ async function updateSample(
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Check if we're using Supabase or MySQL implementation
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
     // Check if sample exists
-    let existingSample;
-
-    if (useSupabase) {
-      // Supabase implementation
-      existingSample = await executeQuery<any>({
-        table: "samples_item",
-        action: "select",
-        filters: { id },
-        single: true,
-      });
-    } else {
-      // MySQL implementation
-      const samples = await executeQuery<any[]>({
-        query: "SELECT * FROM samples_item WHERE id = ?",
-        values: [id],
-      });
-
-      existingSample = samples && samples.length > 0 ? samples[0] : null;
-    }
+    const existingSample = await executeQuery<any>({
+      query: "SELECT * FROM samples_item WHERE id = ?",
+      values: [id],
+      single: true
+    });
 
     if (!existingSample) {
       return res.status(404).json({ message: "Sample not found" });
     }
 
     // Update the sample
-    const updatedData = {
-      category,
-      item,
-      sample_weight,
-      updated_at: new Date().toISOString(),
-    };
-
-    let result;
-
-    if (useSupabase) {
-      // Supabase implementation
-      result = await executeQuery<any[]>({
-        table: "samples_item",
-        action: "update",
-        data: updatedData,
-        filters: { id },
-        returning: "*",
-      });
-
-      // Supabase returns an array with the updated object
-      result = result[0];
-    } else {
-      // MySQL implementation
-      result = await executeQuery({
-        query: `
-          UPDATE samples_item
-          SET category = ?, item = ?, sample_weight = ?
-          WHERE id = ?
-        `,
-        values: [category, item, sample_weight, id],
-      });
-    }
+    await executeQuery({
+      query: `
+        UPDATE samples_item
+        SET category = ?, item = ?, sample_weight = ?
+        WHERE id = ?
+      `,
+      values: [category, item, sample_weight, id],
+    });
 
     return res.status(200).json({
       message: "Sample updated successfully",
-      sample: useSupabase
-        ? result
-        : {
-            id: parseInt(id),
-            category,
-            item,
-            sample_weight,
-            updated_at: new Date(),
-          },
+      sample: {
+        id: parseInt(id),
+        category,
+        item,
+        sample_weight,
+        updated_at: new Date(),
+      },
     });
   } catch (error) {
     console.error("Error updating sample:", error);
@@ -186,52 +114,22 @@ async function deleteSample(res: NextApiResponse, id: string, user: any) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
-    // Check if we're using Supabase or MySQL implementation
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
-
     // Check if sample exists
-    let existingSample;
-
-    if (useSupabase) {
-      // Supabase implementation
-      existingSample = await executeQuery<any>({
-        table: "samples_item",
-        action: "select",
-        filters: { id },
-        single: true,
-      });
-    } else {
-      // MySQL implementation
-      const samples = await executeQuery<any[]>({
-        query: "SELECT * FROM samples_item WHERE id = ?",
-        values: [id],
-      });
-
-      existingSample = samples && samples.length > 0 ? samples[0] : null;
-    }
+    const existingSample = await executeQuery<any>({
+      query: "SELECT * FROM samples_item WHERE id = ?",
+      values: [id],
+      single: true
+    });
 
     if (!existingSample) {
       return res.status(404).json({ message: "Sample not found" });
     }
 
     // Delete the sample
-    if (useSupabase) {
-      // Supabase implementation
-      await executeQuery({
-        table: "samples_item",
-        action: "delete",
-        filters: { id },
-      });
-    } else {
-      // MySQL implementation
-      await executeQuery({
-        query: "DELETE FROM samples_item WHERE id = ?",
-        values: [id],
-      });
-    }
+    await executeQuery({
+      query: "DELETE FROM samples_item WHERE id = ?",
+      values: [id],
+    });
 
     return res.status(200).json({ message: "Sample deleted successfully" });
   } catch (error) {

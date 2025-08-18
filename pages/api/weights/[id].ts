@@ -37,63 +37,80 @@ async function getWeightRecord(
   id: string
 ) {
   try {
-    // Check if we're using Supabase or MySQL implementation
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    // Get basic record first
+    const record = await executeQuery<any>({
+      table: "weight_records",
+      action: "select",
+      columns: "*",
+      filters: { record_id: id },
+      single: true,
+    });
 
-    let record;
-    if (useSupabase) {
-      // Supabase implementation
-      const records = await executeQuery<any[]>({
-        table: "public.weight_records",
-        action: "select",        columns: `
-          record_id, 
-          user_id, 
-          item_id, 
-          total_weight, 
-          timestamp, 
-          status,
-          approved_by,
-          approved_at,
-          ref_items(name), 
-          users!weight_records_user_id_fkey(name),
-          approver:users!fk_weight_records_approved_by(name)
-        `,
-        filters: { record_id: id },
-      });
-
-      if (records.length === 0) {
-        return res.status(404).json({ message: "Weight record not found" });
-      }      record = {
-        ...records[0],
-        item_name: records[0].ref_items?.name,
-        user_name: records[0].users?.name,
-        approved_by_name: records[0].approver?.name,
-      };
-    } else {      // MySQL implementation
-      const records = await executeQuery<any[]>({
-        query: `
-          SELECT wr.*, ri.name as item_name, u.name as user_name,
-                 approver.name as approved_by_name
-          FROM weight_records wr
-          JOIN ref_items ri ON wr.item_id = ri.id
-          JOIN users u ON wr.user_id = u.id
-          LEFT JOIN users approver ON wr.approved_by = approver.id
-          WHERE wr.id = ?
-        `,
-        values: [id],
-      });
-
-      if (records.length === 0) {
-        return res.status(404).json({ message: "Weight record not found" });
-      }
-
-      record = records[0];
+    if (!record) {
+      return res.status(404).json({ message: "Weight record not found" });
     }
 
-    return res.status(200).json({ record });
+    // Fetch related data separately to avoid complex JOIN issues
+    let sampleName = "Unknown Sample";
+    let userName = "Unknown User";
+    let approverName = null;
+
+    try {
+      // Get sample information
+      if (record.sample_id) {
+        const sample = await executeQuery<any>({
+          table: "samples_item",
+          action: "select",
+          columns: "id, category, item",
+          filters: { id: record.sample_id },
+          single: true,
+        });
+        if (sample) {
+          sampleName = `${sample.category} - ${sample.item}`;
+        }
+      }
+
+      // Get user information
+      if (record.user_id) {
+        const user = await executeQuery<any>({
+          table: "users",
+          action: "select",
+          columns: "id, name",
+          filters: { id: record.user_id },
+          single: true,
+        });
+        if (user) {
+          userName = user.name;
+        }
+      }
+
+      // Get approver information
+      if (record.approved_by) {
+        const approver = await executeQuery<any>({
+          table: "users",
+          action: "select",
+          columns: "id, name",
+          filters: { id: record.approved_by },
+          single: true,
+        });
+        if (approver) {
+          approverName = approver.name;
+        }
+      }
+    } catch (relatedDataError) {
+      console.warn("Error fetching related data:", relatedDataError);
+      // Continue with default values
+    }
+
+    // Construct the final record with related data
+    const finalRecord = {
+      ...record,
+      item_name: sampleName,
+      user_name: userName,
+      approved_by_name: approverName,
+    };
+
+    return res.status(200).json({ record: finalRecord });
   } catch (error) {
     console.error("Error fetching weight record:", error);
     return res.status(500).json({ message: "Server error" });
@@ -122,103 +139,116 @@ async function updateWeightRecord(
       });
     }
 
-    // Check if we're using Supabase or MySQL implementation
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    // First check if record exists - use record_id instead of id
+    const existingRecord = await executeQuery<any>({
+      table: "weight_records",
+      action: "select",
+      columns: "*",
+      filters: { record_id: id },
+      single: true,
+    });
 
-    let record;
-
-    if (useSupabase) {
-      // First check if record exists
-      const existingRecords = await executeQuery<any[]>({
-        table: "public.weight_records",
-        action: "select",
-        columns: "*",
-        filters: { record_id: id },
-      });
-
-      if (existingRecords.length === 0) {
-        return res.status(404).json({ message: "Weight record not found" });
-      }      // Update record using Supabase table API
-      const updateData: Record<string, any> = {};
-
-      if (status) {
-        updateData.status = status;
-        // Track approval information
-        if (status === "approved") {
-          updateData.approved_by = user.id; // User ID yang melakukan approval
-          updateData.approved_at = new Date().toISOString();
-        } else if (status === "pending" || status === "rejected") {
-          // Set to null if status is changed back from approved
-          updateData.approved_by = null;
-          updateData.approved_at = null;
-        }
-      }
-
-      const result = await executeQuery<any>({
-        table: "public.weight_records",
-        action: "update",
-        data: updateData,
-        filters: { record_id: id },
-        returning: "*",
-      });
-
-      record = result[0];
-    } else {
-      // MySQL implementation
-      // First check if record exists
-      const existingRecords = await executeQuery<any[]>({
-        query: "SELECT * FROM weight_records WHERE id = ?",
-        values: [id],
-      });
-
-      if (existingRecords.length === 0) {
-        return res.status(404).json({ message: "Weight record not found" });
-      }      // Update the record
-      let query = "UPDATE weight_records SET ";
-      const queryParams: any[] = [];
-
-      if (status) {
-        query += "status = ?";
-        queryParams.push(status);
-        // Track approval information
-        if (status === "approved") {
-          query += ", approved_by = ?, approved_at = NOW()";
-          queryParams.push(user.id); // User ID yang melakukan approval
-        } else if (status === "pending" || status === "rejected") {
-          // Set to null if status is changed back from approved
-          query += ", approved_by = NULL, approved_at = NULL";
-        }
-      }
-
-      query += " WHERE id = ?";
-      queryParams.push(id);
-
-      await executeQuery({
-        query,
-        values: queryParams,
-      });      // Fetch the updated record
-      const records = await executeQuery<any[]>({
-        query: `
-          SELECT wr.*, ri.name as item_name, u.name as user_name,
-                 approver.name as approved_by_name
-          FROM weight_records wr
-          JOIN ref_items ri ON wr.item_id = ri.id
-          JOIN users u ON wr.user_id = u.id
-          LEFT JOIN users approver ON wr.approved_by = approver.id
-          WHERE wr.id = ?
-        `,
-        values: [id],
-      });
-
-      record = records[0];
+    if (!existingRecord) {
+      return res.status(404).json({ message: "Weight record not found" });
     }
+
+    // Update record using Supabase table API
+    const updateData: Record<string, any> = {};
+
+    if (status) {
+      updateData.status = status;
+      // Track approval information
+      if (status === "approved") {
+        updateData.approved_by = user.id; // User ID yang melakukan approval
+        updateData.approved_at = new Date().toISOString();
+      } else if (status === "pending" || status === "rejected") {
+        // Set to null if status is changed back from approved
+        updateData.approved_by = null;
+        updateData.approved_at = null;
+      }
+    }    await executeQuery({
+      table: "weight_records",
+      action: "update",
+      data: updateData,
+      filters: { record_id: id },
+    });
+
+    // Fetch the updated record with basic data first
+    const record = await executeQuery<any>({
+      table: "weight_records",
+      action: "select",
+      columns: "*",
+      filters: { record_id: id },
+      single: true,
+    });
+
+    if (!record) {
+      return res.status(404).json({ message: "Updated record not found" });
+    }
+
+    // Fetch related data separately to avoid complex JOIN issues
+    let sampleName = "Unknown Sample";
+    let userName = "Unknown User";
+    let approverName = null;
+
+    try {
+      // Get sample information
+      if (record.sample_id) {
+        const sample = await executeQuery<any>({
+          table: "samples_item",
+          action: "select",
+          columns: "id, category, item",
+          filters: { id: record.sample_id },
+          single: true,
+        });
+        if (sample) {
+          sampleName = `${sample.category} - ${sample.item}`;
+        }
+      }
+
+      // Get user information
+      if (record.user_id) {
+        const user = await executeQuery<any>({
+          table: "users",
+          action: "select",
+          columns: "id, name",
+          filters: { id: record.user_id },
+          single: true,
+        });
+        if (user) {
+          userName = user.name;
+        }
+      }
+
+      // Get approver information
+      if (record.approved_by) {
+        const approver = await executeQuery<any>({
+          table: "users",
+          action: "select",
+          columns: "id, name",
+          filters: { id: record.approved_by },
+          single: true,
+        });
+        if (approver) {
+          approverName = approver.name;
+        }
+      }
+    } catch (relatedDataError) {
+      console.warn("Error fetching related data:", relatedDataError);
+      // Continue with default values
+    }
+
+    // Construct the final record with related data
+    const finalRecord = {
+      ...record,
+      item_name: sampleName,
+      user_name: userName,
+      approved_by_name: approverName,
+    };
 
     return res.status(200).json({
       message: "Weight record updated successfully",
-      record,
+      record: finalRecord,
     });
   } catch (error) {
     console.error("Error updating weight record:", error);
@@ -241,49 +271,25 @@ async function deleteWeightRecord(
       });
     }
 
-    // Check if we're using Supabase or MySQL implementation
-    const useSupabase = Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    );
+    // First check if record exists - use record_id
+    const existingRecord = await executeQuery<any>({
+      table: "weight_records",
+      action: "select",
+      columns: "*",
+      filters: { record_id: id },
+      single: true,
+    });
 
-    if (useSupabase) {
-      // First check if record exists
-      const existingRecords = await executeQuery<any[]>({
-        table: "public.weight_records",
-        action: "select",
-        columns: "*",
-        filters: { record_id: id },
-      });
-
-      if (existingRecords.length === 0) {
-        return res.status(404).json({ message: "Weight record not found" });
-      }
-
-      // Delete record using Supabase table API
-      await executeQuery({
-        table: "public.weight_records",
-        action: "delete",
-        filters: { record_id: id },
-      });
-    } else {
-      // MySQL implementation
-      // First check if record exists
-      const existingRecords = await executeQuery<any[]>({
-        query: "SELECT * FROM weight_records WHERE id = ?",
-        values: [id],
-      });
-
-      if (existingRecords.length === 0) {
-        return res.status(404).json({ message: "Weight record not found" });
-      }
-
-      // Delete the record
-      await executeQuery({
-        query: "DELETE FROM weight_records WHERE id = ?",
-        values: [id],
-      });
+    if (!existingRecord) {
+      return res.status(404).json({ message: "Weight record not found" });
     }
+
+    // Delete record using Supabase table API
+    await executeQuery({
+      table: "weight_records",
+      action: "delete",
+      filters: { record_id: id },
+    });
 
     return res.status(200).json({
       message: "Weight record deleted successfully",

@@ -9,12 +9,9 @@ import {
   Users,
   Database,
   Weight,
-  Settings,
   Menu,
   X,
   ChevronDown,
-  Clipboard,
-  BookOpen,
   Building,
   Truck,
   BarChart2,
@@ -49,13 +46,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   const baseNavigation: NavItem[] = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Samples", href: "/samples", icon: Database },
-    { name: "Weight Records", href: "/weights", icon: Weight },
+    // Weight Records only for admin/manager - operators use "My Records" instead
+    {
+      name: "Weight Records",
+      href: "/weights",
+      icon: Weight,
+      roles: ["admin", "manager"],
+    },
   ];
 
   // Operations navigation items (mainly for operators)
   const operationsNavigation: NavItem[] = [
     { name: "Weight Entry", href: "/operations/weight-entry", icon: Scale },
-    { name: "Scan Entry", href: "/operations/scan-entry", icon: Clipboard },
     { name: "My Records", href: "/operations/my-records", icon: Database },
   ];
 
@@ -67,12 +69,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       icon: BarChart2,
       roles: ["admin", "manager", "operator"],
     },
-    {
-      name: "Settings",
-      href: "/settings",
-      icon: Settings,
-      roles: ["admin", "manager"],
-    },
+    // Issues functionality removed
+    // Settings menu removed as requested
     { name: "User Management", href: "/users", icon: Users, roles: ["admin"] },
     {
       name: "Suppliers",
@@ -86,17 +84,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       icon: Truck,
       roles: ["admin", "marketing", "manager", "operator"],
     },
-    {
-      name: "Operator Guide",
-      href: "/operator-guide",
-      icon: BookOpen,
-      roles: ["operator"],
-    },
   ];
 
   // Filter navigation based on user role
   const navigation: NavItem[] = [
-    ...baseNavigation,
+    // Filter base navigation items by role if they have role restrictions
+    ...baseNavigation.filter(
+      (item) => !item.roles || item.roles.includes(user?.role || "")
+    ),
     ...(user?.role === "operator" ? operationsNavigation : []),
     ...roleBasedNavigation.filter(
       (item) => item.roles?.includes(user?.role || "") || false
@@ -148,7 +143,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               <Scale className="w-6 h-6 mr-2 text-primary-600" />
               <span className="text-lg font-semibold">VeroScale</span>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2">
               <div className="relative" ref={profileMenuRef}>
                 <button
                   onClick={() => setProfileMenuOpen(!profileMenuOpen)}
@@ -252,7 +247,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               </div>
 
               {/* Profile dropdown for desktop */}
-              <div className="items-center hidden lg:flex">
+              <div className="items-center hidden space-x-4 lg:flex">
                 <div className="relative" ref={profileMenuRef}>
                   <button
                     onClick={() => setProfileMenuOpen(!profileMenuOpen)}

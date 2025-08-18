@@ -3,103 +3,169 @@ import { supabaseAdmin } from "./supabase.js";
 // Helper functions for interacting with Supabase
 
 // Generic query function
-export async function query<T = any>({
+export async function query<T>({
   table,
   select = "*",
   filters = {},
   single = false,
+  order = {},
+  limit,
+  offset,
 }: {
   table: string;
   select?: string;
   filters?: Record<string, any>;
   single?: boolean;
+  order?: Record<string, "asc" | "desc">;
+  limit?: number;
+  offset?: number;
 }): Promise<T> {
-  try {
-    // Just use the table name directly without adding schema prefix
-    // This helps Supabase correctly establish relationships between tables
-    const tableName = table.includes(".")
-      ? table.split(".")[1] // Extract just the table name if schema is provided
-      : table;
+  // Remove schema prefix if exists
+  const tableName = table.includes(".") ? table.split(".")[1] : table;
 
-    let query = supabaseAdmin.from(tableName).select(select);
+  let query = supabaseAdmin.from(tableName).select(select);
 
-    // Apply filters
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined) {
-        // Handle special filter names with operators (e.g., timestamp_gte)
-        if (key.includes('_')) {
-          const parts = key.split('_');
-          const fieldName = parts[0];
-          const operator = parts[1];
-          
-          switch(operator) {
-            case 'eq':
-              query = query.eq(fieldName, value);
-              break;
-            case 'neq':
-              query = query.neq(fieldName, value);
-              break;
-            case 'gt':
-              query = query.gt(fieldName, value);
-              break;
-            case 'gte':
-              query = query.gte(fieldName, value);
-              break;
-            case 'lt':
-              query = query.lt(fieldName, value);
-              break;
-            case 'lte':
-              query = query.lte(fieldName, value);
-              break;
-            case 'in':
-              query = query.in(fieldName, value);
-              break;
-            case 'like':
-              query = query.like(fieldName, value);
-              break;
-            case 'ilike':
-              query = query.ilike(fieldName, value);
-              break;
-            default:
-              console.warn(`Unsupported operator: ${operator}`);
-              query = query.eq(key, value); // Fall back to equality
-          }
-        } else {
-          // Simple equality filter
-          query = query.eq(key, value);
+  // Apply filters
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined) {
+      // Handle special filter names with operators (e.g., timestamp_gte)
+      if (key.includes("_")) {
+        const parts = key.split("_");
+        const fieldName = parts[0];
+        const operator = parts[1];
+
+        switch (operator) {
+          case "eq":
+            query = query.eq(fieldName, value);
+            break;
+          case "neq":
+            query = query.neq(fieldName, value);
+            break;
+          case "gt":
+            query = query.gt(fieldName, value);
+            break;
+          case "gte":
+            query = query.gte(fieldName, value);
+            break;
+          case "lt":
+            query = query.lt(fieldName, value);
+            break;
+          case "lte":
+            query = query.lte(fieldName, value);
+            break;
+          case "in":
+            query = query.in(fieldName, value);
+            break;
+          case "like":
+            query = query.like(fieldName, value);
+            break;
+          case "ilike":
+            query = query.ilike(fieldName, value);
+            break;
+          default:
+            console.warn(`Unsupported operator: ${operator}`);
+            query = query.eq(key, value); // Fall back to equality
         }
-      }
-    });
-
-    // Execute query
-    const { data, error } = single ? await query.single() : await query;
-
-    if (error) throw error;
-
-    // Check if this is aggregate result (common for count, sum, etc.)
-    if (
-      data &&
-      typeof data === "object" &&
-      !Array.isArray(data) &&
-      select !== "*"
-    ) {
-      // For aggregate functions, wrap the result in an array to match MySQL behavior
-      if (
-        select.toLowerCase().includes("count(") ||
-        select.toLowerCase().includes("sum(") ||
-        select.toLowerCase().includes("avg(") ||
-        select.toLowerCase().includes("min(") ||
-        select.toLowerCase().includes("max(")
-      ) {
-        return [data] as unknown as T;
+      } else {
+        // Simple equality filter
+        query = query.eq(key, value);
       }
     }
+  });
 
-    return data as T;
-  } catch (error) {
-    console.error("Database query error:", error);
-    throw new Error(`Database query failed for table ${table}`);
+  // Apply order if specified
+  Object.entries(order).forEach(([column, direction]) => {
+    query = query.order(column, { ascending: direction === "asc" });
+  });
+
+  // Apply limit and offset if specified
+  if (limit !== undefined) {
+    if (offset !== undefined) {
+      query = query.range(offset, offset + limit - 1);
+    } else {
+      query = query.limit(limit);
+    }
   }
+
+  if (single) {
+    const { data, error } = await query.single();
+    if (error) throw error;
+    return data as T;
+  } else {
+    const { data, error } = await query;
+    if (error) throw error;
+    return data as T;
+  }
+}
+
+// Count function for pagination
+export async function queryCount<T>({
+  table,
+  filters = {},
+}: {
+  table: string;
+  filters?: Record<string, any>;
+}): Promise<T> {
+  // Remove schema prefix if exists
+  const tableName = table.includes(".") ? table.split(".")[1] : table;
+
+  let query = supabaseAdmin
+    .from(tableName)
+    .select("*", { count: "exact", head: true });
+
+  // Apply filters
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined) {
+      // Handle special filter names with operators (e.g., timestamp_gte)
+      if (key.includes("_")) {
+        const parts = key.split("_");
+        const fieldName = parts[0];
+        const operator = parts[1];
+
+        switch (operator) {
+          case "eq":
+            query = query.eq(fieldName, value);
+            break;
+          case "neq":
+            query = query.neq(fieldName, value);
+            break;
+          case "gt":
+            query = query.gt(fieldName, value);
+            break;
+          case "gte":
+            query = query.gte(fieldName, value);
+            break;
+          case "lt":
+            query = query.lt(fieldName, value);
+            break;
+          case "lte":
+            query = query.lte(fieldName, value);
+            break;
+          case "in":
+            query = query.in(fieldName, value);
+            break;
+          case "like":
+            query = query.like(fieldName, value);
+            break;
+          case "ilike":
+            query = query.ilike(fieldName, value);
+            break;
+          default:
+            console.warn(`Unsupported operator: ${operator}`);
+            query = query.eq(key, value); // Fall back to equality
+        }
+      } else {
+        // Simple equality filter
+        query = query.eq(key, value);
+      }
+    }
+  });
+
+  const { count, error } = await query;
+  if (error) throw error;
+
+  // Return count in the format expected by the API
+  return [{ count }] as T;
 }
 
 // Insert function
@@ -159,37 +225,37 @@ export async function update<T = any>({
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined) {
         // Handle special filter names with operators (e.g., timestamp_gte)
-        if (key.includes('_')) {
-          const parts = key.split('_');
+        if (key.includes("_")) {
+          const parts = key.split("_");
           const fieldName = parts[0];
           const operator = parts[1];
-          
-          switch(operator) {
-            case 'eq':
+
+          switch (operator) {
+            case "eq":
               query = query.eq(fieldName, value);
               break;
-            case 'neq':
+            case "neq":
               query = query.neq(fieldName, value);
               break;
-            case 'gt':
+            case "gt":
               query = query.gt(fieldName, value);
               break;
-            case 'gte':
+            case "gte":
               query = query.gte(fieldName, value);
               break;
-            case 'lt':
+            case "lt":
               query = query.lt(fieldName, value);
               break;
-            case 'lte':
+            case "lte":
               query = query.lte(fieldName, value);
               break;
-            case 'in':
+            case "in":
               query = query.in(fieldName, value);
               break;
-            case 'like':
+            case "like":
               query = query.like(fieldName, value);
               break;
-            case 'ilike':
+            case "ilike":
               query = query.ilike(fieldName, value);
               break;
             default:
@@ -237,37 +303,37 @@ export async function remove<T = any>({
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined) {
         // Handle special filter names with operators (e.g., timestamp_gte)
-        if (key.includes('_')) {
-          const parts = key.split('_');
+        if (key.includes("_")) {
+          const parts = key.split("_");
           const fieldName = parts[0];
           const operator = parts[1];
-          
-          switch(operator) {
-            case 'eq':
+
+          switch (operator) {
+            case "eq":
               query = query.eq(fieldName, value);
               break;
-            case 'neq':
+            case "neq":
               query = query.neq(fieldName, value);
               break;
-            case 'gt':
+            case "gt":
               query = query.gt(fieldName, value);
               break;
-            case 'gte':
+            case "gte":
               query = query.gte(fieldName, value);
               break;
-            case 'lt':
+            case "lt":
               query = query.lt(fieldName, value);
               break;
-            case 'lte':
+            case "lte":
               query = query.lte(fieldName, value);
               break;
-            case 'in':
+            case "in":
               query = query.in(fieldName, value);
               break;
-            case 'like':
+            case "like":
               query = query.like(fieldName, value);
               break;
-            case 'ilike':
+            case "ilike":
               query = query.ilike(fieldName, value);
               break;
             default:

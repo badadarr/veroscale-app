@@ -23,12 +23,14 @@ const StatusInfoCard: React.FC<StatusInfoCardProps> = ({ role }) => {
                                     <li>Use the <strong>Reject</strong> button for records with issues or discrepancies</li>
                                     <li>Use the <strong>Pending</strong> button to reset status for records that need further review</li>
                                 </ul>
-                            </div>
-                        ) : (
+                            </div>) : (
                             <div>
                                 <p>
                                     Weight records status can only be changed by administrators and managers.
                                     Please contact them if you need to change the status of a record.
+                                </p>
+                                <p className="mt-1">
+                                    <strong>Note:</strong> As an operator, you can only view records that you have created.
                                 </p>
                                 <p className="mt-1">
                                     <strong>Status meanings:</strong>

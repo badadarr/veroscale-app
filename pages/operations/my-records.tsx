@@ -1,15 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import {
-  ClipboardList,
-  Search,
-  Calendar,
-  Filter,
-  X,
-  AlertTriangle,
-  Eye,
-  Flag,
-} from "lucide-react";
+import { toast } from "react-hot-toast";
+import { ClipboardList, Search, Calendar, Filter, X, Eye } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
@@ -27,22 +19,38 @@ import StatusInfoCard from "@/components/ui/StatusInfoCard";
 import { formatDate, formatWeight } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import apiClient from "@/lib/api";
+import WeightRecordDetailModal from "@/components/ui/WeightRecordDetailModal";
 
 interface WeightRecord {
-  record_id?: number;
   id: number;
+  record_id: number;
+  user_id: number;
+  sample_id?: number;
+  item_id?: number;
   item_name: string;
   total_weight: number;
+  iot_weight?: number;
+  manager_weight?: number;
+  weight_variance?: number;
+  weight_variance_percentage?: number;
+  variance_status?: "normal" | "warning" | "critical";
+  iot_device_id?: string;
+  verification_required?: boolean;
   timestamp: string;
   status: "pending" | "approved" | "rejected";
   source?: string;
   destination?: string;
+  notes?: string;
+  unit?: string;
+  approved_by?: number;
+  approved_at?: string;
+  created_at?: string;
+  user_name?: string;
+  approved_by_name?: string;
   batch_number?: string;
   quantity?: number;
-  unit?: string;
   variance_amount?: number;
   variance_percentage?: number;
-  variance_status?: string;
 }
 
 export default function MyRecords() {
@@ -59,120 +67,77 @@ export default function MyRecords() {
   const [selectedRecord, setSelectedRecord] = useState<WeightRecord | null>(
     null
   );
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [issueType, setIssueType] = useState("");
-  const [issueDescription, setIssueDescription] = useState("");
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-
-  // Mock data for demonstration
-  const mockRecords = useMemo<WeightRecord[]>(
-    () => [
-      {
-        id: 1,
-        item_name: "Metal Sheet",
-        total_weight: 125.5,
-        timestamp: "2025-05-27T09:30:00",
-        status: "approved",
-        source: "Warehouse A",
-        destination: "Production Line 1",
-        batch_number: "B2025-05-01",
-      },
-      {
-        id: 2,
-        item_name: "Steel Rod Bundle",
-        total_weight: 355.0,
-        timestamp: "2025-05-27T10:15:00",
-        status: "pending",
-        source: "Supplier XYZ",
-        destination: "Warehouse B",
-      },
-      {
-        id: 3,
-        item_name: "Concrete Block",
-        total_weight: 227.3,
-        timestamp: "2025-05-26T11:00:00",
-        status: "rejected",
-        source: "Construction Site",
-        destination: "Recycling Center",
-        batch_number: "B2025-05-02",
-      },
-      {
-        id: 4,
-        item_name: "Metal Sheet",
-        total_weight: 130.2,
-        timestamp: "2025-05-26T14:20:00",
-        status: "approved",
-        source: "Warehouse A",
-        destination: "Production Line 2",
-      },
-      {
-        id: 5,
-        item_name: "Sand Bag",
-        total_weight: 30.0,
-        timestamp: "2025-05-25T09:10:00",
-        status: "approved",
-        source: "Supplier ABC",
-        destination: "Construction Site",
-      },
-      {
-        id: 6,
-        item_name: "Gravel Container",
-        total_weight: 18.3,
-        timestamp: "2025-05-25T11:30:00",
-        status: "pending",
-        source: "Quarry",
-        destination: "Warehouse C",
-      },
-    ],
-    []
-  );
-
-  // Redirect users who don't have access (only operator, admin, manager allowed)
-  useEffect(() => {
-    if (user) {
-      if (!["operator", "admin", "manager"].includes(user.role)) {
-        router.push("/dashboard");
-        return;
-      }
-    } else {
-      // If no user is logged in, redirect to login
-      router.push("/login");
-    }
-  }, [user, router]);
 
   // Load user's records on component mount
   useEffect(() => {
     const fetchRecords = async () => {
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        // For operators, only show their own records
-        // For admin and manager, show all records
-        const params: { user_id?: string } = {};
-        if (user?.role === "operator") {
-          params.user_id = user.id.toString();
-        }
+        // For operators, the API will automatically filter to their records
+        // For admin/manager, they can see all records
+        const endpoint = "/api/weights?limit=50";
 
-        const response = await apiClient.get(
-          "/api/weights?" + new URLSearchParams(params)
+        const response = await apiClient.get(endpoint);
+        const fetchedRecords = response.data.records || [];
+
+        // Map API data to match the expected WeightRecord interface
+        const mappedRecords: WeightRecord[] = fetchedRecords.map(
+          (record: any) => ({
+            id: record.record_id || record.id,
+            record_id: record.record_id || record.id,
+            user_id: record.user_id || 0,
+            sample_id: record.sample_id,
+            item_id: record.item_id,
+            item_name: record.item_name || "Unknown Item",
+            total_weight: record.total_weight || 0,
+            iot_weight: record.iot_weight,
+            manager_weight: record.manager_weight,
+            weight_variance: record.weight_variance,
+            weight_variance_percentage: record.weight_variance_percentage,
+            variance_status: record.variance_status,
+            iot_device_id: record.iot_device_id,
+            verification_required: record.verification_required,
+            timestamp:
+              record.timestamp || record.created_at || new Date().toISOString(),
+            status: record.status || "pending",
+            source: record.source,
+            destination: record.destination,
+            notes: record.notes,
+            unit: record.unit || "kg",
+            approved_by: record.approved_by,
+            approved_at: record.approved_at,
+            created_at: record.created_at,
+            user_name: record.user_name,
+            approved_by_name: record.approved_by_name,
+            batch_number: record.batch_number,
+            quantity: record.quantity,
+            variance_amount: record.variance_amount,
+            variance_percentage: record.variance_percentage,
+          })
         );
-        const records = response.data.records || [];
-        setRecords(records);
-        setFilteredRecords(records);
+
+        setRecords(mappedRecords);
+        setFilteredRecords(mappedRecords);
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching records:", error);
-        // Fallback to mock data if API fails
-        setRecords(mockRecords);
-        setFilteredRecords(mockRecords);
-      } finally {
+        toast.error("Failed to load weight records");
+        setRecords([]);
+        setFilteredRecords([]);
         setLoading(false);
       }
     };
 
-    if (user?.id && ["operator", "admin", "manager"].includes(user?.role)) {
-      fetchRecords();
-    }
-  }, [user?.id, user?.role, mockRecords]);
+    fetchRecords();
+  }, [user?.id, user?.role]);
 
   // Filter records based on search term and filters
   useEffect(() => {
@@ -217,60 +182,16 @@ export default function MyRecords() {
   // Handle view record details
   const handleViewRecord = (record: WeightRecord) => {
     setSelectedRecord(record);
+    setIsDetailModalOpen(true);
   };
 
   // Handle closing record details
   const handleCloseDetails = () => {
     setSelectedRecord(null);
+    setIsDetailModalOpen(false);
   };
 
-  // Handle opening report issue modal
-  const handleOpenReportModal = () => {
-    setIsReportModalOpen(true);
-  };
-
-  // Handle closing report issue modal
-  const handleCloseReportModal = () => {
-    setIsReportModalOpen(false);
-    setIssueType("");
-    setIssueDescription("");
-  };
-
-  // Handle submitting issue report
-  const handleSubmitIssue = async () => {
-    if (!selectedRecord || !issueType || !issueDescription) {
-      return;
-    }
-
-    try {
-      // In production, use real API call
-      // await apiClient.post('/api/issues', {
-      //   record_id: selectedRecord.id,
-      //   issue_type: issue  // Handle submitting issue report
-  const handleSubmitIssue = async () => {
-    if (!selectedRecord || !issueType || !issueDescription) {
-      return;
-    }
-
-    try {
-      // In production, use real API call
-      // await apiClient.post('/api/issues', {
-      //   record_id: selectedRecord.id,
-      //   issue_type: issueType,
-      //   description: issueDescription,
-      //   user_id: user?.id
-      // });
-
-      // For demo, just close the modal and show success
-      setTimeout(() => {
-        handleCloseReportModal();
-        handleCloseDetails();
-        // In a real implementation, you would show a success message
-      }, 1000);
-    } catch (error) {
-      console.error("Error reporting issue:", error);
-    }
-  };
+  // Issue reporting functionality removed
 
   // Reset all filters
   const resetFilters = () => {
@@ -280,51 +201,25 @@ export default function MyRecords() {
     setEndDate("");
     setCurrentPage(1);
   };
-  
+
   // Calculate pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredRecords.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
-  
+
   // Handle page change
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
   };
-  // Show loading if user is not loaded yet or if user doesn't have access
-  if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-12 h-12 border-t-2 border-b-2 rounded-full animate-spin border-primary-600"></div>
-      </div>
-    );
-  }
-
-  // Check if user has access to this page
-  if (!["operator", "admin", "manager"].includes(user.role)) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="mb-2 text-xl font-semibold text-gray-900">
-            Access Denied
-          </h2>
-          <p className="text-gray-600">
-            You don't have permission to access this page.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <DashboardLayout
-      title={user?.role === "operator" ? "My Records" : "All Records"}
-    >
+    <DashboardLayout title="My Records">
       <div className="max-w-6xl mx-auto">
         <StatusInfoCard role={user?.role} />
 
-        <div className="flex flex-col mb-6 md:flex-row md:items-center md:justify-between">
-          <h1 className="mb-2 text-2xl font-bold text-gray-900 md:mb-0">
+        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2 md:mb-0">
             {user?.role === "operator"
               ? "My Weight Records"
               : "All Weight Records"}
@@ -336,9 +231,9 @@ export default function MyRecords() {
               size="sm"
             >
               {showFilters ? (
-                <X className="w-4 h-4 mr-1" />
+                <X className="h-4 w-4 mr-1" />
               ) : (
-                <Filter className="w-4 h-4 mr-1" />
+                <Filter className="h-4 w-4 mr-1" />
               )}
               {showFilters ? "Hide Filters" : "Show Filters"}
             </Button>
@@ -352,22 +247,22 @@ export default function MyRecords() {
           </div>
         </div>
 
-        <Card className="mb-6 shadow-md">
+        <Card className="shadow-md mb-6">
           <CardHeader className="pb-3">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-              <CardTitle className="flex items-center mb-2 text-primary-800 md:mb-0">
-                <ClipboardList className="w-5 h-5 mr-2" />
+              <CardTitle className="flex items-center text-primary-800 mb-2 md:mb-0">
+                <ClipboardList className="h-5 w-5 mr-2" />
                 Weight Records
               </CardTitle>
 
               <div className="relative">
-                <Search className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   type="text"
                   placeholder="Search by material or batch..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 md:w-64"
+                  className="pl-9 w-full md:w-64"
                 />
               </div>
             </div>
@@ -375,10 +270,10 @@ export default function MyRecords() {
 
           {showFilters && (
             <div className="px-6 pb-3">
-              <div className="p-3 rounded-md bg-gray-50">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+              <div className="p-3 bg-gray-50 rounded-md">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                   <div>
-                    <label className="block mb-1 text-xs font-medium text-gray-700">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Status
                     </label>
                     <select
@@ -394,30 +289,30 @@ export default function MyRecords() {
                     </select>
                   </div>
                   <div>
-                    <label className="block mb-1 text-xs font-medium text-gray-700">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       From Date
                     </label>
                     <div className="relative">
-                      <Calendar className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
+                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="text-sm pl-9"
+                        className="pl-9 text-sm"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block mb-1 text-xs font-medium text-gray-700">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       To Date
                     </label>
                     <div className="relative">
-                      <Calendar className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
+                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                       <Input
                         type="date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="text-sm pl-9"
+                        className="pl-9 text-sm"
                       />
                     </div>
                   </div>
@@ -438,15 +333,15 @@ export default function MyRecords() {
 
           <CardContent>
             {loading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="w-12 h-12 border-t-2 border-b-2 rounded-full animate-spin border-primary-600"></div>
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
               </div>
             ) : filteredRecords.length === 0 ? (
-              <div className="py-12 text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 mb-4 bg-gray-100 rounded-full">
-                  <ClipboardList className="w-8 h-8 text-gray-400" />
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                  <ClipboardList className="h-8 w-8 text-gray-400" />
                 </div>
-                <h3 className="mb-1 text-lg font-medium text-gray-900">
+                <h3 className="text-lg font-medium text-gray-900 mb-1">
                   No records found
                 </h3>
                 <p className="text-gray-500">
@@ -471,296 +366,120 @@ export default function MyRecords() {
                 )}
               </div>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Material</TableHead>
-                    <TableHead>Weight</TableHead>
-                    <TableHead>Date & Time</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {currentItems.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">
-                        #{record.id}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{record.item_name}</div>
-                          {record.quantity && record.quantity > 1 && (
-                            <div className="text-xs text-gray-500">
-                              Qty: {record.quantity}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">
-                            {formatWeight(record.total_weight)}
-                          </div>
-                          {record.variance_amount && (
-                            <div
-                              className={`text-xs ${
-                                record.variance_status === "normal"
-                                  ? "text-green-600"
-                                  : record.variance_status === "over"
-                                  ? "text-orange-600"
-                                  : "text-red-600"
-                              }`}
-                            >
-                              {record.variance_amount >= 0 ? "+" : ""}
-                              {record.variance_amount.toFixed(2)} kg
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDate(record.timestamp)}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            record.status === "approved"
-                              ? "bg-success-100 text-success-800"
-                              : record.status === "pending"
-                              ? "bg-warning-100 text-warning-800"
-                              : "bg-error-100 text-error-800"
-                          }`}
-                        >
-                          {record.status.charAt(0).toUpperCase() +
-                            record.status.slice(1)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleViewRecord(record)}
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          View
-                        </Button>
-                      </TableCell>
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Material</TableHead>
+                      <TableHead>Weight</TableHead>
+                      <TableHead>Date & Time</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              
-              {/* Pagination */}
-              {filteredRecords.length > 0 && (
-                <div className="mt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-sm text-gray-600">
-                      Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredRecords.length)} of {filteredRecords.length} records
+                  </TableHeader>
+                  <TableBody>
+                    {currentItems.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">
+                          #{record.id}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {record.item_name}
+                            </div>
+                            {record.quantity && record.quantity > 1 && (
+                              <div className="text-xs text-gray-500">
+                                Qty: {record.quantity}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {formatWeight(record.total_weight)}
+                            </div>
+                            {record.variance_amount && (
+                              <div
+                                className={`text-xs ${
+                                  record.variance_status === "normal"
+                                    ? "text-green-600"
+                                    : record.variance_status === "warning"
+                                    ? "text-orange-600"
+                                    : "text-red-600"
+                                }`}
+                              >
+                                {record.variance_amount >= 0 ? "+" : ""}
+                                {record.variance_amount.toFixed(2)} kg
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatDate(record.timestamp)}</TableCell>
+                        <TableCell>
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              record.status === "approved"
+                                ? "bg-success-100 text-success-800"
+                                : record.status === "pending"
+                                ? "bg-warning-100 text-warning-800"
+                                : "bg-error-100 text-error-800"
+                            }`}
+                          >
+                            {record.status.charAt(0).toUpperCase() +
+                              record.status.slice(1)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewRecord(record)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                {filteredRecords.length > 0 && (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-sm text-gray-600">
+                        Showing {indexOfFirstItem + 1}-
+                        {Math.min(indexOfLastItem, filteredRecords.length)} of{" "}
+                        {filteredRecords.length} records
+                      </div>
                     </div>
+
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={handlePageChange}
+                    />
                   </div>
-                  
-                  <Pagination
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={handlePageChange}
-                  />
-                </div>
-              )}
+                )}
+              </>
             )}
           </CardContent>
         </Card>
 
-        {/* Record Details Modal */}
+        {/* Weight Record Detail Modal */}
         {selectedRecord && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-500 bg-opacity-75">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex items-start justify-between p-4 border-b">
-                <h3 className="text-xl font-semibold text-gray-900">
-                  Record #{selectedRecord.id} Details
-                </h3>
-                <button
-                  onClick={handleCloseDetails}
-                  className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg p-1.5"
-                  title="Close details"
-                  aria-label="Close details"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Material</p>
-                    <p className="text-lg font-semibold">
-                      {selectedRecord.item_name}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Weight</p>
-                    <p className="text-lg font-semibold">
-                      {formatWeight(selectedRecord.total_weight)}
-                    </p>
-                    {selectedRecord.variance_amount && (
-                      <p
-                        className={`text-sm ${
-                          selectedRecord.variance_status === "normal"
-                            ? "text-green-600"
-                            : selectedRecord.variance_status === "over"
-                            ? "text-orange-600"
-                            : "text-red-600"
-                        }`}
-                      >
-                        Variance:{" "}
-                        {selectedRecord.variance_amount >= 0 ? "+" : ""}
-                        {selectedRecord.variance_amount.toFixed(2)} kg (
-                        {selectedRecord.variance_percentage?.toFixed(1)}%)
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Date & Time</p>
-                    <p className="font-medium">
-                      {formatDate(selectedRecord.timestamp)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Status</p>
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        selectedRecord.status === "approved"
-                          ? "bg-success-100 text-success-800"
-                          : selectedRecord.status === "pending"
-                          ? "bg-warning-100 text-warning-800"
-                          : "bg-error-100 text-error-800"
-                      }`}
-                    >
-                      {selectedRecord.status.charAt(0).toUpperCase() +
-                        selectedRecord.status.slice(1)}
-                    </span>
-                  </div>
-                  {selectedRecord.quantity && (
-                    <div>
-                      <p className="text-sm text-gray-500">Quantity</p>
-                      <p className="font-medium">
-                        {selectedRecord.quantity}{" "}
-                        {selectedRecord.unit || "unit(s)"}
-                      </p>
-                    </div>
-                  )}
-                  {selectedRecord.batch_number && (
-                    <div>
-                      <p className="text-sm text-gray-500">Batch Number</p>
-                      <p className="font-medium">
-                        {selectedRecord.batch_number}
-                      </p>
-                    </div>
-                  )}
-                  {selectedRecord.source && (
-                    <div>
-                      <p className="text-sm text-gray-500">Source</p>
-                      <p className="font-medium">{selectedRecord.source}</p>
-                    </div>
-                  )}
-                  {selectedRecord.destination && (
-                    <div>
-                      <p className="text-sm text-gray-500">Destination</p>
-                      <p className="font-medium">
-                        {selectedRecord.destination}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between p-6 border-t border-gray-200">
-                <Button variant="outline" onClick={handleCloseDetails}>
-                  Close
-                </Button>
-                {selectedRecord.status !== "rejected" && (
-                  <Button variant="secondary" onClick={handleOpenReportModal}>
-                    <Flag className="w-4 h-4 mr-1" />
-                    Report Issue
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
+          <WeightRecordDetailModal
+            isOpen={isDetailModalOpen}
+            onClose={handleCloseDetails}
+            record={selectedRecord}
+          />
         )}
 
-        {/* Report Issue Modal */}
-        {isReportModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-500 bg-opacity-75">
-            <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
-              <div className="flex items-start justify-between p-4 border-b">
-                <h3 className="flex items-center text-xl font-semibold text-gray-900">
-                  <AlertTriangle className="w-5 h-5 mr-2 text-warning-500" />
-                  Report Issue
-                </h3>
-                <button
-                  onClick={handleCloseReportModal}
-                  className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg p-1.5"
-                  title="Close report modal"
-                  aria-label="Close report modal"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-700">
-                    Issue Type *
-                  </label>
-                  <select
-                    value={issueType}
-                    onChange={(e) => setIssueType(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    title="Select issue type"
-                    required
-                  >
-                    <option value="">Select Issue Type</option>
-                    <option value="incorrect_weight">Incorrect Weight</option>
-                    <option value="wrong_material">Wrong Material</option>
-                    <option value="duplicate_entry">Duplicate Entry</option>
-                    <option value="wrong_batch">Wrong Batch Number</option>
-                    <option value="other">Other Issue</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-700">
-                    Description *
-                  </label>
-                  <textarea
-                    value={issueDescription}
-                    onChange={(e) => setIssueDescription(e.target.value)}
-                    rows={4}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                    placeholder="Please provide details about the issue..."
-                    required
-                  ></textarea>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end p-6 border-t border-gray-200">
-                <Button
-                  variant="outline"
-                  onClick={handleCloseReportModal}
-                  className="mr-2"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="default"
-                  onClick={handleSubmitIssue}
-                  disabled={!issueType || !issueDescription}
-                >
-                  Submit Report
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Issue reporting functionality removed */}
       </div>
     </DashboardLayout>
   );
