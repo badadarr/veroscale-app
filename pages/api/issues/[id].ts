@@ -1,10 +1,16 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { executeQuery } from "@/lib/db-adapter";
+import { getUserFromToken } from "@/lib/auth";
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const user = await getUserFromToken(req);
+
+  if (!user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
   const { id } = req.query;
 
   if (!id) {
@@ -16,8 +22,18 @@ export default async function handler(
       case "GET":
         return await handleGet(req, res, id as string);
       case "PUT":
+        if (user.role !== "admin") {
+          return res
+            .status(403)
+            .json({ error: "Only administrators can update issues" });
+        }
         return await handlePut(req, res, id as string);
       case "DELETE":
+        if (user.role !== "admin") {
+          return res
+            .status(403)
+            .json({ error: "Only administrators can delete issues" });
+        }
         return await handleDelete(req, res, id as string);
       default:
         return res.status(405).json({ error: "Method not allowed" });

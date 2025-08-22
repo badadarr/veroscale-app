@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { executeQuery } from "../../../lib/db-adapter";
-import { getUserFromToken, canManageSamples, hasFullAccess } from "../../../lib/auth";
+import { getUserFromToken, hasFullAccess } from "../../../lib/auth";
 
 export default async function handler(
   req: NextApiRequest,
@@ -36,7 +36,7 @@ async function getSampleById(res: NextApiResponse, id: string) {
     const sample = await executeQuery<any>({
       query: "SELECT * FROM samples_item WHERE id = ?",
       values: [id],
-      single: true
+      single: true,
     });
 
     if (!sample) {
@@ -58,8 +58,8 @@ async function updateSample(
   user: any
 ) {
   try {
-    // Allow admins, managers, and marketing to update samples
-    if (!canManageSamples(user)) {
+    // Only admin can update samples (manager is read-only)
+    if (!hasFullAccess(user)) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
@@ -73,7 +73,7 @@ async function updateSample(
     const existingSample = await executeQuery<any>({
       query: "SELECT * FROM samples_item WHERE id = ?",
       values: [id],
-      single: true
+      single: true,
     });
 
     if (!existingSample) {
@@ -109,8 +109,8 @@ async function updateSample(
 // Delete sample
 async function deleteSample(res: NextApiResponse, id: string, user: any) {
   try {
-    // Allow admins, managers, and marketing to delete samples
-    if (!canManageSamples(user)) {
+    // Only admin can delete samples
+    if (!hasFullAccess(user)) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
@@ -118,7 +118,7 @@ async function deleteSample(res: NextApiResponse, id: string, user: any) {
     const existingSample = await executeQuery<any>({
       query: "SELECT * FROM samples_item WHERE id = ?",
       values: [id],
-      single: true
+      single: true,
     });
 
     if (!existingSample) {

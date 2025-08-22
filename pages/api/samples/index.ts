@@ -103,8 +103,8 @@ async function getSamples(req: NextApiRequest, res: NextApiResponse) {
 // Add a new sample
 async function addSample(req: NextApiRequest, res: NextApiResponse, user: any) {
   try {
-    // Allow admins, managers, marketing, and operators to add samples
-    if (!["admin", "manager", "marketing", "operator"].includes(user.role)) {
+    // Only admin can add samples (manager is read-only)
+    if (user.role !== "admin") {
       return res.status(403).json({ message: "Unauthorized" });
     }
 

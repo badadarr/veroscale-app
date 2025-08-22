@@ -39,7 +39,7 @@ async function addExpectedWeightColumn() {
     console.log("Found", samples?.length || 0, "samples");
     console.log("Please run this SQL directly in your Supabase dashboard:");
     console.log(
-      "ALTER TABLE public.samples_item ADD COLUMN IF NOT EXISTS expected_weight DECIMAL(10, 2);"
+      "ALTER TABLE public.samples_item ADD COLUMN IF NOT EXISTS expected_weight DECIMAL(10, 3);"
     );
     console.log(
       "UPDATE public.samples_item SET expected_weight = sample_weight WHERE expected_weight IS NULL;"

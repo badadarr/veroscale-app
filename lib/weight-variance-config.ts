@@ -1,9 +1,10 @@
-// Simple auto-approval system
-// Auto-approve if variance <= 5% OR <= 0.5kg
-// Auto-reject if variance > 5% AND > 0.5kg
+// Variance classification using percentage-only thresholds for consistency with DB triggers
+// - Approve (auto_approved) if abs(variance%) < 5%
+// - Warning (pending) if 5% <= abs(variance%) <= 10%
+// - Critical (auto_rejected) if abs(variance%) > 10%
 
-const THRESHOLD_PERCENT = 5.0; // 5%
-const THRESHOLD_KG = 0.5; // 0.5kg
+const THRESHOLD_PERCENT_APPROVE = 5.0; // <5%
+const THRESHOLD_PERCENT_WARNING = 10.0; // 5-10%
 
 export type VarianceStatus = "auto_approved" | "auto_rejected" | "pending";
 
@@ -35,27 +36,37 @@ export function analyzeWeightVariance(
 
   const varianceKg = Math.abs(iotWeight - expectedWeight);
   const variancePercentage = Math.abs((varianceKg / expectedWeight) * 100);
-
-  // Auto-approve if within both thresholds
-  if (variancePercentage <= THRESHOLD_PERCENT && varianceKg <= THRESHOLD_KG) {
+  
+  // Approve
+  if (variancePercentage < THRESHOLD_PERCENT_APPROVE) {
     return {
       varianceKg,
       variancePercentage,
       status: "auto_approved",
-      reason: `Variance OK: ${variancePercentage.toFixed(1)}% / ${varianceKg.toFixed(2)}kg`,
+      reason: `Variance OK: ${variancePercentage.toFixed(1)}% / ${varianceKg.toFixed(2)}kg (<${THRESHOLD_PERCENT_APPROVE}%)`,
       withinThreshold: true,
     };
-  } 
-  // Auto-reject if exceeds both thresholds
-  else {
+  }
+
+  // Warning (pending verification)
+  if (variancePercentage <= THRESHOLD_PERCENT_WARNING) {
     return {
       varianceKg,
       variancePercentage,
-      status: "auto_rejected",
-      reason: `Variance too high: ${variancePercentage.toFixed(1)}% / ${varianceKg.toFixed(2)}kg (Max: ${THRESHOLD_PERCENT}% / ${THRESHOLD_KG}kg)`,
+      status: "pending",
+      reason: `Warning: ${variancePercentage.toFixed(1)}% / ${varianceKg.toFixed(2)}kg (${THRESHOLD_PERCENT_APPROVE}-${THRESHOLD_PERCENT_WARNING}%)`,
       withinThreshold: false,
     };
   }
+
+  // Critical (reject)
+  return {
+    varianceKg,
+    variancePercentage,
+    status: "auto_rejected",
+    reason: `Critical variance: ${variancePercentage.toFixed(1)}% / ${varianceKg.toFixed(2)}kg (> ${THRESHOLD_PERCENT_WARNING}%)`,
+    withinThreshold: false,
+  };
 }
 
 /**

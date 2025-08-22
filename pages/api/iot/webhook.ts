@@ -24,12 +24,18 @@ export default async function handler(
       return res.status(400).json({ message: "Invalid weight value" });
     }
 
+    // Keep precision at 3 decimals
+    const to3dp = (n: number) => Math.round(n * 1000) / 1000;
+    const weight3dp = to3dp(weightValue);
+
     // Insert weight record directly to database
     const { data: weightRecord, error: weightError } = await supabase
       .from("weight_records")
       .insert({
         item_id: 1, // Default material ID, bisa disesuaikan
-        total_weight: weightValue,
+        total_weight: weight3dp,
+        iot_weight: weight3dp,
+        iot_device_id: device_id,
         unit: "kg",
         source: `IoT_${device_id}`,
         destination: "Warehouse",
@@ -49,7 +55,7 @@ export default async function handler(
       const { error: rfidError } = await supabase.from("rfid_logs").insert({
         rfid_id,
         device_id,
-        weight_record_id: weightRecord.id,
+        weight_record_id: weightRecord.record_id,
         scan_time: timestamp || new Date().toISOString(),
       });
 

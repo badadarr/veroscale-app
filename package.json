@@ -14,7 +14,9 @@
     "setup-supabase": "node scripts/setup-supabase.js",
     "migrate-to-supabase": "node scripts/mysql-to-supabase.js",
     "run-migrations": "ts-node scripts/run-migrations.ts",
-    "migrate:add-rfid-uid": "node scripts/run-rfid-uid-migration.js"
+    "migrate:add-rfid-uid": "node scripts/run-rfid-uid-migration.js",
+    "migrate:expected-weight:precision": "ts-node scripts/run-alter-expected-weight-precision.ts",
+    "migrate:weight-records:precision": "ts-node scripts/run-alter-weight-records-precision.ts"
   },
   "dependencies": {
     "@arcjet/next": "^1.0.0-beta.9",

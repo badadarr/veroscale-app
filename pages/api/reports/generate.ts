@@ -23,13 +23,8 @@ export default async function handler(
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  // Check if user has permission to access reports
-  // Only admin, manager, and operator roles can access reports
-  if (!["admin", "manager", "operator"].includes(user.role)) {
-    return res
-      .status(403)
-      .json({ message: "You do not have permission to access reports" });
-  }
+  // Managers can preview (json), only admin can generate files
+  const isAdmin = user.role === 'admin';
 
   if (req.method !== "GET") {
     return res.status(405).json({ message: "Method not allowed" });
@@ -45,12 +40,16 @@ export default async function handler(
     // Get report data based on report ID
     const reportData = await getReportData(parseInt(reportId as string));
 
-    // Handle JSON format for preview
+    // Handle JSON format (preview) for admin and manager
     if (format === "json") {
       return res.status(200).json({
         success: true,
         reportData: reportData,
       });
+    }
+
+    if (!isAdmin) {
+      return res.status(403).json({ message: "Only administrators can generate downloadable reports" });
     }
 
     // Set appropriate headers for file download

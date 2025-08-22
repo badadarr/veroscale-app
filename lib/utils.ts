@@ -17,10 +17,10 @@ export function formatDate(date: Date | string): string {
 }
 
 export function formatWeight(weight: number | null | undefined): string {
-  if (weight === null || weight === undefined || isNaN(weight)) {
-    return "0.00 kg";
+  if (weight === null || weight === undefined || isNaN(weight as number)) {
+    return "0.000 kg";
   }
-  return `${Number(weight).toFixed(2)} kg`;
+  return `${Number(weight).toFixed(3)} kg`;
 }
 
 export const truncateText = (text: string, maxLength: number): string => {

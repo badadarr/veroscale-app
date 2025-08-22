@@ -31,11 +31,12 @@
     weight DECIMAL(10, 2) NOT NULL
   );
 
-  -- Weight records table  CREATE TABLE IF NOT EXISTS public.weight_records (
+  -- Weight records table
+  CREATE TABLE IF NOT EXISTS public.weight_records (
     record_id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL,
     item_id INTEGER NOT NULL,
-    total_weight DECIMAL(10, 2) NOT NULL,
+  total_weight DECIMAL(10, 3) NOT NULL,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status VARCHAR(10) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
     approved_by INTEGER NULL,
@@ -174,7 +175,7 @@
     marketing_user_id INTEGER NOT NULL,
     item_name VARCHAR(200) NOT NULL,
     expected_quantity DECIMAL(10, 2) NOT NULL,
-    expected_weight DECIMAL(10, 2),
+  expected_weight DECIMAL(10, 3),
     scheduled_date DATE NOT NULL,
     delivery_status VARCHAR(20) DEFAULT 'scheduled' CHECK (delivery_status IN ('scheduled', 'in_transit', 'delivered', 'delayed', 'cancelled')),
     actual_delivery_date DATE,

@@ -8,7 +8,7 @@ WHERE role = 'manager';
 
 -- 2. Add new columns to weight_records for automatic variance checking
 ALTER TABLE public.weight_records 
-ADD COLUMN IF NOT EXISTS expected_weight DECIMAL(10, 2) NULL,
+ADD COLUMN IF NOT EXISTS expected_weight DECIMAL(10, 3) NULL,
 ADD COLUMN IF NOT EXISTS variance_status VARCHAR(20) DEFAULT 'pending' CHECK (variance_status IN ('auto_approved', 'auto_rejected', 'pending_verification', 'pending')),
 ADD COLUMN IF NOT EXISTS verification_required BOOLEAN DEFAULT FALSE,
 ADD COLUMN IF NOT EXISTS variance_reason TEXT NULL,
@@ -30,7 +30,7 @@ COMMENT ON COLUMN public.weight_records.auto_approved_at IS 'Timestamp when auto
 CREATE OR REPLACE FUNCTION analyze_weight_variance()
 RETURNS TRIGGER AS $$
 DECLARE
-  variance_kg DECIMAL(10, 2);
+  variance_kg DECIMAL(10, 3);
   variance_percentage DECIMAL(5, 2);
   max_variance_percentage DECIMAL(5, 2) := 5.0; -- 5% max variance
   max_variance_kg DECIMAL(10, 2) := 0.5; -- 0.5kg max absolute variance

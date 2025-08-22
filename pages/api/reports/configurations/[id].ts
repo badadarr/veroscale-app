@@ -41,11 +41,11 @@ export default async function handler(
       // All roles can view report configurations
       return getReportConfigurationById(res, id);
     case "PUT":
-      // Only admin, manager, and marketing can update report configurations
-      if (!isAdminUser && !isManagerUser && !isMarketingUser) {
+      // Only admin can update report configurations (manager is read-only)
+      if (!isAdminUser) {
         return res
           .status(403)
-          .json({ message: "Forbidden. Admin, Manager, or Marketing access required." });
+          .json({ message: "Forbidden. Admin access required." });
       }
       return updateReportConfiguration(req, res, id);
     case "DELETE":
@@ -122,7 +122,7 @@ async function updateReportConfiguration(
       return res.status(400).json({
         message: `Report type must be one of: ${validTypes.join(", ")}`,
       });
-    }    // Check if config exists
+    } // Check if config exists
     const existingConfig = await executeQuery<any[]>({
       query: "SELECT id FROM report_configurations WHERE id = ?",
       values: [id],
@@ -136,8 +136,7 @@ async function updateReportConfiguration(
 
     // Check for duplicate name (excluding this record)
     const duplicateCheck = await executeQuery<any[]>({
-      query:
-        "SELECT id FROM report_configurations WHERE name = ? AND id != ?",
+      query: "SELECT id FROM report_configurations WHERE name = ? AND id != ?",
       values: [name, id],
     });
 

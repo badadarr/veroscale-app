@@ -299,7 +299,7 @@ export default function Deliveries() {
                     <Input
                       label="Expected Weight (kg)"
                       type="number"
-                      step="0.01"
+                      step="0.001"
                       placeholder="Enter weight"
                       value={formData.expected_weight}
                       onChange={(e) =>
@@ -395,8 +395,8 @@ export default function Deliveries() {
                         </TableCell>
                         <TableCell>{delivery.expected_quantity}</TableCell>
                         <TableCell>
-                          {delivery.expected_weight
-                            ? `${delivery.expected_weight} kg`
+                          {delivery.expected_weight !== undefined && delivery.expected_weight !== null
+                            ? `${Number(delivery.expected_weight).toFixed(3)} kg`
                             : "—"}
                         </TableCell>
                         <TableCell>

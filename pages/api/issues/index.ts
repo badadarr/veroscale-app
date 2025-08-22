@@ -19,6 +19,7 @@ export default async function handler(
     case "GET":
       return getIssues(req, res);
     case "POST":
+      // Any authenticated user can report an issue; restrictions apply to updates/deletes
       return createIssue(req, res, user);
     default:
       return res.status(405).json({ message: "Method not allowed" });

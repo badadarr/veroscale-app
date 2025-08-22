@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.supplier_deliveries (
   marketing_user_id INTEGER NOT NULL,
   item_name VARCHAR(200) NOT NULL,
   expected_quantity DECIMAL(10, 2) NOT NULL,
-  expected_weight DECIMAL(10, 2),
+  expected_weight DECIMAL(10, 3),
   scheduled_date DATE NOT NULL,
   delivery_status VARCHAR(20) DEFAULT 'scheduled' CHECK (delivery_status IN ('scheduled', 'in_transit', 'delivered', 'delayed', 'cancelled')),
   actual_delivery_date DATE,

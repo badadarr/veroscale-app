@@ -132,10 +132,10 @@ async function updateWeightRecord(
       return res.status(400).json({ message: "Invalid status value" });
     }
 
-    // Only admin and manager can update status
-    if (status && !["admin", "manager"].includes(user.role)) {
+  // Only admin can update status (manager is read-only)
+  if (status && user.role !== "admin") {
       return res.status(403).json({
-        message: "Only administrators and managers can change approval status",
+    message: "Only administrators can change approval status",
       });
     }
 

@@ -15,7 +15,7 @@ import StatusInfoCard from "@/components/ui/StatusInfoCard";
 import WeightVarianceDisplay from "@/components/ui/WeightVarianceDisplay";
 import WeightRecordDetailModal from "@/components/ui/WeightRecordDetailModal";
 import { Pagination } from "@/components/ui/Pagination";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatWeight } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "react-hot-toast";
 import apiClient from "@/lib/api";
@@ -51,7 +51,6 @@ interface WeightRecord {
 export default function WeightRecords() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [records, setRecords] = useState<WeightRecord[]>([]);
   const [filteredRecords, setFilteredRecords] = useState<WeightRecord[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -116,11 +115,9 @@ export default function WeightRecords() {
           approved_by_name: record.approved_by_name,
           // batch_number: record.batch_number,
         }));
-        setRecords(processedRecords);
         setFilteredRecords(processedRecords);
       } else {
         console.warn("No records found or invalid format:", data);
-        setRecords([]);
         setFilteredRecords([]);
       }
     } catch (error: unknown) {
@@ -139,7 +136,6 @@ export default function WeightRecords() {
         toast.error("Failed to load weight records");
       }
 
-      setRecords([]);
       setFilteredRecords([]);
     } finally {
       setLoading(false);
@@ -238,13 +234,18 @@ export default function WeightRecords() {
                         </TableCell>
                         <TableCell>{record.item_name}</TableCell>
                         <TableCell>
-                          {record.total_weight} {record.unit || "kg"}
+                          {formatWeight(record.total_weight)}
                         </TableCell>
                         <TableCell>
                           {record.iot_weight && record.manager_weight ? (
                             <div className="space-y-1 text-xs">
-                              <div>IoT: {record.iot_weight} kg</div>
-                              <div>Target: {record.manager_weight} kg</div>
+                              <div>
+                                IoT: {Number(record.iot_weight).toFixed(3)} kg
+                              </div>
+                              <div>
+                                Target:{" "}
+                                {Number(record.manager_weight).toFixed(3)} kg
+                              </div>
                             </div>
                           ) : (
                             <span className="text-xs text-gray-400">-</span>

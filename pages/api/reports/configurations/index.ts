@@ -1,5 +1,4 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { executeQuery } from "../../../../lib/db-adapter";
 import { getUserFromToken } from "../../../../lib/auth";
 import { withArcjetProtection } from "../../../../lib/arcjet-middleware";
 
@@ -17,17 +16,24 @@ export default async function handler(
     return res.status(401).json({ message: "Unauthorized" });
   }
 
-  // Only admin and manager roles can access report configurations
-  if (!['admin', 'manager'].includes(user.role)) {
-    return res.status(403).json({ message: "You do not have permission to access report configurations" });
-  }
-
   // Handle different HTTP methods
   switch (req.method) {
     case "GET":
+      // Admin and manager can view configurations
+      if (!["admin", "manager"].includes(user.role)) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
       return getReportConfiguration(req, res);
     case "POST":
     case "PUT":
+      // Only admin can modify configurations
+      if (user.role !== "admin") {
+        return res
+          .status(403)
+          .json({
+            message: "Only administrators can modify report configurations",
+          });
+      }
       return saveReportConfiguration(req, res);
     default:
       return res.status(405).json({ message: "Method not allowed" });
@@ -35,7 +41,10 @@ export default async function handler(
 }
 
 // Get report configuration
-async function getReportConfiguration(req: NextApiRequest, res: NextApiResponse) {
+async function getReportConfiguration(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   try {
     // Mock data for now - in a real implementation, this would come from the database
     const configuration = {
@@ -45,26 +54,31 @@ async function getReportConfiguration(req: NextApiRequest, res: NextApiResponse)
       defaultReportFormat: "PDF",
       emailNotifications: {
         notifyAdmins: true,
-        notifyOnFailure: true
-      }
+        notifyOnFailure: true,
+      },
     };
 
     return res.status(200).json({ configuration });
   } catch (error) {
     console.error("Error fetching report configuration:", error);
-    return res.status(500).json({ message: "Failed to fetch report configuration" });
+    return res
+      .status(500)
+      .json({ message: "Failed to fetch report configuration" });
   }
 }
 
 // Save report configuration
-async function saveReportConfiguration(req: NextApiRequest, res: NextApiResponse) {
+async function saveReportConfiguration(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   try {
-    const { 
-      companyName, 
-      companyLogo, 
-      reportFooter, 
+    const {
+      companyName,
+      companyLogo,
+      reportFooter,
       defaultReportFormat,
-      emailNotifications 
+      emailNotifications,
     } = req.body;
 
     // Validate required fields
@@ -74,7 +88,7 @@ async function saveReportConfiguration(req: NextApiRequest, res: NextApiResponse
 
     // In a real implementation, this would update the database
     // For now, we'll just return success
-    return res.status(200).json({ 
+    return res.status(200).json({
       message: "Report configuration saved successfully",
       configuration: {
         companyName,
@@ -82,11 +96,13 @@ async function saveReportConfiguration(req: NextApiRequest, res: NextApiResponse
         reportFooter,
         defaultReportFormat,
         emailNotifications,
-        updatedAt: new Date().toISOString()
-      }
+        updatedAt: new Date().toISOString(),
+      },
     });
   } catch (error) {
     console.error("Error saving report configuration:", error);
-    return res.status(500).json({ message: "Failed to save report configuration" });
+    return res
+      .status(500)
+      .json({ message: "Failed to save report configuration" });
   }
 }

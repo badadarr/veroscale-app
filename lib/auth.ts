@@ -154,11 +154,8 @@ export function isMarketing(user: UserPayload | null): boolean {
 
 // Check if user can manage samples (admin, manager, marketing)
 export function canManageSamples(user: UserPayload | null): boolean {
-  return (
-    user?.role === "admin" ||
-    user?.role === "manager" ||
-    user?.role === "marketing"
-  );
+  // Managers are read-only; allow only admin or marketing to manage samples
+  return user?.role === "admin" || user?.role === "marketing";
 }
 
 // Check if user has admin role (full access)

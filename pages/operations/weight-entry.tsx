@@ -487,7 +487,7 @@ export default function WeightEntry() {
                   <div className="flex space-x-2">
                     <Input
                       type="number"
-                      step="0.01"
+                      step="0.001"
                       placeholder="Use 'Get from IoT' button to capture weight"
                       value={weight || ""}
                       readOnly
@@ -541,7 +541,7 @@ export default function WeightEntry() {
                       </div>
                       <div className="text-right">
                         <span className="text-lg font-bold text-blue-800">
-                          {expectedWeight.toFixed(2)} kg
+                          {Number(expectedWeight).toFixed(3)} kg
                         </span>
                       </div>
                     </div>

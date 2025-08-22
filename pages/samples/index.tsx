@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
 import { toast } from "react-hot-toast";
 import apiClient from "@/lib/api";
 import { Filter, Plus, Edit, Trash2, AlertCircle } from "lucide-react";
@@ -20,7 +19,6 @@ import { Pagination } from "@/components/ui/Pagination";
 import { formatWeight } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import IoTWeightDisplay from "@/components/ui/IoTWeightDisplay";
-import RFIDUserDisplay from "@/components/ui/RFIDUserDisplay";
 import { useCallback } from "react";
 
 interface Sample {
@@ -41,7 +39,6 @@ interface PaginationInfo {
 
 export default function Samples() {
   const { user } = useAuth();
-  const router = useRouter();
   const [samples, setSamples] = useState<Sample[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,9 +60,9 @@ export default function Samples() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [formLoading, setFormLoading] = useState(false);
   const isAdmin = user?.role === "admin";
-  const isManager = user?.role === "manager";
-  const isOperator = user?.role === "operator";
-  const canEdit = isAdmin || isManager || isOperator;
+  // Operators cannot edit samples
+  // Managers are read-only across the app
+  const canEdit = isAdmin; // only admin can create/update/delete samples
 
   const fetchSamples = useCallback(async () => {
     setLoading(true);
@@ -383,7 +380,7 @@ export default function Samples() {
                       <div className="flex space-x-2">
                         <Input
                           type="number"
-                          step="0.01"
+                          step="0.001"
                           placeholder="Enter weight"
                           value={formData.sample_weight}
                           onChange={(e) =>
