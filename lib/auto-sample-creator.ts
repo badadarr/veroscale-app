@@ -1,5 +1,5 @@
-import IoTService from './iot-service';
-import apiClient from './api';
+import IoTService from "./iot-service";
+import apiClient from "./api";
 
 export class AutoSampleCreator {
   private static instance: AutoSampleCreator;
@@ -14,36 +14,50 @@ export class AutoSampleCreator {
   }
 
   // Auto-create samples when weight data comes from IoT
-  enableAutoSampleCreation(defaultCategory: string = 'IoT Material', defaultItem: string = 'Auto Sample') {
+  enableAutoSampleCreation(
+    defaultCategory: string = "IoT Material",
+    defaultItem: string = "Auto Sample"
+  ) {
     if (this.isActive) return;
 
     this.isActive = true;
-    
-    const unsubscribe = IoTService.subscribeToWeightData('esp32_timbangan_001', async (data) => {
-      const currentWeight = parseFloat(data.berat_terakhir);
-      
-      // Only create sample if weight is significant and different from last processed
-      if (currentWeight > 0.1 && data.berat_terakhir !== this.lastProcessedWeight) {
-        try {
-          await this.createAutoSample(currentWeight, defaultCategory, defaultItem);
-          this.lastProcessedWeight = data.berat_terakhir;
-        } catch (error) {
-          console.error('Auto sample creation failed:', error);
+
+    const unsubscribe = IoTService.subscribeToWeightData(
+      "esp32_timbangan_001",
+      async (data) => {
+        const currentWeight = parseFloat(data.weight);
+
+        // Only create sample if weight is significant and different from last processed
+        if (currentWeight > 0.1 && data.weight !== this.lastProcessedWeight) {
+          try {
+            await this.createAutoSample(
+              currentWeight,
+              defaultCategory,
+              defaultItem
+            );
+            this.lastProcessedWeight = data.weight;
+          } catch (error) {
+            console.error("Auto sample creation failed:", error);
+          }
         }
       }
-    });
+    );
 
     return unsubscribe;
   }
 
-  private async createAutoSample(weight: number, category: string, item: string) {
+  private async createAutoSample(
+    weight: number,
+    category: string,
+    item: string
+  ) {
     const sampleData = {
       category,
-      item: `${item} - ${new Date().toLocaleTimeString('id-ID')}`,
-      sample_weight: weight
+      item: `${item} - ${new Date().toLocaleTimeString("id-ID")}`,
+      sample_weight: weight,
     };
 
-    await apiClient.post('/api/samples', sampleData);
+    await apiClient.post("/api/samples", sampleData);
   }
 
   disable() {

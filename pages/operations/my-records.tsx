@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useRouter } from "next/router";
 import { toast } from "react-hot-toast";
 import { ClipboardList, Search, Calendar, Filter, X, Eye } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
@@ -37,7 +36,7 @@ interface WeightRecord {
   iot_device_id?: string;
   verification_required?: boolean;
   timestamp: string;
-  status: "pending" | "approved" | "rejected";
+  status: "auto_approved" | "auto_rejected" | "processed";
   source?: string;
   destination?: string;
   notes?: string;
@@ -47,14 +46,12 @@ interface WeightRecord {
   created_at?: string;
   user_name?: string;
   approved_by_name?: string;
-  batch_number?: string;
   quantity?: number;
   variance_amount?: number;
   variance_percentage?: number;
 }
 
 export default function MyRecords() {
-  const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState<WeightRecord[]>([]);
@@ -89,8 +86,39 @@ export default function MyRecords() {
         const fetchedRecords = response.data.records || [];
 
         // Map API data to match the expected WeightRecord interface
+        type APIWeightRecord = {
+          record_id?: number;
+          id?: number;
+          user_id?: number;
+          sample_id?: number;
+          item_id?: number;
+          item_name?: string;
+          total_weight?: number;
+          iot_weight?: number;
+          manager_weight?: number;
+          weight_variance?: number;
+          weight_variance_percentage?: number;
+          variance_status?: "normal" | "warning" | "critical" | string;
+          iot_device_id?: string;
+          verification_required?: boolean;
+          timestamp?: string;
+          created_at?: string;
+          status?: "auto_approved" | "auto_rejected" | "processed" | string;
+          source?: string;
+          destination?: string;
+          notes?: string;
+          unit?: string;
+          approved_by?: number;
+          approved_at?: string;
+          user_name?: string;
+          approved_by_name?: string;
+          quantity?: number;
+          variance_amount?: number;
+          variance_percentage?: number;
+        };
+
         const mappedRecords: WeightRecord[] = fetchedRecords.map(
-          (record: any) => ({
+          (record: APIWeightRecord) => ({
             id: record.record_id || record.id,
             record_id: record.record_id || record.id,
             user_id: record.user_id || 0,
@@ -107,7 +135,7 @@ export default function MyRecords() {
             verification_required: record.verification_required,
             timestamp:
               record.timestamp || record.created_at || new Date().toISOString(),
-            status: record.status || "pending",
+            status: record.status || "processed",
             source: record.source,
             destination: record.destination,
             notes: record.notes,
@@ -117,7 +145,6 @@ export default function MyRecords() {
             created_at: record.created_at,
             user_name: record.user_name,
             approved_by_name: record.approved_by_name,
-            batch_number: record.batch_number,
             quantity: record.quantity,
             variance_amount: record.variance_amount,
             variance_percentage: record.variance_percentage,
@@ -145,13 +172,8 @@ export default function MyRecords() {
 
     // Filter by search term (material name)
     if (searchTerm) {
-      filtered = filtered.filter(
-        (record) =>
-          record.item_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (record.batch_number &&
-            record.batch_number
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase()))
+      filtered = filtered.filter((record) =>
+        record.item_name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -219,11 +241,14 @@ export default function MyRecords() {
         <StatusInfoCard role={user?.role} />
 
         <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2 md:mb-0">
-            {user?.role === "operator"
-              ? "My Weight Records"
-              : "All Weight Records"}
-          </h1>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">
+              Weight Processing History
+            </h1>
+            <p className="text-gray-600">
+              All weight records are automatically processed by the system
+            </p>
+          </div>
           <div className="flex space-x-2">
             <Button
               variant="outline"
@@ -236,13 +261,6 @@ export default function MyRecords() {
                 <Filter className="h-4 w-4 mr-1" />
               )}
               {showFilters ? "Hide Filters" : "Show Filters"}
-            </Button>
-            <Button
-              variant="default"
-              onClick={() => router.push("/operations/weight-entry")}
-              size="sm"
-            >
-              Add New Record
             </Button>
           </div>
         </div>
@@ -259,7 +277,7 @@ export default function MyRecords() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
                   type="text"
-                  placeholder="Search by material or batch..."
+                  placeholder="Search by material..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9 w-full md:w-64"
@@ -419,18 +437,47 @@ export default function MyRecords() {
                         </TableCell>
                         <TableCell>{formatDate(record.timestamp)}</TableCell>
                         <TableCell>
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              record.status === "approved"
-                                ? "bg-success-100 text-success-800"
-                                : record.status === "pending"
-                                ? "bg-warning-100 text-warning-800"
-                                : "bg-error-100 text-error-800"
-                            }`}
-                          >
-                            {record.status.charAt(0).toUpperCase() +
-                              record.status.slice(1)}
-                          </span>
+                          {(() => {
+                            const getStatusDisplay = (status: string) => {
+                              switch (status) {
+                                case "auto_approved":
+                                  return {
+                                    label: "Auto Approved",
+                                    className: "bg-green-100 text-green-800",
+                                    icon: "✅",
+                                  };
+                                case "auto_rejected":
+                                  return {
+                                    label: "Auto Rejected",
+                                    className: "bg-red-100 text-red-800",
+                                    icon: "❌",
+                                  };
+                                case "processed":
+                                  return {
+                                    label: "Processed",
+                                    className: "bg-blue-100 text-blue-800",
+                                    icon: "📊",
+                                  };
+                                default:
+                                  return {
+                                    label:
+                                      status.charAt(0).toUpperCase() +
+                                      status.slice(1),
+                                    className: "bg-gray-100 text-gray-800",
+                                    icon: "📝",
+                                  };
+                              }
+                            };
+
+                            const statusInfo = getStatusDisplay(record.status);
+                            return (
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.className}`}
+                              >
+                                {statusInfo.icon} {statusInfo.label}
+                              </span>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           <Button

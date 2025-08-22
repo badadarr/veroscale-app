@@ -1,4 +1,12 @@
-import { database, ref, onValue, ensureAuth } from "./firebase";
+import {
+  database,
+  ref,
+  onValue,
+  ensureAuth,
+  query,
+  orderByChild,
+  limitToLast,
+} from "./firebase";
 
 export interface IoTWeightData {
   weight: string;
@@ -18,6 +26,14 @@ export interface RFIDUser {
   email: string;
   name: string;
   uid: string;
+  waktu?: string; // Add optional waktu property
+}
+
+export interface RFIDRequest {
+  uid?: string;
+  rfid?: string;
+  timestamp?: string;
+  device_id?: string;
 }
 
 export interface DeviceData {
@@ -34,7 +50,9 @@ export class IoTService {
   private listeners: Map<
     string,
     {
-      ref: import("firebase/database").DatabaseReference;
+      ref:
+        | import("firebase/database").Query
+        | import("firebase/database").DatabaseReference;
       unsubscribe: () => void;
     }
   > = new Map();
@@ -54,26 +72,67 @@ export class IoTService {
     // Ensure authentication before subscribing
     ensureAuth()
       .then(() => {
-        const weightRef = ref(database, `devices/${deviceId}/current`);
-        const unsubscribe = onValue(
-          weightRef,
+        // Subscribe to current reading at devices/{deviceId}/current (single object)
+        const currentRef = ref(database, `devices/${deviceId}/current`);
+        const unsubscribeCurrent = onValue(
+          currentRef,
           (snapshot) => {
-            const currentData = snapshot.val();
-            if (currentData) {
-              callback({
-                weight: currentData.weight,
-                timestamp: currentData.timestamp,
-                device_id: currentData.device_id,
-              });
-            }
+            type CurrentEntry = {
+              weight: string | number;
+              timestamp: number;
+              device_id?: string;
+            } | null;
+            const data = snapshot.val() as CurrentEntry;
+            if (!data) return;
+            const weightStr =
+              typeof data.weight === "number"
+                ? String(data.weight)
+                : data.weight;
+            if (weightStr == null) return;
+            callback({
+              weight: weightStr,
+              timestamp:
+                typeof data.timestamp === "number"
+                  ? data.timestamp
+                  : Date.now(),
+              device_id: data.device_id ?? deviceId,
+            });
           },
           (error) => {
             console.error("IoT Weight subscription error:", error);
           }
         );
 
+        // Compatibility fallback: some devices still write to berat_terakhir (string)
+        const legacyRef = ref(database, `devices/${deviceId}/berat_terakhir`);
+        const unsubscribeLegacy = onValue(
+          legacyRef,
+          (snapshot) => {
+            const legacyWeight = snapshot.val() as string | number | null;
+            if (legacyWeight == null) return;
+            const weightStr =
+              typeof legacyWeight === "number"
+                ? String(legacyWeight)
+                : legacyWeight;
+            callback({
+              weight: weightStr,
+              timestamp: Date.now(),
+              device_id: deviceId,
+            });
+          },
+          (error) => {
+            console.error("IoT legacy weight subscription error:", error);
+          }
+        );
+
         const key = `weight_${deviceId}`;
-        this.listeners.set(key, { ref: weightRef, unsubscribe });
+        this.listeners.set(key, {
+          ref: currentRef,
+          unsubscribe: () => {
+            unsubscribeCurrent();
+            unsubscribeLegacy();
+          },
+        });
       })
       .catch((error) => {
         console.error("Auth failed for weight subscription:", error);
@@ -115,6 +174,8 @@ export class IoTService {
     this.listeners.set(key, { ref: requestsRef, unsubscribe });
     return () => this.unsubscribe(key);
   }
+
+  // authorization_requests support removed per requirement; use rfid_requests instead
 
   // Listen to RFID users
   subscribeToRFIDUsers(callback: (users: Record<string, RFIDUser>) => void) {
@@ -214,21 +275,85 @@ export class IoTService {
 
   // Get current weight data (one-time read)
   async getCurrentWeight(deviceId: string): Promise<IoTWeightData | null> {
+    // Try current first; if missing, fall back to latest in history
     return new Promise((resolve) => {
-      const weightRef = ref(database, `devices/${deviceId}/current`);
+      const currentRef = ref(database, `devices/${deviceId}/current`);
       onValue(
-        weightRef,
-        (snapshot) => {
-          const currentData = snapshot.val();
-          resolve(
-            currentData
-              ? {
-                  weight: currentData.weight,
-                  timestamp: currentData.timestamp,
-                  device_id: currentData.device_id,
+        currentRef,
+        (snap) => {
+          const cur = snap.val() as {
+            weight?: string | number;
+            timestamp?: number;
+            device_id?: string;
+          } | null;
+          if (cur && cur.weight != null) {
+            const weightStr =
+              typeof cur.weight === "number" ? String(cur.weight) : cur.weight;
+            resolve({
+              weight: weightStr,
+              timestamp:
+                typeof cur.timestamp === "number" ? cur.timestamp : Date.now(),
+              device_id: cur.device_id ?? deviceId,
+            });
+          } else {
+            // Fallback to history
+            const historyRef = ref(database, `devices/${deviceId}/history`);
+            const latestQuery = query(
+              historyRef,
+              orderByChild("timestamp"),
+              limitToLast(1)
+            );
+            onValue(
+              latestQuery,
+              (snapshot) => {
+                type HistoryEntry = {
+                  weight: string | number;
+                  timestamp: number;
+                  device_id?: string;
+                };
+                const val = snapshot.val() as Record<
+                  string,
+                  HistoryEntry
+                > | null;
+                if (!val) {
+                  resolve(null);
+                  return;
                 }
-              : null
-          );
+                const data = Object.values(val)[0] as HistoryEntry;
+                const weightStr =
+                  typeof data.weight === "number"
+                    ? String(data.weight)
+                    : data.weight;
+                resolve(
+                  data
+                    ? {
+                        weight: weightStr,
+                        timestamp: data.timestamp,
+                        device_id: data.device_id ?? deviceId,
+                      }
+                    : null
+                );
+              },
+              { onlyOnce: true }
+            );
+          }
+        },
+        { onlyOnce: true }
+      );
+      // Also attempt legacy path if both are missing
+      onValue(
+        ref(database, `devices/${deviceId}/berat_terakhir`),
+        (legacySnap) => {
+          const legacy = legacySnap.val() as string | number | null;
+          if (legacy != null) {
+            const weightStr =
+              typeof legacy === "number" ? String(legacy) : legacy;
+            resolve({
+              weight: weightStr,
+              timestamp: Date.now(),
+              device_id: deviceId,
+            });
+          }
         },
         { onlyOnce: true }
       );

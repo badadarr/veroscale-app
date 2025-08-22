@@ -135,8 +135,15 @@ export function isOperator(user: UserPayload | null): boolean {
   return user?.role === "operator";
 }
 
-// Check if user has manager role or higher
+// Check if user can approve weight records (DEPRECATED - now auto-approved)
+export function canApproveWeights(_user: UserPayload | null): boolean {
+  // All weight approvals are now automatic - no manual approval needed
+  return false;
+}
+
+// Check if user has manager role or higher (DEPRECATED for approvals)
 export function isManagerOrAdmin(user: UserPayload | null): boolean {
+  // Roles still exist for other purposes, but not for approvals
   return user?.role === "admin" || user?.role === "manager";
 }
 
@@ -147,7 +154,11 @@ export function isMarketing(user: UserPayload | null): boolean {
 
 // Check if user can manage samples (admin, manager, marketing)
 export function canManageSamples(user: UserPayload | null): boolean {
-  return user?.role === "admin" || user?.role === "manager" || user?.role === "marketing";
+  return (
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    user?.role === "marketing"
+  );
 }
 
 // Check if user has admin role (full access)

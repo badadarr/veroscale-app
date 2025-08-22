@@ -1,13 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import apiClient from "@/lib/api";
-import {
-  Plus,
-  Edit,
-  Trash2,
-  AlertCircle,
-  Search,
-} from "lucide-react";
+import { Plus, Edit, Trash2, AlertCircle, Search } from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
@@ -24,12 +18,14 @@ import { Pagination } from "@/components/ui/Pagination";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { formatDate } from "@/lib/utils";
+import { useRFIDUsers } from "@/hooks/useIoT";
 
 interface User {
   id: number;
   name: string;
   email: string;
   role: string;
+  rfid_uid?: string | null;
   department?: string;
   status?: "active" | "inactive";
   created_at: string;
@@ -42,8 +38,22 @@ interface PaginationInfo {
   totalPages: number;
 }
 
+type ApiError = {
+  response?: { data?: { message?: string } };
+  message?: string;
+};
+
+function extractErrorMessage(err: unknown, fallback: string): string {
+  if (err && typeof err === "object") {
+    const e = err as ApiError;
+    return e.response?.data?.message || e.message || fallback;
+  }
+  return fallback;
+}
+
 export default function Users() {
   const { user: currentUser } = useAuth();
+  const { rfidRequests, rfidUsers } = useRFIDUsers();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,8 +73,37 @@ export default function Users() {
     role: "operator",
     department: "",
     status: "active" as "active" | "inactive",
+    rfid_uid: "",
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Recent UIDs from RFID Log (pending requests)
+  const recentUIDs = useMemo(() => {
+    // Build a set of approved UIDs from rfid_users to exclude from dropdown
+    const approved = new Set(
+      Object.keys(rfidUsers || {}).map((k) => k.toUpperCase())
+    );
+    const entries = Object.entries(rfidRequests || {});
+    const list = entries
+      .sort(([a], [b]) => parseInt(b) - parseInt(a))
+      .map(([key, val]) => {
+        if (typeof val === "string") return val.toUpperCase();
+        if (val && typeof val === "object") {
+          const v = val as Record<string, unknown>;
+          const cand = String(
+            (v.uid as string) ||
+              (v.user_id as string) ||
+              (v.rfid as string) ||
+              key
+          );
+          return cand.toUpperCase();
+        }
+        return String(key).toUpperCase();
+      })
+      .filter((s) => s && !approved.has(s));
+    // Deduplicate and limit
+    return Array.from(new Set(list)).slice(0, 10);
+  }, [rfidRequests, rfidUsers]);
 
   // Redirect if not admin
   useEffect(() => {
@@ -88,7 +127,7 @@ export default function Users() {
       if (data.pagination) {
         setPagination(data.pagination);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error fetching users:", err);
       setError("Failed to load users");
       toast.error("Failed to load users");
@@ -115,6 +154,7 @@ export default function Users() {
       role: "operator",
       department: "",
       status: "active",
+      rfid_uid: "",
     });
     setFormErrors({});
     setShowForm(true);
@@ -155,7 +195,7 @@ export default function Users() {
     }
 
     try {
-      const userData = {
+      const userData: Record<string, unknown> = {
         name: formData.name,
         email: formData.email,
         password: formData.password,
@@ -163,6 +203,9 @@ export default function Users() {
         department: formData.department,
         status: formData.status,
       };
+      if (formData.role === "operator" && formData.rfid_uid.trim()) {
+        userData.rfid_uid = formData.rfid_uid.trim().toUpperCase();
+      }
 
       if (formData.id) {
         // Update existing user
@@ -177,12 +220,12 @@ export default function Users() {
       // Refresh users list
       fetchUsers();
       closeForm();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error saving user:", err);
-      const errorMessage =
-        err.response?.data?.message ||
-        (formData.id ? "Failed to update user" : "Failed to create user");
-      toast.error(errorMessage);
+      const fallback = formData.id
+        ? "Failed to update user"
+        : "Failed to create user";
+      toast.error(extractErrorMessage(err, fallback));
     }
   };
 
@@ -190,6 +233,48 @@ export default function Users() {
     if (newPage >= 1 && newPage <= pagination.totalPages) {
       setPagination((prev) => ({ ...prev, currentPage: newPage }));
     }
+  };
+
+  const confirmAndDeleteUser = (id: number) => {
+    toast.custom(
+      (t) => (
+        <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-lg">
+          <h3 className="mb-2 font-medium">Confirm Deletion</h3>
+          <p className="mb-4 text-gray-600">
+            Are you sure you want to delete this user? This action cannot be
+            undone.
+          </p>
+          <div className="flex justify-end space-x-2">
+            <button
+              onClick={() => toast.dismiss(t.id)}
+              className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                try {
+                  await apiClient.delete(`/api/users/${id}`);
+                  toast.success("User deleted successfully");
+                  fetchUsers();
+                } catch (err: unknown) {
+                  console.error("Delete user error:", err);
+                  toast.error(
+                    extractErrorMessage(err, "Failed to delete user")
+                  );
+                } finally {
+                  toast.dismiss(t.id);
+                }
+              }}
+              className="px-3 py-1 text-sm text-white rounded bg-error-500 hover:bg-error-600"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      ),
+      { duration: Infinity }
+    );
   };
 
   return (
@@ -293,11 +378,60 @@ export default function Users() {
                         className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-md"
                       >
                         <option value="admin">Admin</option>
-                        <option value="manager">Manager</option>
                         <option value="operator">Operator</option>
                         <option value="marketing">Marketing</option>
                       </select>
                     </div>
+                    {formData.role === "operator" && (
+                      <div className="md:col-span-2">
+                        <div className="flex items-end gap-3">
+                          <div className="flex-1">
+                            <Input
+                              label="RFID UID"
+                              placeholder="A1B2C3D4"
+                              value={formData.rfid_uid}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  rfid_uid: e.target.value.toUpperCase(),
+                                })
+                              }
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                              Ambil UID dari menu RFID Log atau input manual.
+                            </p>
+                          </div>
+                          <div className="w-48">
+                            <label className="block mb-1 text-sm font-medium text-gray-700">
+                              From RFID Log
+                            </label>
+                            <select
+                              value=""
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (v) {
+                                  setFormData({ ...formData, rfid_uid: v });
+                                }
+                              }}
+                              disabled={recentUIDs.length === 0}
+                              className="w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-md disabled:opacity-50"
+                            >
+                              <option value="">
+                                {recentUIDs.length ? "Pick UID…" : "No UIDs"}
+                              </option>
+                              {recentUIDs.map((uid) => (
+                                <option key={uid} value={uid}>
+                                  {uid}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="mt-1 text-xs text-gray-400">
+                              {recentUIDs.length} recent
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <label
                         htmlFor="user-department"
@@ -379,8 +513,8 @@ export default function Users() {
                     <TableRow>
                       <TableHead>User</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Department</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>RFID UID</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -390,7 +524,7 @@ export default function Users() {
                     {filteredUsers.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={7}
+                          colSpan={8}
                           className="py-8 text-center text-gray-500"
                         >
                           No users found
@@ -408,14 +542,11 @@ export default function Users() {
                             </div>
                           </TableCell>
                           <TableCell>{user.email}</TableCell>
-                          <TableCell>{user.department || "—"}</TableCell>
                           <TableCell>
                             <span
                               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                 user.role === "admin"
                                   ? "bg-primary-100 text-primary-800"
-                                  : user.role === "manager"
-                                  ? "bg-secondary-100 text-secondary-800"
                                   : user.role === "marketing"
                                   ? "bg-purple-100 text-purple-800"
                                   : "bg-gray-100 text-gray-800"
@@ -424,6 +555,11 @@ export default function Users() {
                               {user.role.charAt(0).toUpperCase() +
                                 user.role.slice(1)}
                             </span>
+                          </TableCell>
+                          <TableCell>
+                            {user.role === "operator"
+                              ? user.rfid_uid || "—"
+                              : "—"}
                           </TableCell>
                           <TableCell>
                             <span
@@ -450,6 +586,7 @@ export default function Users() {
                                   role: user.role,
                                   department: user.department || "",
                                   status: user.status || "active",
+                                  rfid_uid: user.rfid_uid || "",
                                 });
                                 setFormErrors({});
                                 setShowForm(true);
@@ -462,41 +599,7 @@ export default function Users() {
                               size="sm"
                               variant="ghost"
                               className="text-error-600 hover:text-error-700"
-                              onClick={() => {
-                                toast.custom(
-                                  (t) => (
-                                    <div className="p-4 bg-white border border-gray-200 rounded-lg shadow-lg">
-                                      <h3 className="mb-2 font-medium">
-                                        Confirm Deletion
-                                      </h3>
-                                      <p className="mb-4 text-gray-600">
-                                        Are you sure you want to delete this
-                                        user?
-                                      </p>
-                                      <div className="flex justify-end space-x-2">
-                                        <button
-                                          onClick={() => toast.dismiss(t.id)}
-                                          className="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300"
-                                        >
-                                          Cancel
-                                        </button>
-                                        <button
-                                          onClick={() => {
-                                            toast.dismiss(t.id);
-                                            toast.error(
-                                              "User deletion is disabled for demo"
-                                            );
-                                          }}
-                                          className="px-3 py-1 text-sm text-white rounded bg-error-500 hover:bg-error-600"
-                                        >
-                                          Delete
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ),
-                                  { duration: Infinity }
-                                );
-                              }}
+                              onClick={() => confirmAndDeleteUser(user.id)}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -521,7 +624,7 @@ export default function Users() {
                       of {pagination.totalItems} users
                     </div>
                   </div>
-                  
+
                   <Pagination
                     currentPage={pagination.currentPage}
                     totalPages={pagination.totalPages}

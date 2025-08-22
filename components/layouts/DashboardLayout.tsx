@@ -69,6 +69,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       icon: BarChart2,
       roles: ["admin", "manager", "operator"],
     },
+    // Admin-only RFID log page
+    {
+      name: "RFID Log",
+      href: "/pending-uid",
+      icon: Users,
+      roles: ["admin"],
+    },
     // Issues functionality removed
     // Settings menu removed as requested
     { name: "User Management", href: "/users", icon: Users, roles: ["admin"] },

@@ -73,7 +73,6 @@ export class IoTWeightSync {
       unit: "kg",
       source: "IoT_ESP32",
       destination: "Warehouse",
-      batch_number: `IOT_${Date.now()}`,
       notes: "Auto-synced from IoT scale",
       recorded_by: "IoT_System",
     };

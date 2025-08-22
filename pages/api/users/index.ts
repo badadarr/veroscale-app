@@ -35,7 +35,8 @@ async function getUsers(req: NextApiRequest, res: NextApiResponse) {
     const query = {
       table: "users",
       action: "select" as const,
-      columns: "id, name, email, role_id, department, status, created_at",
+      columns:
+        "id, name, email, role_id, department, status, created_at, rfid_uid",
       order: { created_at: "desc" as const },
     };
 
@@ -54,7 +55,7 @@ async function getUsers(req: NextApiRequest, res: NextApiResponse) {
 
       users = await executeQuery<any[]>({
         query: `
-          SELECT id, name, email, role_id, department, status, created_at 
+          SELECT id, name, email, role_id, department, status, created_at, rfid_uid 
           FROM users 
           ${whereClause}
           ORDER BY created_at DESC
@@ -74,7 +75,7 @@ async function getUsers(req: NextApiRequest, res: NextApiResponse) {
 
       users = await executeQuery<any[]>({
         query: `
-          SELECT id, name, email, role_id, department, status, created_at 
+          SELECT id, name, email, role_id, department, status, created_at, rfid_uid 
           FROM users 
           ORDER BY created_at DESC
           LIMIT ? OFFSET ?
@@ -105,6 +106,7 @@ async function getUsers(req: NextApiRequest, res: NextApiResponse) {
       department: user.department || "",
       status: user.status || "active",
       created_at: user.created_at,
+      rfid_uid: user.rfid_uid || null,
     }));
 
     return res.status(200).json({

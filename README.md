@@ -5,6 +5,7 @@
 This guide will help you deploy your Next.js application to Vercel with a cloud-hosted database.
 
 For detailed step-by-step instructions, see:
+
 - [Vercel Deployment Guide](./docs/vercel-deployment.md) - Complete guide for deploying to Vercel
 - [Supabase Integration Guide](./docs/supabase-integration.md) - Guide for setting up Supabase
 - [Supabase Data Management](./docs/supabase-data-management.md) - Guide for managing data in Supabase
@@ -61,6 +62,17 @@ DB_NAME=your-database-name
 # Environment and Authentication
 NODE_ENV=production
 JWT_SECRET=your-secure-random-string
+
+# Auto-approval thresholds (optional overrides)
+# Reject if either percentage OR absolute exceeds these values
+WEIGHT_MAX_VARIANCE_PERCENT=5
+WEIGHT_MAX_VARIANCE_KG=0.5
+# Minimum expected weight to apply variance (kg)
+WEIGHT_MIN_SAMPLE_WEIGHT=0.1
+# Behavior toggles
+WEIGHT_AUTO_APPROVE=true
+WEIGHT_AUTO_REJECT=true
+WEIGHT_REQUIRE_VERIFICATION=false
 ```
 
 4. Deploy your application

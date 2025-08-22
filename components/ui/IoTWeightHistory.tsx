@@ -1,15 +1,14 @@
-import { useState, useEffect } from 'react';
-import { Clock, Scale, Wifi } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from './Card';
-import apiClient from '@/lib/api';
+import { useState, useEffect } from "react";
+import { Clock, Scale, Wifi } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./Card";
+import apiClient from "@/lib/api";
 
 interface IoTWeightRecord {
   id: number;
   total_weight: number;
   unit: string;
   source: string;
-  created_at: string;
-  batch_number: string;
+  timestamp: string;
 }
 
 export default function IoTWeightHistory() {
@@ -18,7 +17,7 @@ export default function IoTWeightHistory() {
 
   useEffect(() => {
     fetchIoTRecords();
-    
+
     // Refresh every 30 seconds
     const interval = setInterval(fetchIoTRecords, 30000);
     return () => clearInterval(interval);
@@ -26,17 +25,34 @@ export default function IoTWeightHistory() {
 
   const fetchIoTRecords = async () => {
     try {
-      const { data } = await apiClient.get('/api/weights?source=IoT&limit=10');
-      setIotRecords(data.weights || []);
+      const { data } = await apiClient.get("/api/weights?source=IoT&limit=10");
+      type APIWeight = {
+        record_id?: number;
+        id?: number;
+        total_weight?: number;
+        unit?: string;
+        source?: string;
+        timestamp?: string;
+        created_at?: string;
+      };
+      setIotRecords(
+        (data.records || []).map((r: APIWeight) => ({
+          id: r.record_id || r.id,
+          total_weight: r.total_weight,
+          unit: r.unit || "kg",
+          source: r.source || "IoT",
+          timestamp: r.timestamp || r.created_at,
+        }))
+      );
     } catch (error) {
-      console.error('Failed to fetch IoT records:', error);
+      console.error("Failed to fetch IoT records:", error);
     } finally {
       setLoading(false);
     }
   };
 
   const formatTime = (timeString: string) => {
-    return new Date(timeString).toLocaleString('id-ID');
+    return new Date(timeString).toLocaleString("id-ID");
   };
 
   return (
@@ -56,14 +72,14 @@ export default function IoTWeightHistory() {
         ) : iotRecords.length > 0 ? (
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {iotRecords.map((record) => (
-              <div key={record.id} className="bg-white p-3 rounded border border-green-200">
+              <div
+                key={record.id}
+                className="bg-white p-3 rounded border border-green-200"
+              >
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="font-medium text-green-900">
                       {record.total_weight} {record.unit}
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      Batch: {record.batch_number}
                     </div>
                   </div>
                   <div className="text-right">
@@ -73,7 +89,7 @@ export default function IoTWeightHistory() {
                     </div>
                     <div className="flex items-center text-xs text-gray-500 mt-1">
                       <Clock className="h-3 w-3 mr-1" />
-                      {formatTime(record.created_at)}
+                      {formatTime(record.timestamp)}
                     </div>
                   </div>
                 </div>

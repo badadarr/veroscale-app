@@ -77,7 +77,7 @@ export default function Reports() {
 
   // Redirect to dashboard if user is not authorized to access reports
   useEffect(() => {
-    if (user && !["admin", "manager", "operator"].includes(user.role)) {
+    if (user && !["admin", "operator"].includes(user.role)) {
       toast.error("You do not have permission to access reports");
       router.push("/dashboard");
     }
@@ -161,7 +161,9 @@ export default function Reports() {
       // For preview, we'll use a different approach since PDF preview requires different handling
       // We'll fetch the report data in JSON format for preview
       const token = localStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers: Record<string, string> = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
 
       const response = await fetch(
         `/api/reports/generate?reportId=${reportId}&format=json`,
@@ -192,7 +194,9 @@ export default function Reports() {
       toast.loading("Generating report...");
 
       const token = localStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers: Record<string, string> = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
 
       const response = await fetch(
         `/api/reports/generate?reportId=${reportId}&format=${format}`,

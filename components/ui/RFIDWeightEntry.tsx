@@ -1,9 +1,17 @@
-import { useState, useEffect } from 'react';
-import { CreditCard, Scale, Check, X, RefreshCw, User, Clock } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from './Card';
-import { Button } from './Button';
-import { Input } from './Input';
-import IoTService, { RFIDRequest, IoTWeightData } from '@/lib/iot-service';
+import { useState, useEffect } from "react";
+import {
+  CreditCard,
+  Scale,
+  Check,
+  X,
+  RefreshCw,
+  User,
+  Clock,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./Card";
+import { Button } from "./Button";
+import { Input } from "./Input";
+import IoTService, { IoTWeightData } from "@/lib/iot-service";
 
 interface RFIDWeightEntryProps {
   onRecordSaved?: (record: any) => void;
@@ -18,16 +26,21 @@ interface RFIDEntry {
   id?: string;
 }
 
-export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEntryProps) {
+export default function RFIDWeightEntry({
+  onRecordSaved,
+  userId,
+}: RFIDWeightEntryProps) {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rfidRequests, setRfidRequests] = useState<Record<string, RFIDRequest>>({});
+  const [rfidRequests, setRfidRequests] = useState<Record<string, any>>({});
   const [selectedEntry, setSelectedEntry] = useState<RFIDEntry | null>(null);
-  const [currentWeight, setCurrentWeight] = useState<IoTWeightData | null>(null);
+  const [currentWeight, setCurrentWeight] = useState<IoTWeightData | null>(
+    null
+  );
   const [manualWeight, setManualWeight] = useState<number | null>(null);
-  const [unit, setUnit] = useState<string>('kg');
-  const [deviceId] = useState<string>('ESP32_001');
+  const [unit, setUnit] = useState<string>("kg");
+  const [deviceId] = useState<string>("ESP32_001");
 
   // Subscribe to RFID requests and weight data
   useEffect(() => {
@@ -35,9 +48,12 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
       setRfidRequests(requests);
     });
 
-    const unsubscribeWeight = IoTService.subscribeToWeightData(deviceId, (weightData) => {
-      setCurrentWeight(weightData);
-    });
+    const unsubscribeWeight = IoTService.subscribeToWeightData(
+      deviceId,
+      (weightData) => {
+        setCurrentWeight(weightData);
+      }
+    );
 
     return () => {
       unsubscribeRFID();
@@ -53,7 +69,7 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
         device_id: request.device_id,
         waktu: request.waktu,
         processed: request.processed || false,
-        id
+        id,
       }))
       .sort((a, b) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime())
       .slice(0, 10);
@@ -64,7 +80,7 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
     setSelectedEntry(entry);
     // Auto-fill weight from current IoT data if available
     if (currentWeight) {
-      setManualWeight(parseFloat(currentWeight.berat_terakhir));
+      setManualWeight(parseFloat(currentWeight.weight));
     }
     setError(null);
   };
@@ -73,7 +89,7 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
   const formatTime = (timeString: string) => {
     try {
       const date = new Date(timeString);
-      return date.toLocaleString('id-ID');
+      return date.toLocaleString("id-ID");
     } catch {
       return timeString;
     }
@@ -82,7 +98,7 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
   // Handle saving the record
   const handleSaveRecord = async () => {
     if (!selectedEntry || !manualWeight) {
-      setError('Please select an RFID entry and enter a weight.');
+      setError("Please select an RFID entry and enter a weight.");
       return;
     }
 
@@ -90,35 +106,29 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
     setError(null);
 
     try {
-      const response = await fetch('/api/weights', {
-        method: 'POST',
+      const response = await fetch("/api/weights", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           rfid_device_id: selectedEntry.device_id,
           total_weight: manualWeight,
           unit,
           scan_time: selectedEntry.waktu,
-          operator_id: userId
+          operator_id: userId,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save record');
+        throw new Error("Failed to save record");
       }
 
       const result = await response.json();
       setSuccess(true);
 
-      // Mark RFID request as processed if we have the ID
-      if (selectedEntry.id) {
-        try {
-          await IoTService.markRFIDRequestProcessed(selectedEntry.id);
-        } catch (err) {
-          console.warn('Could not mark RFID request as processed:', err);
-        }
-      }
+      // RFID request is automatically processed by the system
+      // No need to manually mark as processed
 
       // Call callback if provided
       if (onRecordSaved) {
@@ -131,10 +141,9 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
         setSelectedEntry(null);
         setManualWeight(null);
       }, 3000);
-
     } catch (err) {
-      console.error('Error submitting weight record:', err);
-      setError('Failed to submit weight record. Please try again.');
+      console.error("Error submitting weight record:", err);
+      setError("Failed to submit weight record. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -154,13 +163,20 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
           {currentWeight && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-green-800">Current Weight:</span>
+                <span className="text-sm font-medium text-green-800">
+                  Current Weight:
+                </span>
                 <span className="text-lg font-bold text-green-900">
-                  {currentWeight.berat_terakhir} kg
+                  {currentWeight.weight} kg
                 </span>
               </div>
               <div className="text-xs text-green-600 mt-1">
-                Device: {deviceId} • {formatTime(currentWeight.timestamp || '')}
+                Device: {deviceId} •{" "}
+                {formatTime(
+                  currentWeight.timestamp
+                    ? currentWeight.timestamp.toString()
+                    : ""
+                )}
               </div>
             </div>
           )}
@@ -171,9 +187,10 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
                 <div
                   key={entry.id || index}
                   className={`p-3 border rounded-md cursor-pointer transition-colors ${
-                    selectedEntry?.device_id === entry.device_id && selectedEntry?.waktu === entry.waktu
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    selectedEntry?.device_id === entry.device_id &&
+                    selectedEntry?.waktu === entry.waktu
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                   }`}
                   onClick={() => handleSelectEntry(entry)}
                 >
@@ -188,12 +205,14 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
                     </div>
                   </div>
                   <div className="mt-1">
-                    <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                      entry.processed 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {entry.processed ? 'Processed' : 'Pending'}
+                    <span
+                      className={`inline-block px-2 py-1 text-xs rounded-full ${
+                        entry.processed
+                          ? "bg-green-100 text-green-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {entry.processed ? "Processed" : "Pending"}
                     </span>
                   </div>
                 </div>
@@ -224,7 +243,9 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
             <div className="mb-4 bg-success-100 border border-success-300 text-success-700 px-4 py-3 rounded relative">
               <div className="flex items-center">
                 <Check className="h-5 w-5 mr-2" />
-                <span className="font-medium">Weight record submitted successfully!</span>
+                <span className="font-medium">
+                  Weight record submitted successfully!
+                </span>
               </div>
             </div>
           )}
@@ -255,13 +276,17 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Scan Time</p>
-                    <p className="font-medium">{formatTime(selectedEntry.waktu)}</p>
+                    <p className="font-medium">
+                      {formatTime(selectedEntry.waktu)}
+                    </p>
                   </div>
                 </div>
                 {currentWeight && (
                   <div className="mt-2">
                     <p className="text-xs text-gray-500">IoT Scale Reading</p>
-                    <p className="font-bold text-lg text-green-600">{currentWeight.berat_terakhir} kg</p>
+                    <p className="font-bold text-lg text-green-600">
+                      {currentWeight.weight} kg
+                    </p>
                   </div>
                 )}
               </div>
@@ -275,8 +300,10 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
                     type="number"
                     step="0.01"
                     placeholder="Enter weight value"
-                    value={manualWeight || ''}
-                    onChange={(e) => setManualWeight(parseFloat(e.target.value) || null)}
+                    value={manualWeight || ""}
+                    onChange={(e) =>
+                      setManualWeight(parseFloat(e.target.value) || null)
+                    }
                     required
                     className="rounded-r-none"
                   />
@@ -297,9 +324,11 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
                     variant="outline"
                     size="sm"
                     className="mt-2"
-                    onClick={() => setManualWeight(parseFloat(currentWeight.berat_terakhir))}
+                    onClick={() =>
+                      setManualWeight(parseFloat(currentWeight.weight))
+                    }
                   >
-                    Use IoT Reading ({currentWeight.berat_terakhir} kg)
+                    Use IoT Reading ({currentWeight.weight} kg)
                   </Button>
                 )}
               </div>
@@ -317,11 +346,8 @@ export default function RFIDWeightEntry({ onRecordSaved, userId }: RFIDWeightEnt
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Clear Selection
                 </Button>
-                <Button
-                  onClick={handleSaveRecord}
-                  disabled={loading}
-                >
-                  {loading ? 'Saving...' : 'Save Record'}
+                <Button onClick={handleSaveRecord} disabled={loading}>
+                  {loading ? "Saving..." : "Save Record"}
                 </Button>
               </div>
             </div>

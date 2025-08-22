@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { CreditCard, User, Clock } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from './Card';
-import IoTService, { RFIDUser } from '@/lib/iot-service';
+import { useState, useEffect } from "react";
+import { CreditCard, User, Clock } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "./Card";
+import IoTService, { RFIDUser } from "@/lib/iot-service";
 
 export default function RFIDUserDisplay() {
   const [rfidUsers, setRfidUsers] = useState<Record<string, RFIDUser>>({});
@@ -10,13 +10,15 @@ export default function RFIDUserDisplay() {
   useEffect(() => {
     const unsubscribe = IoTService.subscribeToRFIDUsers((users) => {
       setRfidUsers(users);
-      
+
       // Find the most recent scan
       const userEntries = Object.entries(users);
       if (userEntries.length > 0) {
         const mostRecent = userEntries.reduce((latest, [id, user]) => {
-          const userTime = new Date(user.waktu).getTime();
-          const latestTime = new Date(latest[1].waktu).getTime();
+          const userTime = new Date(user.waktu || user.created_at).getTime();
+          const latestTime = new Date(
+            latest[1].waktu || latest[1].created_at
+          ).getTime();
           return userTime > latestTime ? [id, user] : latest;
         });
         setLastScan(mostRecent[1]);
@@ -29,7 +31,7 @@ export default function RFIDUserDisplay() {
   const formatTime = (timeString: string) => {
     try {
       const date = new Date(timeString);
-      return date.toLocaleString('id-ID');
+      return date.toLocaleString("id-ID");
     } catch {
       return timeString;
     }
@@ -38,7 +40,11 @@ export default function RFIDUserDisplay() {
   const getRecentUsers = () => {
     const entries = Object.entries(rfidUsers);
     return entries
-      .sort(([,a], [,b]) => new Date(b.waktu).getTime() - new Date(a.waktu).getTime())
+      .sort(
+        ([, a], [, b]) =>
+          new Date(b.waktu || b.created_at).getTime() -
+          new Date(a.waktu || a.created_at).getTime()
+      )
       .slice(0, 5);
   };
 
@@ -57,12 +63,12 @@ export default function RFIDUserDisplay() {
               <div className="flex items-center">
                 <User className="h-4 w-4 mr-2 text-blue-600" />
                 <span className="font-medium">
-                  {lastScan.nama || 'Unknown User'}
+                  {lastScan.name || "Unknown User"}
                 </span>
               </div>
               <div className="flex items-center text-sm text-gray-600">
                 <Clock className="h-3 w-3 mr-1" />
-                {formatTime(lastScan.waktu)}
+                {formatTime(lastScan.waktu || lastScan.created_at)}
               </div>
             </div>
             <div className="text-xs text-gray-500 mt-1">
@@ -76,14 +82,23 @@ export default function RFIDUserDisplay() {
         )}
 
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-700">Riwayat Scan Terbaru:</h4>
+          <h4 className="text-sm font-medium text-gray-700">
+            Riwayat Scan Terbaru:
+          </h4>
           {getRecentUsers().length > 0 ? (
             <div className="space-y-1 max-h-32 overflow-y-auto">
               {getRecentUsers().map(([id, user]) => (
-                <div key={id} className="text-xs p-2 bg-white rounded border border-gray-100">
+                <div
+                  key={id}
+                  className="text-xs p-2 bg-white rounded border border-gray-100"
+                >
                   <div className="flex justify-between items-center">
-                    <span className="font-medium">{user.nama || 'Unknown'}</span>
-                    <span className="text-gray-500">{formatTime(user.waktu)}</span>
+                    <span className="font-medium">
+                      {user.name || "Unknown"}
+                    </span>
+                    <span className="text-gray-500">
+                      {formatTime(user.waktu || user.created_at)}
+                    </span>
                   </div>
                   <div className="text-gray-400">ID: {id}</div>
                 </div>

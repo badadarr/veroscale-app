@@ -138,6 +138,7 @@ export function useRFIDUsers() {
   return {
     authorizedUsers,
     rfidRequests,
+    // No authorization_requests; use rfidRequests
     rfidUsers,
     activeUsers,
     checkUserAuthorization,

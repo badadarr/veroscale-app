@@ -1,7 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextApiRequest, NextApiResponse } from "next";
 import { executeQuery } from "../../../lib/db-adapter";
 import { getUserFromToken } from "../../../lib/auth";
 import { withArcjetProtection } from "../../../lib/arcjet-middleware";
+import {
+  analyzeWeightVariance,
+  VarianceAnalysis,
+} from "../../../lib/weight-variance-config";
 
 export default async function handler(
   req: NextApiRequest,
@@ -23,7 +28,7 @@ export default async function handler(
     case "POST":
       return addWeightRecord(req, res, user);
     case "DELETE":
-      return deleteWeightRecords(req, res, user);
+      return deleteWeightRecords(req, res);
     default:
       return res.status(405).json({ message: "Method not allowed" });
   }
@@ -67,9 +72,9 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
       if (item_id) filters.item_id = item_id;
       if (user_id) filters.user_id = user_id;
       if (status) filters.status = status;
-      
+
       // Filter by user role - operators only see their own records
-      if (user.role === 'operator') {
+      if (user.role === "operator") {
         filters.user_id = user.id;
       }
 
@@ -86,29 +91,32 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
 
       totalItems = countResult[0]?.count || 0;
 
-      // Get weight records with basic info first
+      // Get weight records with columns that exist in the current Supabase schema
+      const selectColumns = [
+        "record_id",
+        "user_id",
+        "item_id",
+        "total_weight",
+        "timestamp",
+        "status",
+        "approved_by",
+        "approved_at",
+        "iot_weight",
+        "manager_weight",
+        "weight_variance",
+        "weight_variance_percentage",
+        "variance_status",
+        "iot_device_id",
+        "verification_required",
+        "notes",
+        "unit",
+      ].join(", ");
+      console.log("Selecting weight_records columns:", selectColumns);
+      console.log("Applying filters:", filters);
       const weightRecords = await executeQuery<any[]>({
         table: "public.weight_records",
         action: "select",
-        columns: `
-          record_id, 
-          user_id, 
-          item_id, 
-          total_weight,
-          iot_weight,
-          manager_weight,
-          weight_variance,
-          weight_variance_percentage,
-          variance_status,
-          iot_device_id,
-          verification_required,
-          timestamp, 
-          status,
-          approved_by,
-          approved_at,
-          notes,
-          unit
-        `,
+        columns: selectColumns,
         filters: filters,
         orderBy: "timestamp",
         orderDirection: "desc",
@@ -120,7 +128,8 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
       const items = await executeQuery<any[]>({
         table: "public.samples_item",
         action: "select",
-        columns: "id, category, item",
+        // Avoid alias with adapter; map expected_weight in JS
+        columns: "id, category, item, sample_weight",
       });
 
       const users = await executeQuery<any[]>({
@@ -129,6 +138,21 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
         columns: "id, name",
       });
 
+      // Helper: map new auto-approval statuses to legacy UI categories
+      const mapVarianceStatusForUI = (status: string | null | undefined) => {
+        if (!status) return null;
+        switch (status) {
+          case "auto_approved":
+            return "normal"; // within threshold
+          case "auto_rejected":
+            return "critical"; // exceeded threshold
+          case "pending_verification":
+            return "warning"; // requires manual check
+          default:
+            return status; // keep legacy values
+        }
+      };
+
       // Process the records to match the expected format
       records = weightRecords.map((record) => {
         const item = items.find((i) => i.id === record.item_id);
@@ -136,9 +160,15 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
 
         return {
           ...record,
+          // Normalize variance status for UI compatibility
+          variance_status: mapVarianceStatusForUI(record.variance_status),
+          // Back-compat aliases used by some UI components
+          variance_amount: record.weight_variance ?? null,
+          variance_percentage: record.weight_variance_percentage ?? null,
           item_name: item
             ? `${item.category} - ${item.item}`
             : `Sample Item ${record.item_id}`,
+          expected_weight: item?.sample_weight ?? null,
           user_name: user?.name || "Unknown User",
           approved_by_name: null,
         };
@@ -162,7 +192,7 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
       // MySQL implementation - original code
       let query = `
         SELECT wr.record_id, wr.user_id, wr.item_id, wr.total_weight, wr.quantity, 
-               wr.unit, wr.batch_number, wr.source, wr.destination, wr.notes,
+               wr.unit, wr.source, wr.destination, wr.notes,
                wr.variance_amount, wr.variance_percentage, wr.variance_status,
                wr.timestamp, wr.status, wr.approved_by, wr.approved_at,
                CONCAT(ri.category, ' - ', ri.item) as item_name, u.name as user_name, 
@@ -185,9 +215,9 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
         query += ` AND wr.user_id = ?`;
         queryParams.push(user_id);
       }
-      
+
       // Filter by user role - operators only see their own records
-      if (user.role === 'operator') {
+      if (user.role === "operator") {
         query += ` AND wr.user_id = ?`;
         queryParams.push(user.id);
       }
@@ -223,10 +253,29 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
       query += ` ORDER BY wr.timestamp DESC LIMIT ? OFFSET ?`;
       queryParams.push(itemsPerPage, offset);
 
-      records = await executeQuery<any[]>({
+      const rawRecords = await executeQuery<any[]>({
         query,
         values: queryParams,
       });
+
+      const mapVarianceStatusForUI = (status: string | null | undefined) => {
+        if (!status) return null;
+        switch (status) {
+          case "auto_approved":
+            return "normal";
+          case "auto_rejected":
+            return "critical";
+          case "pending_verification":
+            return "warning";
+          default:
+            return status;
+        }
+      };
+
+      records = rawRecords.map((r) => ({
+        ...r,
+        variance_status: mapVarianceStatusForUI(r.variance_status),
+      }));
     }
 
     return res.status(200).json({
@@ -257,17 +306,14 @@ async function addWeightRecord(
       item_name,
       total_weight,
       iot_weight,
-      manager_weight,
+      expected_weight,
       iot_device_id,
       quantity,
       unit,
-      batch_number,
       source,
       destination,
       notes,
-      variance_amount,
-      variance_percentage,
-      variance_status,
+      // client-provided variance inputs are ignored; server determines decisions
       rfid_device_id,
       scan_time,
       operator_id,
@@ -278,36 +324,114 @@ async function addWeightRecord(
       return res.status(400).json({ message: "Total weight is required" });
     }
 
-    // Handle sample-based weight entry (new format) with IoT and manager weight tracking
+    // Determine IoT and expected weight values
+    const iotWeightValue: number | null =
+      typeof iot_weight === "number"
+        ? iot_weight
+        : typeof total_weight === "number"
+        ? total_weight
+        : null;
+    const expectedWeightValue: number | null =
+      typeof expected_weight === "number" ? expected_weight : null;
+
+    // Compute server-side variance analysis
+    let analysis: VarianceAnalysis | null = null;
+    if (iotWeightValue !== null && expectedWeightValue !== null) {
+      analysis = analyzeWeightVariance(iotWeightValue, expectedWeightValue);
+    } else if (
+      iotWeightValue !== null &&
+      (expectedWeightValue === null || expectedWeightValue <= 0.1)
+    ) {
+      // If no expected weight or below min threshold, consider auto_approved
+      analysis = {
+        varianceKg: 0,
+        variancePercentage: 0,
+        status: "auto_approved",
+        reason: "No expected weight or below minimum threshold",
+        withinThreshold: true,
+      };
+    }
+
+    // Calculate final status based on analysis
+    let finalStatus = "pending";
+
+    if (analysis) {
+      if (analysis.status === "auto_approved") {
+        finalStatus = "approved";
+      } else if (analysis.status === "auto_rejected") {
+        finalStatus = "rejected";
+      } else {
+        finalStatus = "pending";
+      }
+    } else if (iotWeightValue === null) {
+      finalStatus = "pending";
+    }
+
+    // Handle sample-based weight entry with automatic variance checking
     if (sample_id) {
-      // Use sample_id as item_id since our current schema only supports item_id
-      const result = await executeQuery<any>({
-        query: `
+      const useSupabase = Boolean(
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      );
+
+      let result: any;
+      if (useSupabase) {
+        // Insert fields aligned with schema (include IoT + variance info)
+        const varianceKg = analysis?.varianceKg ?? null;
+        const variancePct = analysis?.variancePercentage ?? null;
+        const vStatus = analysis?.status ?? null;
+
+        const inserted = await executeQuery<any>({
+          table: "public.weight_records",
+          action: "insert",
+          data: {
+            user_id: user.id,
+            item_id: sample_id, // Using sample_id as item_id
+            total_weight,
+            iot_weight: iotWeightValue ?? null,
+            manager_weight: null,
+            weight_variance: varianceKg,
+            weight_variance_percentage: variancePct,
+            variance_status: vStatus,
+            iot_device_id: iot_device_id ?? null,
+            verification_required: finalStatus === "pending",
+            status: finalStatus,
+            notes: notes || null,
+            unit: unit || "kg",
+          },
+          returning: "*",
+        });
+        result = Array.isArray(inserted) ? inserted[0] : inserted;
+      } else {
+        // Use original SQL for MySQL
+        result = await executeQuery<any>({
+          query: `
           INSERT INTO weight_records 
-          (user_id, item_id, total_weight, iot_weight, manager_weight, iot_device_id, status, notes, unit)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          RETURNING *
-        `,
-        values: [
-          user.id,
-          sample_id, // Using sample_id as item_id
-          total_weight,
-          iot_weight || null,
-          manager_weight || null,
-          iot_device_id || null,
-          "pending",
-          notes || null,
-          unit || "kg",
-        ],
-        single: true,
-      });
+      (user_id, item_id, total_weight, status, notes, unit)
+      VALUES (?, ?, ?, ?, ?, ?)
+          `,
+          values: [
+            user.id,
+            sample_id, // Using sample_id as item_id
+            total_weight,
+            finalStatus,
+            notes || null,
+            unit || "kg",
+          ],
+          single: true,
+        });
+      }
 
       // Get sample information for response
-      const sample = await executeQuery<any>({
-        query: "SELECT category, item FROM samples_item WHERE id = ?",
-        values: [sample_id],
-        single: true,
+      // Get sample information for response (Supabase-compatible)
+      const sampleRows = await executeQuery<any[]>({
+        table: "public.samples_item",
+        action: "select",
+        columns: "category, item",
+        filters: { id: sample_id },
+        limit: 1,
       });
+      const sample = sampleRows?.[0];
 
       // Update delivery status if delivery_id is provided
       if (delivery_id) {
@@ -334,26 +458,16 @@ async function addWeightRecord(
         }
       }
 
-      // Calculate variance information for response
-      let varianceInfo = null;
-      if (iot_weight && manager_weight) {
-        const variance = iot_weight - manager_weight;
-        const variancePercentage = manager_weight !== 0 ? (variance / manager_weight) * 100 : 0;
-        let status = 'normal';
-        
-        if (Math.abs(variancePercentage) >= 10) {
-          status = 'critical';
-        } else if (Math.abs(variancePercentage) >= 5) {
-          status = 'warning';
-        }
-
-        varianceInfo = {
-          variance,
-          variancePercentage: Math.round(variancePercentage * 100) / 100,
-          status,
-          requiresVerification: Math.abs(variancePercentage) >= 5
-        };
-      }
+      // Prepare variance info for response
+      const varianceInfo = analysis
+        ? {
+            variance: analysis.varianceKg,
+            variancePercentage: analysis.variancePercentage,
+            status: analysis.status,
+            autoApproved: analysis.status === "auto_approved",
+            reason: analysis.reason,
+          }
+        : null;
 
       const record = {
         id: result.record_id,
@@ -364,16 +478,21 @@ async function addWeightRecord(
           ? `${sample.category} - ${sample.item}`
           : "Unknown Sample",
         total_weight,
-        iot_weight,
-        manager_weight,
+        iot_weight: iotWeightValue ?? null,
+        expected_weight,
         iot_device_id,
         timestamp: result.timestamp || new Date(),
-        status: "pending",
+        status: finalStatus,
         variance: varianceInfo,
       };
 
       return res.status(201).json({
-        message: "Weight record added successfully",
+        message:
+          finalStatus === "approved"
+            ? "Weight record automatically approved"
+            : finalStatus === "rejected"
+            ? "Weight record automatically rejected"
+            : "Weight record submitted for verification",
         record,
       });
     }
@@ -415,6 +534,7 @@ async function addWeightRecord(
             user_id: user.id,
             item_id: sampleItem.id,
             total_weight,
+            iot_weight: iotWeightValue ?? null,
             status: "pending",
           },
           returning: "*",
@@ -487,7 +607,12 @@ async function addWeightRecord(
             user_id: rfidRecord.user_id,
             item_id: dummyItem[0]?.id || 1, // Use dummy item or fallback to 1
             total_weight: rfidRecord.total_weight,
+            iot_weight: rfidRecord.total_weight,
+            iot_device_id: rfid_device_id,
+            verification_required: true,
             status: rfidRecord.status,
+            unit: rfidRecord.unit,
+            notes: null,
           },
           returning: "*",
         });
@@ -557,7 +682,10 @@ async function addWeightRecord(
         });
       }
 
-      // Insert weight record (only use columns that exist in the table)
+      const varianceKg = analysis?.varianceKg ?? null;
+      const variancePct = analysis?.variancePercentage ?? null;
+      const vStatus = analysis?.status ?? null;
+
       result = await executeQuery<any>({
         table: "public.weight_records",
         action: "insert",
@@ -565,7 +693,16 @@ async function addWeightRecord(
           user_id: user.id,
           item_id: item_id || items[0]?.id,
           total_weight,
-          status: "pending",
+          iot_weight: iotWeightValue ?? null,
+          manager_weight: null,
+          weight_variance: varianceKg,
+          weight_variance_percentage: variancePct,
+          variance_status: vStatus,
+          iot_device_id: iot_device_id ?? null,
+          verification_required: finalStatus === "pending",
+          status: finalStatus,
+          notes: notes || null,
+          unit: unit || "kg",
         },
         returning: "*",
       });
@@ -588,10 +725,13 @@ async function addWeightRecord(
         });
       }
 
+      // Insert minimal fields for MySQL schema
       result = await executeQuery<any>({
         query: `
-          INSERT INTO weight_records (user_id, item_id, total_weight, quantity, status, unit, batch_number, source, destination, notes, variance_amount, variance_percentage, variance_status)
-          VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)
+          INSERT INTO weight_records (
+            user_id, item_id, total_weight, quantity, unit, source, destination, notes, status
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
         values: [
           user.id,
@@ -599,13 +739,10 @@ async function addWeightRecord(
           total_weight,
           quantity || 1,
           unit || "kg",
-          batch_number,
           source,
           destination,
           notes,
-          variance_amount,
-          variance_percentage,
-          variance_status,
+          finalStatus,
         ],
       });
     }
@@ -618,11 +755,16 @@ async function addWeightRecord(
       item_name: `${items[0].category} - ${items[0].item}` || "Sample Item",
       total_weight,
       timestamp: new Date(),
-      status: "pending",
+      status: finalStatus,
     };
 
     return res.status(201).json({
-      message: "Weight record added successfully",
+      message:
+        finalStatus === "approved"
+          ? "Weight record automatically approved"
+          : finalStatus === "rejected"
+          ? "Weight record automatically rejected"
+          : "Weight record submitted for verification",
       record: newRecord,
     });
   } catch (error) {
@@ -632,11 +774,7 @@ async function addWeightRecord(
 }
 
 // Delete multiple weight records
-async function deleteWeightRecords(
-  req: NextApiRequest,
-  res: NextApiResponse,
-  user: any
-) {
+async function deleteWeightRecords(req: NextApiRequest, res: NextApiResponse) {
   try {
     const { record_ids } = req.body;
 

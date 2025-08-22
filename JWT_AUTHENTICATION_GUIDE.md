@@ -1,17 +1,20 @@
 # 🔐 JWT Authentication Guide - VeroScale App
 
 ## Overview
+
 Dokumentasi lengkap tentang implementasi JWT (JSON Web Token) authentication di aplikasi VeroScale, termasuk semua file yang terlibat dalam sistem autentikasi.
 
 ## 📁 File Structure & Components
 
 ### 🚀 Backend Server Routes
+
 - **`server/routes/auth.route.ts`** - Main authentication routes (register, login, logout)
 - **`server/middleware/auth.middleware.ts`** - JWT verification middleware
 
 ### 🔧 Next.js API Routes
+
 - **`pages/api/auth/login.ts`** - Frontend login API endpoint
-- **`pages/api/auth/register.ts`** - Frontend register API endpoint  
+- **`pages/api/auth/register.ts`** - Frontend register API endpoint
 - **`pages/api/auth/logout.ts`** - Frontend logout API endpoint
 - **`pages/api/users/index.ts`** - Protected user management API
 - **`pages/api/users/[id].ts`** - Individual user API (protected)
@@ -20,12 +23,14 @@ Dokumentasi lengkap tentang implementasi JWT (JSON Web Token) authentication di 
 - **`pages/api/reports/generate.ts`** - Protected reports API
 
 ### 🎯 Authentication Libraries
+
 - **`lib/auth.ts`** - Core JWT functions (generateToken, verifyToken, getUserFromToken)
 - **`lib/db-adapter.ts`** - Database query adapter
 - **`lib/supabase.ts`** - Supabase client configuration
 - **`lib/arcjet-middleware.ts`** - Rate limiting protection
 
 ### 🖥️ Frontend Components
+
 - **`contexts/AuthContext.tsx`** - React Context for auth state management
 - **`pages/login.tsx`** - Login page component
 - **`pages/dashboard.tsx`** - Protected dashboard page
@@ -35,8 +40,9 @@ Dokumentasi lengkap tentang implementasi JWT (JSON Web Token) authentication di 
 
 ## 🔄 JWT Authentication Flow
 
-### 1. **Registration Process** 
-*File: `server/routes/auth.route.ts` (lines 12-78)*
+### 1. **Registration Process**
+
+_File: `server/routes/auth.route.ts` (lines 12-78)_
 
 ```typescript
 // Hash password with bcrypt
@@ -44,21 +50,20 @@ const salt = await bcrypt.genSalt(10);
 const hashedPassword = await bcrypt.hash(password, salt);
 
 // Generate JWT token
-const token = jwt.sign(
-  { id: insertId, email, role: 'user' },
-  JWT_SECRET,
-  { expiresIn: '24h' }
-);
+const token = jwt.sign({ id: insertId, email, role: "user" }, JWT_SECRET, {
+  expiresIn: "24h",
+});
 
 // Create user session in database
 await connection.execute(
-  'INSERT INTO sessions (user_id, status) VALUES (?, ?)',
-  [insertId, 'active']
+  "INSERT INTO sessions (user_id, status) VALUES (?, ?)",
+  [insertId, "active"]
 );
 ```
 
 ### 2. **Login Process**
-*File: `server/routes/auth.route.ts` (lines 80-140)*
+
+_File: `server/routes/auth.route.ts` (lines 80-140)_
 
 ```typescript
 // Verify password
@@ -68,18 +73,19 @@ const isMatch = await bcrypt.compare(password, user.password);
 const token = jwt.sign(
   { id: user.id, email: user.email, role: user.role },
   JWT_SECRET,
-  { expiresIn: '24h' }
+  { expiresIn: "24h" }
 );
 
 // Return token and user info
 res.status(200).json({
   token,
-  user: { id, name, email, role }
+  user: { id, name, email, role },
 });
 ```
 
 ### 3. **Frontend Login Integration**
-*File: `pages/api/auth/login.ts` (lines 1-96)*
+
+_File: `pages/api/auth/login.ts` (lines 1-96)_
 
 ```typescript
 import { generateToken } from "../../../lib/auth";
@@ -99,31 +105,42 @@ const token = generateToken({
 ## 🛡️ JWT Verification & Middleware
 
 ### 1. **Server Middleware**
-*File: `server/middleware/auth.middleware.ts` (lines 1-45)*
+
+_File: `server/middleware/auth.middleware.ts` (lines 1-45)_
 
 ```typescript
-export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+export const authMiddleware = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
     // Extract token from Authorization header
-    const token = req.headers.authorization?.split(' ')[1];
+    const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) {
-      return res.status(401).json({ message: 'Authentication token is required' });
+      return res
+        .status(401)
+        .json({ message: "Authentication token is required" });
     }
 
     // Verify JWT token
-    const decoded = jwt.verify(token, JWT_SECRET) as { id: number; role: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      id: number;
+      role: string;
+    };
     req.user = decoded;
-    
+
     next();
   } catch {
-    return res.status(401).json({ message: 'Invalid or expired token' });
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 ```
 
 ### 2. **Auth Utility Functions**
-*File: `lib/auth.ts` (lines 1-157)*
+
+_File: `lib/auth.ts` (lines 1-157)_
 
 ```typescript
 // Generate JWT token
@@ -150,9 +167,11 @@ export function verifyToken(token: string): AuthToken | null {
 }
 
 // Get user from JWT token with fresh DB data
-export async function getUserFromToken(req: NextApiRequest): Promise<UserPayload | null> {
+export async function getUserFromToken(
+  req: NextApiRequest
+): Promise<UserPayload | null> {
   const authHeader = req.headers.authorization;
-  
+
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return null;
   }
@@ -180,10 +199,13 @@ export async function getUserFromToken(req: NextApiRequest): Promise<UserPayload
 ## 🎯 Frontend State Management
 
 ### **React Auth Context**
-*File: `contexts/AuthContext.tsx` (lines 1-176)*
+
+_File: `contexts/AuthContext.tsx` (lines 1-176)_
 
 ```typescript
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -191,11 +213,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem("token");
-      
+
       if (token) {
         // Set axios default header
         axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-        
+
         // Load user data from localStorage
         const userData = localStorage.getItem("user");
         if (userData) {
@@ -203,7 +225,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     };
-    
+
     initAuth();
   }, []);
 
@@ -215,10 +237,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Store token and user data
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-      
+
       // Set axios header for subsequent requests
       axios.defaults.headers.common["Authorization"] = `Bearer ${data.token}`;
-      
+
       setUser(data.user);
     }
   };
@@ -227,12 +249,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     // Call logout API
     await axios.post("/api/auth/logout");
-    
+
     // Clear storage and state
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     delete axios.defaults.headers.common["Authorization"];
-    
+
     setUser(null);
     router.push("/login");
   };
@@ -244,10 +266,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 ## 🔒 Protected API Routes Examples
 
 ### 1. **User Management API**
-*File: `pages/api/users/index.ts` (lines 1-50)*
+
+_File: `pages/api/users/index.ts` (lines 1-50)_
 
 ```typescript
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   // Get user from JWT token
   const user = await getUserFromToken(req);
 
@@ -267,7 +293,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 ```
 
 ### 2. **Individual User API**
-*File: `pages/api/users/[id].ts`*
+
+_File: `pages/api/users/[id].ts`_
 
 ```typescript
 // Requires admin or manager role
@@ -277,8 +304,9 @@ if (!user || !isManagerOrAdmin(user)) {
 }
 ```
 
-### 3. **Deliveries API** 
-*File: `pages/api/deliveries/index.ts`*
+### 3. **Deliveries API**
+
+_File: `pages/api/deliveries/index.ts`_
 
 ```typescript
 // Requires authenticated user
@@ -293,7 +321,8 @@ if (!user) {
 ## 🛡️ Role-Based Access Control (RBAC)
 
 ### **Role Functions**
-*File: `lib/auth.ts` (lines 120-157)*
+
+_File: `lib/auth.ts` (lines 120-157)_
 
 ```typescript
 // Admin access (full permissions)
@@ -301,7 +330,7 @@ export function isAdmin(user: UserPayload | null): boolean {
   return user?.role === "admin";
 }
 
-// Manager access  
+// Manager access
 export function isManager(user: UserPayload | null): boolean {
   return user?.role === "manager";
 }
@@ -323,7 +352,11 @@ export function isMarketing(user: UserPayload | null): boolean {
 
 // Sample management permission
 export function canManageSamples(user: UserPayload | null): boolean {
-  return user?.role === "admin" || user?.role === "manager" || user?.role === "marketing";
+  return (
+    user?.role === "admin" ||
+    user?.role === "manager" ||
+    user?.role === "marketing"
+  );
 }
 
 // Full system access
@@ -333,7 +366,8 @@ export function hasFullAccess(user: UserPayload | null): boolean {
 ```
 
 ### **Role Usage in Pages**
-*File: `pages/reports/index.tsx` (lines 70-85)*
+
+_File: `pages/reports/index.tsx` (lines 70-85)_
 
 ```typescript
 // Redirect if unauthorized
@@ -346,8 +380,11 @@ useEffect(() => {
 
 // Limit operator access
 useEffect(() => {
-  if (user && user.role === "operator" && 
-      (activeTab === "templates" || activeTab === "configuration")) {
+  if (
+    user &&
+    user.role === "operator" &&
+    (activeTab === "templates" || activeTab === "configuration")
+  ) {
     setActiveTab("available");
     toast.error("Operators can only view available reports");
   }
@@ -359,12 +396,16 @@ useEffect(() => {
 ## 🔐 Security Features
 
 ### 1. **Rate Limiting**
-*File: `lib/arcjet-middleware.ts`*
+
+_File: `lib/arcjet-middleware.ts`_
+
 - Protects auth endpoints with Arcjet
 - 5 requests per 15 minutes for login attempts
 
 ### 2. **Password Security**
-*File: `server/routes/auth.route.ts`*
+
+_File: `server/routes/auth.route.ts`_
+
 ```typescript
 // Hash passwords with bcrypt
 const salt = await bcrypt.genSalt(10);
@@ -375,24 +416,27 @@ const isMatch = await bcrypt.compare(password, user.password);
 ```
 
 ### 3. **Session Management**
-*File: `server/routes/auth.route.ts` (lines 160-190)*
+
+_File: `server/routes/auth.route.ts` (lines 160-190)_
+
 ```typescript
 // Create session on login
 await connection.execute(
-  'INSERT INTO sessions (user_id, status) VALUES (?, ?)',
-  [user.id, 'active']
+  "INSERT INTO sessions (user_id, status) VALUES (?, ?)",
+  [user.id, "active"]
 );
 
 // End sessions on logout
 await connection.execute(
-  'UPDATE sessions SET status = ?, end_time = NOW() WHERE user_id = ? AND status = ?',
-  ['ended', userId, 'active']
+  "UPDATE sessions SET status = ?, end_time = NOW() WHERE user_id = ? AND status = ?",
+  ["ended", userId, "active"]
 );
 ```
 
 ### 4. **Token Configuration**
+
 - **Server JWT expiration**: 24 hours
-- **Client JWT expiration**: 8 hours  
+- **Client JWT expiration**: 8 hours
 - **Secret key**: Environment variable `JWT_SECRET`
 
 ---
@@ -400,7 +444,8 @@ await connection.execute(
 ## 📱 Frontend Integration
 
 ### **Protected Page Example**
-*File: `pages/dashboard.tsx`*
+
+_File: `pages/dashboard.tsx`_
 
 ```typescript
 export default function Dashboard() {
@@ -421,7 +466,8 @@ export default function Dashboard() {
 ```
 
 ### **Login Page Integration**
-*File: `pages/login.tsx`*
+
+_File: `pages/login.tsx`_
 
 ```typescript
 const handleSubmit = async (e: React.FormEvent) => {
@@ -439,6 +485,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 ## 🗄️ Database Schema
 
 ### **Users Table**
+
 ```sql
 CREATE TABLE users (
   id INT PRIMARY KEY AUTO_INCREMENT,
@@ -453,6 +500,7 @@ CREATE TABLE users (
 ```
 
 ### **Roles Table**
+
 ```sql
 CREATE TABLE roles (
   id INT PRIMARY KEY AUTO_INCREMENT,
@@ -462,7 +510,8 @@ CREATE TABLE roles (
 -- Default roles: admin, manager, operator, marketing
 ```
 
-### **Sessions Table** 
+### **Sessions Table**
+
 ```sql
 CREATE TABLE sessions (
   id INT PRIMARY KEY AUTO_INCREMENT,
@@ -479,12 +528,14 @@ CREATE TABLE sessions (
 ## 🚨 Error Handling
 
 ### **Common JWT Errors**
+
 - **401 Unauthorized**: Missing or invalid token
-- **403 Forbidden**: Valid token but insufficient permissions  
+- **403 Forbidden**: Valid token but insufficient permissions
 - **Token Expired**: Auto-redirects to login page
 - **Invalid Credentials**: Wrong email/password combination
 
 ### **Error Response Format**
+
 ```json
 {
   "message": "Authentication token is required",
@@ -500,7 +551,7 @@ CREATE TABLE sessions (
 # JWT Configuration
 JWT_SECRET=your-super-secure-secret-key-change-in-production
 
-# Database Configuration  
+# Database Configuration
 DB_HOST=localhost
 DB_USER=root
 DB_PASSWORD=admin1234
@@ -516,18 +567,20 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ## 📋 Summary
 
 ### **Key Benefits:**
+
 ✅ **Stateless Authentication** - No server-side session storage  
 ✅ **Scalable** - Works across multiple server instances  
 ✅ **Secure** - bcrypt password hashing + JWT signing  
 ✅ **Role-Based** - Granular permission control  
 ✅ **Cross-Origin** - Supports API calls from different domains  
-✅ **Auto-Refresh** - Seamless token renewal on app restart  
+✅ **Auto-Refresh** - Seamless token renewal on app restart
 
 ### **Security Measures:**
+
 🔒 **Rate Limited** - Prevents brute force attacks  
 🔒 **Token Expiration** - Automatic logout after 8 hours  
 🔒 **Password Hashing** - bcrypt with salt rounds  
 🔒 **Session Tracking** - Database-logged user sessions  
-🔒 **Permission Checks** - Route-level authorization  
+🔒 **Permission Checks** - Route-level authorization
 
 This JWT implementation provides a robust, secure, and scalable authentication system for the VeroScale application.

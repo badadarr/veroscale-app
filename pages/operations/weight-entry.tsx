@@ -5,10 +5,16 @@ import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { useAuth } from "@/contexts/AuthContext";
 import apiClient from "@/lib/api";
 import IoTWeightDisplay from "@/components/ui/IoTWeightDisplay";
 import { toast } from "react-hot-toast";
+import {
+  analyzeWeightVariance,
+  getVarianceStatusColor,
+  getVarianceStatusIcon,
+  formatVarianceDisplay,
+  VarianceAnalysis,
+} from "@/lib/weight-variance-config";
 
 interface Sample {
   id: number;
@@ -41,15 +47,12 @@ export default function WeightEntry() {
   const [selectedSampleId, setSelectedSampleId] = useState<number | null>(null);
   const [weight, setWeight] = useState<number | null>(null);
   const [iotWeight, setIotWeight] = useState<number | null>(null);
-  const [managerWeight, setManagerWeight] = useState<number | null>(null);
+  const [expectedWeight, setExpectedWeight] = useState<number | null>(null);
   const [iotDeviceId, setIotDeviceId] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [deliveryId, setDeliveryId] = useState<number | null>(null);
-  const [varianceInfo, setVarianceInfo] = useState<{
-    variance: number;
-    percentage: number;
-    status: "normal" | "warning" | "critical";
-  } | null>(null);
+  const [varianceAnalysis, setVarianceAnalysis] =
+    useState<VarianceAnalysis | null>(null);
 
   // Fetch samples on component mount
   useEffect(() => {
@@ -134,53 +137,67 @@ export default function WeightEntry() {
       return;
     }
 
-    // Calculate variance if both IoT and manager weights are provided
-    let calculatedVariance = null;
-    if (iotWeight && managerWeight) {
-      const variance = iotWeight - managerWeight;
-      const percentage =
-        managerWeight !== 0 ? (variance / managerWeight) * 100 : 0;
-      calculatedVariance = {
-        variance,
-        percentage: Math.round(percentage * 100) / 100,
-        status: (Math.abs(percentage) >= 10
-          ? "critical"
-          : Math.abs(percentage) >= 5
-          ? "warning"
-          : "normal") as "normal" | "warning" | "critical",
-      };
-      setVarianceInfo(calculatedVariance);
+    // Get selected sample to check expected weight
+    const selectedSample = samples.find((s) => s.id === selectedSampleId);
+    const sampleExpectedWeight = selectedSample?.expected_weight || 0;
+
+    // Analyze variance if IoT weight and expected weight are available
+    let analysis: VarianceAnalysis | null = null;
+    if (iotWeight && sampleExpectedWeight > 0) {
+      analysis = analyzeWeightVariance(iotWeight, sampleExpectedWeight);
+      setVarianceAnalysis(analysis);
+
+      // Auto-reject if variance exceeds thresholds
+      if (analysis.status === "auto_rejected") {
+        setError(
+          `Weight rejected automatically: ${analysis.reason}. Please check the scale calibration and try again.`
+        );
+        toast.error(`Rejected: ${analysis.reason}`);
+        return;
+      }
     }
 
     setLoading(true);
     setError(null);
 
     try {
-      await apiClient.post("/api/weights", {
+      const submissionData = {
         sample_id: selectedSampleId,
         total_weight: weight,
         iot_weight: iotWeight,
-        manager_weight: managerWeight,
+        expected_weight: sampleExpectedWeight,
         iot_device_id: iotDeviceId || null,
         notes,
         unit: "kg",
         delivery_id: deliveryId,
-      });
+        // Include variance analysis results
+        variance_status: analysis?.status || "processed",
+        auto_approved: analysis?.status === "auto_approved",
+        variance_reason: analysis?.reason || null,
+      };
+
+      await apiClient.post("/api/weights", submissionData);
 
       setSuccess(true);
 
-      // Show variance information in success message if available
-      if (calculatedVariance && Math.abs(calculatedVariance.percentage) >= 5) {
-        toast.success(
-          `Weight record submitted! Variance: ${
-            calculatedVariance.variance > 0 ? "+" : ""
-          }${calculatedVariance.variance.toFixed(
-            2
-          )}kg (${calculatedVariance.percentage.toFixed(1)}%)`,
-          { duration: 4000 }
-        );
+      // Show appropriate success message based on variance analysis
+      if (analysis) {
+        const statusIcon = getVarianceStatusIcon(analysis.status);
+        const varianceDisplay = formatVarianceDisplay(analysis);
+
+        if (analysis.status === "auto_approved") {
+          toast.success(
+            `${statusIcon} Weight approved automatically! Variance: ${varianceDisplay}`,
+            { duration: 4000 }
+          );
+        } else if (analysis.status === "auto_rejected") {
+          toast.error(
+            `${statusIcon} Weight rejected automatically. Variance: ${varianceDisplay}`,
+            { duration: 4000 }
+          );
+        }
       } else {
-        toast.success("Weight record submitted successfully!");
+        toast.success("Weight record processed successfully!");
       }
 
       setTimeout(() => {
@@ -188,11 +205,11 @@ export default function WeightEntry() {
         setSelectedSampleId(null);
         setWeight(null);
         setIotWeight(null);
-        setManagerWeight(null);
+        setExpectedWeight(null);
         setIotDeviceId("");
         setNotes("");
         setDeliveryId(null);
-        setVarianceInfo(null);
+        setVarianceAnalysis(null);
 
         // Navigate to my records page
         router.push("/operations/my-records");
@@ -211,42 +228,36 @@ export default function WeightEntry() {
     setIotDeviceId("IoT_Scale_001"); // You can make this dynamic
     toast.success(`IoT Weight ${iotWeightValue} kg captured`);
 
-    // Calculate variance if manager weight is already set
-    if (managerWeight) {
-      const variance = iotWeightValue - managerWeight;
-      const percentage =
-        managerWeight !== 0 ? (variance / managerWeight) * 100 : 0;
-      setVarianceInfo({
-        variance,
-        percentage: Math.round(percentage * 100) / 100,
-        status:
-          Math.abs(percentage) >= 10
-            ? "critical"
-            : Math.abs(percentage) >= 5
-            ? "warning"
-            : "normal",
-      });
+    // Get selected sample to check expected weight and analyze variance
+    const selectedSample = samples.find((s) => s.id === selectedSampleId);
+    const sampleExpectedWeight = selectedSample?.expected_weight || 0;
+
+    if (sampleExpectedWeight > 0) {
+      const analysis = analyzeWeightVariance(
+        iotWeightValue,
+        sampleExpectedWeight
+      );
+      setVarianceAnalysis(analysis);
+      setExpectedWeight(sampleExpectedWeight);
     }
   };
 
-  const handleManagerWeightChange = (managerWeightValue: number) => {
-    setManagerWeight(managerWeightValue);
+  // Update sample selection to capture expected weight
+  const handleSampleSelect = (sampleId: number) => {
+    setSelectedSampleId(sampleId);
+    const selectedSample = samples.find((s) => s.id === sampleId);
+    if (selectedSample) {
+      setExpectedWeight(selectedSample.expected_weight);
+      setDeliveryId(selectedSample.delivery_id || null);
 
-    // Calculate variance if IoT weight is already set
-    if (iotWeight) {
-      const variance = iotWeight - managerWeightValue;
-      const percentage =
-        managerWeightValue !== 0 ? (variance / managerWeightValue) * 100 : 0;
-      setVarianceInfo({
-        variance,
-        percentage: Math.round(percentage * 100) / 100,
-        status:
-          Math.abs(percentage) >= 10
-            ? "critical"
-            : Math.abs(percentage) >= 5
-            ? "warning"
-            : "normal",
-      });
+      // Re-analyze variance if IoT weight is already set
+      if (iotWeight && selectedSample.expected_weight > 0) {
+        const analysis = analyzeWeightVariance(
+          iotWeight,
+          selectedSample.expected_weight
+        );
+        setVarianceAnalysis(analysis);
+      }
     }
   };
 
@@ -318,7 +329,9 @@ export default function WeightEntry() {
                     value={selectedSampleId || ""}
                     onChange={(e) => {
                       const sampleId = Number(e.target.value) || null;
-                      setSelectedSampleId(sampleId);
+                      if (sampleId) {
+                        handleSampleSelect(sampleId);
+                      }
 
                       // Auto-fill manager weight with sample weight from marketing data
                       if (sampleId) {
@@ -329,45 +342,12 @@ export default function WeightEntry() {
                           // Set delivery ID
                           setDeliveryId(selectedSample.delivery_id || null);
 
-                          // Auto-fill manager weight with expected weight from delivery (marketing target)
-                          // Use sample_weight as fallback if expected_weight is not available
-                          const targetWeight =
-                            selectedSample.expected_weight ||
-                            selectedSample.sample_weight ||
-                            0;
-                          setManagerWeight(targetWeight);
-
                           console.log("Selected sample:", selectedSample);
                           console.log(
-                            "Target weight from delivery expected_weight:",
-                            targetWeight
+                            "Expected weight from delivery:",
+                            selectedSample.expected_weight
                           );
-
-                          // If IoT weight is already set, calculate variance
-                          if (iotWeight) {
-                            const variance = iotWeight - targetWeight;
-                            const percentage =
-                              targetWeight !== 0
-                                ? (variance / targetWeight) * 100
-                                : 0;
-                            setVarianceInfo({
-                              variance,
-                              percentage: Math.round(percentage * 100) / 100,
-                              status: (Math.abs(percentage) >= 10
-                                ? "critical"
-                                : Math.abs(percentage) >= 5
-                                ? "warning"
-                                : "normal") as
-                                | "normal"
-                                | "warning"
-                                | "critical",
-                            });
-                          }
                         }
-                      } else {
-                        // Clear manager weight when no sample selected
-                        setManagerWeight(null);
-                        setVarianceInfo(null);
                       }
                     }}
                     aria-label="Select Sample"
@@ -376,7 +356,7 @@ export default function WeightEntry() {
                     <option value="">-- Select Sample --</option>
                     {samples.map((sample) => (
                       <option key={sample.id} value={sample.id}>
-                        {sample.category} - {sample.item} (Target:{" "}
+                        {sample.category} - {sample.item} (Expected:{" "}
                         {sample.expected_weight || sample.sample_weight || 0}{" "}
                         kg){" "}
                         {sample.supplier_name
@@ -393,7 +373,7 @@ export default function WeightEntry() {
                 </div>
 
                 {/* Delivery Detail Card - Appears when sample is selected */}
-                {selectedSampleId && managerWeight && (
+                {selectedSampleId && expectedWeight && (
                   <div className="p-4 transition-all duration-200 border border-blue-200 rounded-lg shadow-sm bg-gradient-to-r from-blue-50 to-indigo-50">
                     <div className="flex items-center mb-3">
                       <div className="flex items-center justify-center w-8 h-8 mr-3 text-blue-600 bg-white rounded-full shadow-sm">
@@ -431,10 +411,10 @@ export default function WeightEntry() {
                           </div>
                           <div className="flex justify-between pt-2 text-sm border-t">
                             <span className="text-gray-600">
-                              Target Weight:
+                              Expected Weight:
                             </span>
                             <span className="text-lg font-bold text-blue-700">
-                              {managerWeight} kg
+                              {expectedWeight} kg
                             </span>
                           </div>
                           {samples.find((s) => s.id === selectedSampleId)
@@ -547,85 +527,66 @@ export default function WeightEntry() {
                   )} */}
                 </div>
 
-                {/* Manager Weight Field */}
-                <div>
-                  <label className="block mb-1 text-sm font-medium text-gray-700">
-                    Target Weight (kg)
-                    <span className="ml-1 text-xs text-gray-500">
-                      (auto-filled from delivery data)
-                    </span>
-                  </label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="Will auto-fill when sample is selected"
-                      value={managerWeight || ""}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || null;
-                        handleManagerWeightChange(value || 0);
-                      }}
-                      className="w-full"
-                      readOnly={!selectedSampleId}
-                    />
-                    {selectedSampleId && managerWeight && (
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                        <span className="px-2 py-1 text-xs text-green-600 bg-green-100 rounded">
-                          From Delivery
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Variance Display */}
-                {varianceInfo && (
-                  <div
-                    className={`p-4 rounded-lg border ${
-                      varianceInfo.status === "critical"
-                        ? "bg-red-50 border-red-200 text-red-800"
-                        : varianceInfo.status === "warning"
-                        ? "bg-yellow-50 border-yellow-200 text-yellow-800"
-                        : "bg-green-50 border-green-200 text-green-800"
-                    }`}
-                  >
+                {/* Expected Weight Display */}
+                {selectedSampleId && expectedWeight && (
+                  <div className="p-3 border border-blue-200 rounded-lg bg-blue-50">
                     <div className="flex items-center justify-between">
                       <div>
+                        <h4 className="font-medium text-blue-900">
+                          Expected Weight
+                        </h4>
+                        <p className="text-sm text-blue-700">
+                          Target from delivery specification
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-lg font-bold text-blue-800">
+                          {expectedWeight.toFixed(2)} kg
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Variance Analysis Display */}
+                {varianceAnalysis && (
+                  <div
+                    className={`p-4 rounded-lg border ${getVarianceStatusColor(
+                      varianceAnalysis.status
+                    )}`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center">
+                        <span className="mr-2 text-lg">
+                          {getVarianceStatusIcon(varianceAnalysis.status)}
+                        </span>
                         <h4 className="font-medium">
                           Weight Variance Analysis
                         </h4>
-                        <p className="text-sm">
-                          Difference: {varianceInfo.variance > 0 ? "+" : ""}
-                          {varianceInfo.variance.toFixed(2)} kg (
-                          {varianceInfo.percentage > 0 ? "+" : ""}
-                          {varianceInfo.percentage.toFixed(1)}%)
-                        </p>
                       </div>
-                      <div
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          varianceInfo.status === "critical"
-                            ? "bg-red-100 text-red-700"
-                            : varianceInfo.status === "warning"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-green-100 text-green-700"
-                        }`}
-                      >
-                        {varianceInfo.status.toUpperCase()}
+                      <div className="text-right">
+                        <span className="font-bold">
+                          {formatVarianceDisplay(varianceAnalysis)}
+                        </span>
                       </div>
                     </div>
-                    {Math.abs(varianceInfo.percentage) >= 5 && (
-                      <p className="mt-2 text-xs">
-                        ⚠️ Significant variance detected. Manual verification
-                        may be required.
-                      </p>
+                    <p className="text-sm">{varianceAnalysis.reason}</p>
+                    {varianceAnalysis.status === "auto_rejected" && (
+                      <div className="p-2 mt-2 text-sm text-red-800 bg-red-100 border border-red-300 rounded">
+                        <strong>Weight Rejected:</strong> Variance exceeds
+                        acceptable limits. Please check scale calibration.
+                      </div>
+                    )}
+                    {varianceAnalysis.status === "auto_approved" && (
+                      <div className="p-2 mt-2 text-sm text-green-800 bg-green-100 border border-green-300 rounded">
+                        <strong>Weight Approved:</strong> Variance within
+                        acceptable limits.
+                      </div>
                     )}
                   </div>
                 )}
 
-                {/* Source field removed */}
-
-                {/* Destination field removed */}
-
+                {/* Notes section */}
                 <div>
                   <label className="block mb-1 text-sm font-medium text-gray-700">
                     Notes (Optional)

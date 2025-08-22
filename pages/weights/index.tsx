@@ -35,9 +35,9 @@ interface WeightRecord {
   iot_device_id?: string;
   verification_required?: boolean;
   timestamp: string;
-  status: "pending" | "approved" | "rejected";
+  status: "auto_approved" | "auto_rejected" | "processed";
   user_name?: string;
-  batch_number?: string;
+  // batch_number?: string; // removed for schema compatibility
   unit?: string;
   source?: string;
   destination?: string;
@@ -71,7 +71,8 @@ export default function WeightRecords() {
     setCurrentPage(pageNumber);
   };
 
-  const [statusUpdating, setStatusUpdating] = useState<number | null>(null);
+  // Remove unused state since no status updates allowed
+  // const [statusUpdating] = useState<number | null>(null);
 
   // Function to handle detail modal
   const handleViewDetail = (record: WeightRecord) => {
@@ -103,7 +104,7 @@ export default function WeightRecords() {
           item_name: record.item_name || "Unknown Item",
           total_weight: record.total_weight || 0,
           timestamp: record.timestamp || new Date().toISOString(),
-          status: record.status || "pending",
+          status: record.status || "processed",
           source: record.source,
           destination: record.destination,
           notes: record.notes,
@@ -113,7 +114,7 @@ export default function WeightRecords() {
           created_at: record.created_at,
           user_name: record.user_name || "Unknown User",
           approved_by_name: record.approved_by_name,
-          batch_number: record.batch_number,
+          // batch_number: record.batch_number,
         }));
         setRecords(processedRecords);
         setFilteredRecords(processedRecords);
@@ -145,81 +146,41 @@ export default function WeightRecords() {
     }
   };
 
-  // Function to update weight record status
-  const updateRecordStatus = async (
-    recordId: number,
-    status: "approved" | "rejected" | "pending"
-  ) => {
-    setStatusUpdating(recordId);
-
-    try {
-      const response = await apiClient.put(`/api/weights/${recordId}`, {
-        status,
-      });
-      const data = response.data;
-
-      toast.success(`Record status updated to ${status}`);
-
-      // Update local state with the returned record data
-      const updatedRecords = records.map((record) => {
-        if (record.id === recordId) {
-          return {
-            ...record,
-            status,
-            // Update with additional data from response if available
-            ...(data.record && {
-              user_name: data.record.user_name || record.user_name,
-              item_name: data.record.item_name || record.item_name,
-            }),
-          };
-        }
-        return record;
-      });
-
-      setRecords(updatedRecords);
-      setFilteredRecords(updatedRecords);
-    } catch (error: unknown) {
-      console.error("Error updating record status:", error);
-
-      // Check if the update might have succeeded but the response failed
-      if (error instanceof Error && "response" in error) {
-        const apiError = error as { response?: { status: number } };
-        if (apiError.response?.status === 500) {
-          // Show a different message and try to refresh the data
-          toast.error(
-            "Update may have succeeded but response failed. Refreshing data..."
-          );
-
-          // Optimistically update the local state
-          const updatedRecords = records.map((record) =>
-            record.id === recordId ? { ...record, status } : record
-          );
-
-          setRecords(updatedRecords);
-          setFilteredRecords(updatedRecords);
-
-          // Try to refresh the data to get the latest state
-          setTimeout(() => {
-            fetchWeightRecords();
-          }, 1000);
-        } else {
-          const errorMessage = "Failed to update status";
-          toast.error(errorMessage);
-        }
-      } else {
-        toast.error("Failed to update status");
-      }
-    } finally {
-      setStatusUpdating(null);
+  // Function to get status display info
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case "auto_approved":
+        return {
+          label: "Auto Approved",
+          className: "bg-green-100 text-green-800",
+          icon: "✅",
+        };
+      case "auto_rejected":
+        return {
+          label: "Auto Rejected",
+          className: "bg-red-100 text-red-800",
+          icon: "❌",
+        };
+      case "processed":
+        return {
+          label: "Processed",
+          className: "bg-blue-100 text-blue-800",
+          icon: "📊",
+        };
+      default:
+        return {
+          label: status.charAt(0).toUpperCase() + status.slice(1),
+          className: "bg-gray-100 text-gray-800",
+          icon: "📝",
+        };
     }
   };
 
-  // Determine if the user can change status
-  const canChangeStatus = user?.role === "admin" || user?.role === "manager";
+  // No longer need manager/admin privileges - all records are read-only history
+  const canChangeStatus = false;
 
-  // Determine page title based on role
-  const pageTitle =
-    user?.role === "operator" ? "My Weight Records" : "All Weight Records";
+  // Determine page title - now always shows as history
+  const pageTitle = "Weight Records History";
 
   return (
     <DashboardLayout title={pageTitle}>
@@ -229,11 +190,12 @@ export default function WeightRecords() {
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle>
-                {user?.role === "operator"
-                  ? "My Weight Records"
-                  : "Recent Weight Records"}
-              </CardTitle>
+              <div>
+                <CardTitle>Weight Processing History</CardTitle>
+                <p className="text-sm text-gray-600 mt-1">
+                  All weight records are automatically processed by the system
+                </p>
+              </div>
               <div className="flex items-center gap-4">
                 <Button
                   variant="outline"
@@ -308,18 +270,16 @@ export default function WeightRecords() {
                         </TableCell>
                         <TableCell>{formatDate(record.timestamp)}</TableCell>
                         <TableCell>
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              record.status === "approved"
-                                ? "bg-success-100 text-success-800"
-                                : record.status === "pending"
-                                ? "bg-warning-100 text-warning-800"
-                                : "bg-error-100 text-error-800"
-                            }`}
-                          >
-                            {record.status.charAt(0).toUpperCase() +
-                              record.status.slice(1)}
-                          </span>
+                          {(() => {
+                            const statusInfo = getStatusDisplay(record.status);
+                            return (
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.className}`}
+                              >
+                                {statusInfo.icon} {statusInfo.label}
+                              </span>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>{record.user_name}</TableCell>
                         <TableCell>
@@ -331,74 +291,6 @@ export default function WeightRecords() {
                             View Detail
                           </Button>
                         </TableCell>
-                        {canChangeStatus && (
-                          <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                updateRecordStatus(
-                                  record.id,
-                                  record.status === "pending"
-                                    ? "approved"
-                                    : "pending"
-                                )
-                              }
-                              disabled={statusUpdating === record.id}
-                            >
-                              {record.status === "pending"
-                                ? "Approve"
-                                : "Reset"}
-                            </Button>
-                          </TableCell>
-                        )}
-                        {canChangeStatus && (
-                          <TableCell>
-                            <div className="flex space-x-2">
-                              {record.status === "pending" && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 px-2 py-1 text-xs text-success-700 border-success-200 hover:bg-success-50"
-                                    onClick={() =>
-                                      updateRecordStatus(record.id, "approved")
-                                    }
-                                    disabled={statusUpdating === record.id}
-                                  >
-                                    Approve
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 px-2 py-1 text-xs text-error-700 border-error-200 hover:bg-error-50"
-                                    onClick={() =>
-                                      updateRecordStatus(record.id, "rejected")
-                                    }
-                                    disabled={statusUpdating === record.id}
-                                  >
-                                    Reject
-                                  </Button>
-                                </>
-                              )}
-
-                              {(record.status === "approved" ||
-                                record.status === "rejected") && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 px-2 py-1 text-xs text-warning-700 border-warning-200 hover:bg-warning-50"
-                                  onClick={() =>
-                                    updateRecordStatus(record.id, "pending")
-                                  }
-                                  disabled={statusUpdating === record.id}
-                                >
-                                  Reset to Pending
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        )}
                       </TableRow>
                     ))}
                   </TableBody>

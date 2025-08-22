@@ -42,7 +42,7 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
 
     // Format timestamps in records
     if (formatted.records && Array.isArray(formatted.records)) {
-      formatted.records = formatted.records.map((record) => {
+      formatted.records = formatted.records.map((record: any) => {
         const newRecord = { ...record };
         if (newRecord.timestamp) {
           try {
@@ -348,7 +348,7 @@ export const ReportPreview: React.FC<ReportPreviewProps> = ({
                                       {getStatusLabel(status)}
                                     </p>
                                     <p className="text-2xl font-bold text-gray-900">
-                                      {count}
+                                      {String(count)}
                                     </p>
                                   </div>
                                 );

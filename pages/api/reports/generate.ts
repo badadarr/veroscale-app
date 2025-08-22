@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextApiRequest, NextApiResponse } from "next";
 import { executeQuery } from "../../../lib/db-adapter";
 import { getUserFromToken } from "../../../lib/auth";
@@ -157,8 +158,12 @@ async function getDailyWeightSummary() {
     });
 
     // Fetch user names and item names separately since we can't do JOINs directly
-    const userIds = [...new Set(records.map((record) => record.user_id))];
-    const itemIds = [...new Set(records.map((record) => record.item_id))];
+    const userIds = Array.from(
+      new Set(records.map((record) => record.user_id))
+    );
+    const itemIds = Array.from(
+      new Set(records.map((record) => record.item_id))
+    );
 
     // Get user names
     if (userIds.length > 0) {
@@ -228,24 +233,39 @@ async function getDailyWeightSummary() {
     0
   );
   const avgWeight = records.length > 0 ? totalWeight / records.length : 0;
-  
+
   // Calculate variance statistics
-  const recordsWithVariance = records.filter(record => 
-    record.iot_weight && record.manager_weight && record.weight_variance !== null
+  // Under auto-approval, variance is derived from IoT vs expected weight; ensure we include records with iot_weight
+  const recordsWithVariance = records.filter(
+    (record) => record.iot_weight !== null && record.iot_weight !== undefined
   );
   const varianceStats = {
     totalWithVariance: recordsWithVariance.length,
-    normalVariance: recordsWithVariance.filter(r => r.variance_status === 'normal').length,
-    warningVariance: recordsWithVariance.filter(r => r.variance_status === 'warning').length,
-    criticalVariance: recordsWithVariance.filter(r => r.variance_status === 'critical').length,
-    averageVariance: recordsWithVariance.length > 0 
-      ? recordsWithVariance.reduce((sum, r) => sum + Math.abs(r.weight_variance || 0), 0) / recordsWithVariance.length 
-      : 0,
-    averageVariancePercentage: recordsWithVariance.length > 0 
-      ? recordsWithVariance.reduce((sum, r) => sum + Math.abs(r.weight_variance_percentage || 0), 0) / recordsWithVariance.length 
-      : 0,
+    normalVariance: recordsWithVariance.filter(
+      (r) => r.variance_status === "normal"
+    ).length,
+    warningVariance: recordsWithVariance.filter(
+      (r) => r.variance_status === "warning"
+    ).length,
+    criticalVariance: recordsWithVariance.filter(
+      (r) => r.variance_status === "critical"
+    ).length,
+    averageVariance:
+      recordsWithVariance.length > 0
+        ? recordsWithVariance.reduce(
+            (sum, r) => sum + Math.abs(r.weight_variance || 0),
+            0
+          ) / recordsWithVariance.length
+        : 0,
+    averageVariancePercentage:
+      recordsWithVariance.length > 0
+        ? recordsWithVariance.reduce(
+            (sum, r) => sum + Math.abs(r.weight_variance_percentage || 0),
+            0
+          ) / recordsWithVariance.length
+        : 0,
   };
-  
+
   const statusCounts = records.reduce((counts: any, record) => {
     const status = record.status || "unknown";
     counts[status] = (counts[status] || 0) + 1;
@@ -308,8 +328,12 @@ async function getWeeklyActivityReport() {
     });
 
     // Fetch user names and item names separately since we can't do JOINs directly
-    const userIds = [...new Set(records.map((record) => record.user_id))];
-    const itemIds = [...new Set(records.map((record) => record.item_id))];
+    const userIds = Array.from(
+      new Set(records.map((record) => record.user_id))
+    );
+    const itemIds = Array.from(
+      new Set(records.map((record) => record.item_id))
+    );
 
     // Get user names
     if (userIds.length > 0) {
@@ -395,21 +419,7 @@ async function getWeeklyActivityReport() {
       (userActivity[userId].statuses[record.status] || 0) + 1;
   });
 
-  // Format dates for display
-  const formatDate = (dateStr) => {
-    try {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr;
-
-      return date.toLocaleDateString("id-ID", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-    } catch (e) {
-      return dateStr;
-    }
-  };
+  // Format helper removed (unused)
 
   return {
     title: "Weekly Activity Report",
@@ -465,7 +475,9 @@ async function getMonthlyStatistics() {
     });
 
     // Fetch item names separately since we can't do JOINs directly
-    const itemIds = [...new Set(records.map((record) => record.item_id))];
+    const itemIds = Array.from(
+      new Set(records.map((record) => record.item_id))
+    );
 
     // Get item names
     if (itemIds.length > 0) {

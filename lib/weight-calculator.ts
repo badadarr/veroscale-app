@@ -1,4 +1,10 @@
-import apiClient from './api';
+import apiClient from "./api";
+
+interface DeliveryData {
+  id: number;
+  item_name: string;
+  [key: string]: unknown;
+}
 
 export interface SampleReference {
   id: number;
@@ -18,55 +24,69 @@ export interface WeightCalculation {
   quantity: number;
   variance: number;
   variance_percentage: number;
-  status: 'normal' | 'over' | 'under';
+  status: "normal" | "over" | "under";
   delivery_id?: number;
 }
 
 export class WeightCalculator {
-  static async getSamplesByCategory(category?: string): Promise<SampleReference[]> {
+  static async getSamplesByCategory(
+    category?: string
+  ): Promise<SampleReference[]> {
     try {
       // Fetch all samples
-      const { data: samplesData } = await apiClient.get(`/api/samples${category ? `?category=${category}` : ''}`);
+      const { data: samplesData } = await apiClient.get(
+        `/api/samples${category ? `?category=${category}` : ""}`
+      );
       const allSamples = samplesData.samples || [];
-      
+
       // Fetch deliveries with in_transit status
-      const { data: deliveriesData } = await apiClient.get('/api/deliveries?status=in_transit');
+      const { data: deliveriesData } = await apiClient.get(
+        "/api/deliveries?status=in_transit"
+      );
       const inTransitDeliveries = deliveriesData.deliveries || [];
-      
+
       // Filter samples that match item names in in_transit deliveries
       if (inTransitDeliveries.length > 0) {
-        const inTransitItemNames = inTransitDeliveries.map(d => d.item_name);
-        const filteredSamples = allSamples.filter(sample => {
+        const inTransitItemNames = inTransitDeliveries.map(
+          (d: DeliveryData) => d.item_name
+        );
+        const filteredSamples = allSamples.filter((sample: SampleReference) => {
           const sampleFullName = `${sample.category} - ${sample.item}`;
           return inTransitItemNames.includes(sampleFullName);
         });
-        
+
         // Add delivery_id to samples
-        return filteredSamples.map(sample => {
+        return filteredSamples.map((sample: SampleReference) => {
           const sampleFullName = `${sample.category} - ${sample.item}`;
-          const matchingDelivery = inTransitDeliveries.find(d => d.item_name === sampleFullName);
+          const matchingDelivery = inTransitDeliveries.find(
+            (d: DeliveryData) => d.item_name === sampleFullName
+          );
           return {
             ...sample,
-            delivery_id: matchingDelivery ? matchingDelivery.id : null
+            delivery_id: matchingDelivery ? matchingDelivery.id : null,
           };
         });
       } else {
         return [];
       }
     } catch (error) {
-      console.error('Failed to fetch samples:', error);
+      console.error("Failed to fetch samples:", error);
       return [];
     }
   }
 
-  static calculateWeight(sampleWeight: number, actualWeight: number, quantity: number = 1): WeightCalculation {
+  static calculateWeight(
+    sampleWeight: number,
+    actualWeight: number,
+    quantity: number = 1
+  ): WeightCalculation {
     const expectedWeight = sampleWeight * quantity;
     const variance = actualWeight - expectedWeight;
     const variancePercentage = (variance / expectedWeight) * 100;
-    
-    let status: 'normal' | 'over' | 'under' = 'normal';
+
+    let status: "normal" | "over" | "under" = "normal";
     if (Math.abs(variancePercentage) > 5) {
-      status = variance > 0 ? 'over' : 'under';
+      status = variance > 0 ? "over" : "under";
     }
 
     return {
@@ -76,7 +96,7 @@ export class WeightCalculator {
       quantity,
       variance,
       variance_percentage: variancePercentage,
-      status
+      status,
     };
   }
 
@@ -84,7 +104,12 @@ export class WeightCalculator {
     return Math.round(totalWeight / sampleWeight);
   }
 
-  static calculateBatchTotal(items: Array<{ sample_weight: number; quantity: number }>): number {
-    return items.reduce((total, item) => total + (item.sample_weight * item.quantity), 0);
+  static calculateBatchTotal(
+    items: Array<{ sample_weight: number; quantity: number }>
+  ): number {
+    return items.reduce(
+      (total, item) => total + item.sample_weight * item.quantity,
+      0
+    );
   }
 }

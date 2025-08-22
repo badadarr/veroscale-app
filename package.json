@@ -13,7 +13,8 @@
     "add-dummy-data:supabase": "node scripts/add-dummy-data-supabase.js",
     "setup-supabase": "node scripts/setup-supabase.js",
     "migrate-to-supabase": "node scripts/mysql-to-supabase.js",
-    "run-migrations": "ts-node scripts/run-migrations.ts"
+    "run-migrations": "ts-node scripts/run-migrations.ts",
+    "migrate:add-rfid-uid": "node scripts/run-rfid-uid-migration.js"
   },
   "dependencies": {
     "@arcjet/next": "^1.0.0-beta.9",

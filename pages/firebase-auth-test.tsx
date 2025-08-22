@@ -1,15 +1,20 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { CheckCircle, XCircle, AlertTriangle, User } from "lucide-react";
+import {
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  User as UserIcon,
+} from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { auth } from "@/lib/firebase";
-import { signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { signInAnonymously, onAuthStateChanged, User } from "firebase/auth";
 
 export default function FirebaseAuthTest() {
   const [authStatus, setAuthStatus] = useState("unknown");
-  const [user, setUser] = useState(null);
-  const [authError, setAuthError] = useState(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -33,11 +38,17 @@ export default function FirebaseAuthTest() {
     try {
       await signInAnonymously(auth);
       setAuthStatus("authenticated");
-    } catch (error) {
-      setAuthError(error.message);
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      setAuthError(errorMessage);
       setAuthStatus("error");
 
-      if (error.code === "auth/admin-restricted-operation") {
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        error.code === "auth/admin-restricted-operation"
+      ) {
         setAuthError(
           "Anonymous authentication is not enabled in Firebase Console. Please enable it first."
         );
@@ -56,7 +67,7 @@ export default function FirebaseAuthTest() {
       case "unauthenticated":
         return <AlertTriangle className="h-6 w-6 text-yellow-600" />;
       default:
-        return <User className="h-6 w-6 text-gray-600" />;
+        return <UserIcon className="h-6 w-6 text-gray-600" />;
     }
   };
 
@@ -113,7 +124,9 @@ export default function FirebaseAuthTest() {
                   </p>
                   <p>
                     <strong>Created:</strong>{" "}
-                    {new Date(user.metadata.creationTime).toLocaleString()}
+                    {user.metadata.creationTime
+                      ? new Date(user.metadata.creationTime).toLocaleString()
+                      : "Unknown"}
                   </p>
                 </div>
               </div>

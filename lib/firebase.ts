@@ -1,5 +1,16 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, onValue, off } from "firebase/database";
+import {
+  getDatabase,
+  ref,
+  onValue,
+  off,
+  query,
+  orderByChild,
+  orderByKey,
+  limitToLast,
+  set,
+  update,
+} from "firebase/database";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
@@ -49,3 +60,5 @@ const ensureAuth = () => {
 ensureAuth();
 
 export { database, ref, onValue, off, auth, ensureAuth };
+export { query, orderByChild, orderByKey, limitToLast };
+export { set, update };
