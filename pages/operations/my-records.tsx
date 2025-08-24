@@ -14,7 +14,6 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Pagination } from "@/components/ui/Pagination";
-import StatusInfoCard from "@/components/ui/StatusInfoCard";
 import { formatDate, formatWeight } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import apiClient from "@/lib/api";
@@ -238,11 +237,9 @@ export default function MyRecords() {
   return (
     <DashboardLayout title="My Records">
       <div className="max-w-6xl mx-auto">
-        <StatusInfoCard role={user?.role} />
-
-        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col mb-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">
+            <h1 className="mb-1 text-2xl font-bold text-gray-900">
               Weight Processing History
             </h1>
             <p className="text-gray-600">
@@ -256,31 +253,31 @@ export default function MyRecords() {
               size="sm"
             >
               {showFilters ? (
-                <X className="h-4 w-4 mr-1" />
+                <X className="w-4 h-4 mr-1" />
               ) : (
-                <Filter className="h-4 w-4 mr-1" />
+                <Filter className="w-4 h-4 mr-1" />
               )}
               {showFilters ? "Hide Filters" : "Show Filters"}
             </Button>
           </div>
         </div>
 
-        <Card className="shadow-md mb-6">
+        <Card className="mb-6 shadow-md">
           <CardHeader className="pb-3">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-              <CardTitle className="flex items-center text-primary-800 mb-2 md:mb-0">
-                <ClipboardList className="h-5 w-5 mr-2" />
+              <CardTitle className="flex items-center mb-2 text-primary-800 md:mb-0">
+                <ClipboardList className="w-5 h-5 mr-2" />
                 Weight Records
               </CardTitle>
 
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Search className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
                 <Input
                   type="text"
                   placeholder="Search by material..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 w-full md:w-64"
+                  className="w-full pl-9 md:w-64"
                 />
               </div>
             </div>
@@ -288,10 +285,10 @@ export default function MyRecords() {
 
           {showFilters && (
             <div className="px-6 pb-3">
-              <div className="p-3 bg-gray-50 rounded-md">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div className="p-3 rounded-md bg-gray-50">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block mb-1 text-xs font-medium text-gray-700">
                       Status
                     </label>
                     <select
@@ -307,30 +304,30 @@ export default function MyRecords() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block mb-1 text-xs font-medium text-gray-700">
                       From Date
                     </label>
                     <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Calendar className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
                       <Input
                         type="date"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="pl-9 text-sm"
+                        className="text-sm pl-9"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block mb-1 text-xs font-medium text-gray-700">
                       To Date
                     </label>
                     <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                      <Calendar className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
                       <Input
                         type="date"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="pl-9 text-sm"
+                        className="text-sm pl-9"
                       />
                     </div>
                   </div>
@@ -351,15 +348,15 @@ export default function MyRecords() {
 
           <CardContent>
             {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+              <div className="flex items-center justify-center h-64">
+                <div className="w-12 h-12 border-t-2 border-b-2 rounded-full animate-spin border-primary-600"></div>
               </div>
             ) : filteredRecords.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-                  <ClipboardList className="h-8 w-8 text-gray-400" />
+              <div className="py-12 text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 mb-4 bg-gray-100 rounded-full">
+                  <ClipboardList className="w-8 h-8 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                <h3 className="mb-1 text-lg font-medium text-gray-900">
                   No records found
                 </h3>
                 <p className="text-gray-500">
@@ -485,7 +482,7 @@ export default function MyRecords() {
                             size="sm"
                             onClick={() => handleViewRecord(record)}
                           >
-                            <Eye className="h-4 w-4 mr-1" />
+                            <Eye className="w-4 h-4 mr-1" />
                             View
                           </Button>
                         </TableCell>

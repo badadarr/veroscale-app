@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import apiClient from "@/lib/api";
 import IoTWeightDisplay from "@/components/ui/IoTWeightDisplay";
+import ThresholdGuide from "@/components/ui/ThresholdGuide";
 import { toast } from "react-hot-toast";
 import {
   analyzeWeightVariance,
@@ -50,6 +51,7 @@ export default function WeightEntry() {
   const [expectedWeight, setExpectedWeight] = useState<number | null>(null);
   const [iotDeviceId, setIotDeviceId] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  // Notes remain optional; server will auto-generate reasons for variance
   const [deliveryId, setDeliveryId] = useState<number | null>(null);
   const [varianceAnalysis, setVarianceAnalysis] =
     useState<VarianceAnalysis | null>(null);
@@ -146,16 +148,9 @@ export default function WeightEntry() {
     if (iotWeight && sampleExpectedWeight > 0) {
       analysis = analyzeWeightVariance(iotWeight, sampleExpectedWeight);
       setVarianceAnalysis(analysis);
-
-      // Auto-reject if variance exceeds thresholds
-      if (analysis.status === "auto_rejected") {
-        setError(
-          `Weight rejected automatically: ${analysis.reason}. Please check the scale calibration and try again.`
-        );
-        toast.error(`Rejected: ${analysis.reason}`);
-        return;
-      }
     }
+
+    // For warning/critical we still allow submit; server will auto-reject and record the reason automatically
 
     setLoading(true);
     setError(null);
@@ -190,9 +185,9 @@ export default function WeightEntry() {
             `${statusIcon} Weight approved automatically! Variance: ${varianceDisplay}`,
             { duration: 4000 }
           );
-        } else if (analysis.status === "auto_rejected") {
+        } else {
           toast.error(
-            `${statusIcon} Weight rejected automatically. Variance: ${varianceDisplay}`,
+            `${statusIcon} Saved to My Records and auto-rejected. Variance: ${varianceDisplay}`,
             { duration: 4000 }
           );
         }
@@ -210,6 +205,7 @@ export default function WeightEntry() {
         setNotes("");
         setDeliveryId(null);
         setVarianceAnalysis(null);
+        // no manual reason to reset
 
         // Navigate to my records page
         router.push("/operations/my-records");
@@ -264,6 +260,13 @@ export default function WeightEntry() {
   return (
     <DashboardLayout title="Weight Entry">
       <div className="max-w-2xl mx-auto">
+        {/* Threshold Guide */}
+        <div className="mb-6">
+          <ThresholdGuide
+            variancePercentage={varianceAnalysis?.variancePercentage ?? null}
+          />
+        </div>
+
         {/* IoT Integration Section */}
         <div className="grid-cols-1 gap-6 mb-6 ">
           <IoTWeightDisplay
@@ -571,20 +574,21 @@ export default function WeightEntry() {
                       </div>
                     </div>
                     <p className="text-sm">{varianceAnalysis.reason}</p>
-                    {varianceAnalysis.status === "auto_rejected" && (
-                      <div className="p-2 mt-2 text-sm text-red-800 bg-red-100 border border-red-300 rounded">
-                        <strong>Weight Rejected:</strong> Variance exceeds
-                        acceptable limits. Please check scale calibration.
-                      </div>
-                    )}
                     {varianceAnalysis.status === "auto_approved" && (
                       <div className="p-2 mt-2 text-sm text-green-800 bg-green-100 border border-green-300 rounded">
                         <strong>Weight Approved:</strong> Variance within
                         acceptable limits.
                       </div>
                     )}
+                    {varianceAnalysis.status !== "auto_approved" && (
+                      <div className="p-2 mt-2 text-sm text-yellow-900 border border-yellow-200 rounded bg-yellow-50">
+                        This record will be saved and automatically rejected due
+                        to variance. Reason will be generated automatically.
+                      </div>
+                    )}
                   </div>
                 )}
+                {/* No manual reason field; notes are optional */}
 
                 {/* Notes section */}
                 <div>

@@ -49,10 +49,6 @@
     },
     "devices": {
       "$device": {
-        "berat_terakhir": {
-          ".read": true,
-          ".write": true
-        },
         "log": {
           ".read": true,
           ".write": true

@@ -1,7 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
 import apiClient from "@/lib/api";
-import { Plus, Edit, Trash2, AlertCircle, Search } from "lucide-react";
+import {
+  Plus,
+  Edit,
+  Trash2,
+  AlertCircle,
+  Search,
+  Users as UsersIcon,
+  Shield,
+  User as UserIcon,
+  Megaphone,
+  Calendar,
+  AtSign,
+  SortAsc,
+  SortDesc,
+} from "lucide-react";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import {
@@ -76,6 +90,10 @@ export default function Users() {
     rfid_uid: "",
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  // Role filter and sorting states
+  const [roleFilter, setRoleFilter] = useState<string>("");
+  const [sortBy, setSortBy] = useState<"name" | "email" | "created_at">("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
   // Recent UIDs from RFID Log (pending requests)
   const recentUIDs = useMemo(() => {
@@ -136,14 +154,40 @@ export default function Users() {
     }
   };
 
-  const filteredUsers = users.filter((user) => {
+  const processedUsers = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    return (
-      user.name.toLowerCase().includes(query) ||
-      user.email.toLowerCase().includes(query) ||
-      user.role.toLowerCase().includes(query)
+    // Text search filter
+    let data = users.filter((user) =>
+      [user.name, user.email, user.role].some((v) =>
+        (v || "").toLowerCase().includes(query)
+      )
     );
-  });
+    // Role filter (admin/operator/marketing); empty means all
+    if (roleFilter) {
+      data = data.filter((u) => u.role === roleFilter);
+    }
+    // Sorting
+    data = data.slice().sort((a, b) => {
+      const dir = sortDir === "asc" ? 1 : -1;
+      let av: string = "";
+      let bv: string = "";
+      if (sortBy === "name") {
+        av = (a.name || "").toLowerCase();
+        bv = (b.name || "").toLowerCase();
+      } else if (sortBy === "email") {
+        av = (a.email || "").toLowerCase();
+        bv = (b.email || "").toLowerCase();
+      } else {
+        // created_at
+        av = a.created_at || "";
+        bv = b.created_at || "";
+      }
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+    return data;
+  }, [users, searchQuery, roleFilter, sortBy, sortDir]);
 
   const openCreateForm = () => {
     setFormData({
@@ -303,8 +347,8 @@ export default function Users() {
             </div>
           </CardHeader>
           <CardContent>
-            {/* Search input */}
-            <div className="mb-6">
+            {/* Search + Minimal icon controls */}
+            <div className="mb-6 space-y-3">
               <div className="relative">
                 <Search className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
                 <Input
@@ -313,6 +357,136 @@ export default function Users() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
                 />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Role icons: All, Admin, Operator, Marketing */}
+                <div
+                  className="flex items-center gap-1"
+                  aria-label="Filter by role"
+                >
+                  <button
+                    type="button"
+                    title="All roles"
+                    onClick={() => setRoleFilter("")}
+                    className={`px-2.5 py-1.5 rounded-md border transition inline-flex items-center gap-1 text-sm ${
+                      roleFilter === ""
+                        ? "bg-gray-100 border-gray-300"
+                        : "border-transparent hover:bg-gray-50"
+                    }`}
+                  >
+                    <UsersIcon className="w-4 h-4" />
+                    <span>All</span>
+                  </button>
+                  <button
+                    type="button"
+                    title="Admin"
+                    onClick={() => setRoleFilter("admin")}
+                    className={`px-2.5 py-1.5 rounded-md border transition inline-flex items-center gap-1 text-sm ${
+                      roleFilter === "admin"
+                        ? "bg-blue-50 border-blue-200 text-blue-700"
+                        : "border-transparent hover:bg-gray-50"
+                    }`}
+                  >
+                    <Shield className="w-4 h-4" />
+                    <span>Admin</span>
+                  </button>
+                  <button
+                    type="button"
+                    title="Operator"
+                    onClick={() => setRoleFilter("operator")}
+                    className={`px-2.5 py-1.5 rounded-md border transition inline-flex items-center gap-1 text-sm ${
+                      roleFilter === "operator"
+                        ? "bg-gray-100 border-gray-300"
+                        : "border-transparent hover:bg-gray-50"
+                    }`}
+                  >
+                    <UserIcon className="w-4 h-4" />
+                    <span>Operator</span>
+                  </button>
+                  <button
+                    type="button"
+                    title="Marketing"
+                    onClick={() => setRoleFilter("marketing")}
+                    className={`px-2.5 py-1.5 rounded-md border transition inline-flex items-center gap-1 text-sm ${
+                      roleFilter === "marketing"
+                        ? "bg-purple-50 border-purple-200 text-purple-700"
+                        : "border-transparent hover:bg-gray-50"
+                    }`}
+                  >
+                    <Megaphone className="w-4 h-4" />
+                    <span>Marketing</span>
+                  </button>
+                </div>
+
+                <div
+                  className="w-px h-6 mx-1 bg-gray-200"
+                  aria-hidden="true"
+                ></div>
+
+                {/* Sort field icons: Name, Email, Created
+                <div className="flex items-center gap-1" aria-label="Sort by">
+                  <button
+                    type="button"
+                    title="Sort by name"
+                    onClick={() => setSortBy("name")}
+                    className={`px-2.5 py-1.5 rounded-md border transition inline-flex items-center gap-1 text-sm ${
+                      sortBy === "name"
+                        ? "bg-gray-100 border-gray-300"
+                        : "border-transparent hover:bg-gray-50"
+                    }`}
+                  >
+                    <UserIcon className="w-4 h-4" />
+                    <span>Name</span>
+                  </button>
+                  <button
+                    type="button"
+                    title="Sort by email"
+                    onClick={() => setSortBy("email")}
+                    className={`px-2.5 py-1.5 rounded-md border transition inline-flex items-center gap-1 text-sm ${
+                      sortBy === "email"
+                        ? "bg-gray-100 border-gray-300"
+                        : "border-transparent hover:bg-gray-50"
+                    }`}
+                  >
+                    <AtSign className="w-4 h-4" />
+                    <span>Email</span>
+                  </button>
+                  <button
+                    type="button"
+                    title="Sort by created date"
+                    onClick={() => setSortBy("created_at")}
+                    className={`px-2.5 py-1.5 rounded-md border transition inline-flex items-center gap-1 text-sm ${
+                      sortBy === "created_at"
+                        ? "bg-gray-100 border-gray-300"
+                        : "border-transparent hover:bg-gray-50"
+                    }`}
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>Created</span>
+                  </button>
+                </div> */}
+
+                {/* Sort direction toggle */}
+                <button
+                  type="button"
+                  title={sortDir === "asc" ? "Ascending" : "Descending"}
+                  onClick={() =>
+                    setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+                  }
+                  className="px-2.5 py-1.5 rounded-md border border-transparent hover:bg-gray-50 inline-flex items-center gap-1 text-sm"
+                >
+                  {sortDir === "asc" ? (
+                    <>
+                      <SortAsc className="w-4 h-4" />
+                      <span>Asc</span>
+                    </>
+                  ) : (
+                    <>
+                      <SortDesc className="w-4 h-4" />
+                      <span>Desc</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
@@ -521,7 +695,7 @@ export default function Users() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.length === 0 ? (
+                    {processedUsers.length === 0 ? (
                       <TableRow>
                         <TableCell
                           colSpan={8}
@@ -531,7 +705,7 @@ export default function Users() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredUsers.map((user) => (
+                      processedUsers.map((user) => (
                         <TableRow key={user.id}>
                           <TableCell>
                             <div className="flex items-center">

@@ -76,7 +76,7 @@ export default function IoTWeightDisplay({
                 isConnected ? "text-green-600" : "text-red-600"
               }`}
             >
-              {isConnected ? "Terhubung" : "Terputus"}
+              {isConnected ? "Connected" : "Disconnected"}
             </span>
           </div>
         </CardTitle>
@@ -90,10 +90,10 @@ export default function IoTWeightDisplay({
 
           <div className="mb-1 text-sm text-gray-600">Device: {deviceId}</div>
           <div className="mb-4 text-xs text-gray-600">
-            Diakses oleh: {user ? `${user.name} (${user.role})` : "—"}
+            Accessed By: {user ? `${user.name} (${user.role})` : "—"}
             {lastUpdate && (
               <div className="mt-1">
-                Update terakhir: {lastUpdate.toLocaleTimeString("id-ID")}
+                Current Time: {lastUpdate.toLocaleTimeString("id-ID")}
               </div>
             )}
           </div>
@@ -104,13 +104,13 @@ export default function IoTWeightDisplay({
               size="sm"
               className="w-full mb-3"
             >
-              Gunakan Berat Ini ({formatWeight(weightData.weight)} kg)
+              Get This Weight ({formatWeight(weightData.weight)} kg)
             </Button>
           )}
 
           {!isConnected && (
             <div className="mt-2 text-xs text-red-600">
-              Periksa koneksi timbangan IoT
+              Check Connection IOT
             </div>
           )}
         </div>

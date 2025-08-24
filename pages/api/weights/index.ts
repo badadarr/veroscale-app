@@ -170,6 +170,8 @@ async function getWeightRecords(req: NextApiRequest, res: NextApiResponse) {
           total_weight: displayTotalWeight,
           // Normalize variance status for UI compatibility
           variance_status: mapVarianceStatusForUI(record.variance_status),
+          // Surface reason (stored in notes) for UI when needed
+          variance_reason: record.notes || null,
           // Back-compat aliases used by some UI components
           variance_amount: record.weight_variance ?? null,
           variance_percentage: record.weight_variance_percentage ?? null,
@@ -310,7 +312,13 @@ async function addWeightRecord(
     // Keep numeric precision at 3 decimals consistently
     const to3dp = (n: unknown): number | null => {
       if (n === null || n === undefined) return null;
-      const v = typeof n === "string" ? parseFloat(n) : Number(n);
+      if (typeof n === "string") {
+        const normalized = n.replace(",", ".");
+        const v = parseFloat(normalized);
+        if (Number.isNaN(v)) return null;
+        return Math.round(v * 1000) / 1000;
+      }
+      const v = Number(n);
       if (Number.isNaN(v)) return null;
       return Math.round(v * 1000) / 1000;
     };
@@ -342,14 +350,11 @@ async function addWeightRecord(
 
     // Determine IoT and expected weight values (rounded to 3dp)
     const totalWeight3dp = to3dp(total_weight);
-    const iotWeightValue: number | null =
-      typeof iot_weight === "number"
-        ? to3dp(iot_weight)
-        : typeof total_weight === "number"
-        ? totalWeight3dp
-        : null;
-    const expectedWeightValue: number | null =
-      typeof expected_weight === "number" ? to3dp(expected_weight) : null;
+    const iotWeightValue: number | null = to3dp(
+      (iot_weight as any) ?? (total_weight as any) ?? null
+    );
+    const expectedWeightValue: number | null = to3dp(expected_weight as any);
+    const totalForInsert: number | null = iotWeightValue ?? totalWeight3dp;
 
     console.log("[weights.add] incoming vs normalized", {
       total_weight,
@@ -378,20 +383,20 @@ async function addWeightRecord(
       };
     }
 
-    // Calculate final status based on analysis
+    // Calculate final status based on analysis: auto-reject for warning or critical
     let finalStatus = "pending";
-
     if (analysis) {
-      if (analysis.status === "auto_approved") {
-        finalStatus = "approved";
-      } else if (analysis.status === "auto_rejected") {
-        finalStatus = "rejected";
-      } else {
-        finalStatus = "pending";
-      }
+      finalStatus =
+        analysis.status === "auto_approved" ? "approved" : "rejected";
     } else if (iotWeightValue === null) {
       finalStatus = "pending";
     }
+
+    // Persist a clear reason for warning/critical into notes
+    const reasonNote =
+      analysis && analysis.status !== "auto_approved" ? analysis.reason : null;
+    const combinedNotes =
+      [reasonNote, notes].filter(Boolean).join(" | ") || null;
 
     // Handle sample-based weight entry with automatic variance checking
     if (sample_id) {
@@ -421,7 +426,7 @@ async function addWeightRecord(
           data: {
             user_id: user.id,
             item_id: sample_id, // Using sample_id as item_id
-            total_weight: totalWeight3dp,
+            total_weight: totalForInsert,
             iot_weight: iotWeightValue ?? null,
             manager_weight: null,
             weight_variance: varianceKg,
@@ -430,7 +435,7 @@ async function addWeightRecord(
             iot_device_id: iot_device_id ?? null,
             verification_required: finalStatus === "pending",
             status: finalStatus,
-            notes: notes || null,
+            notes: combinedNotes,
             unit: unit || "kg",
           },
           returning: "*",
@@ -451,9 +456,9 @@ async function addWeightRecord(
           values: [
             user.id,
             sample_id, // Using sample_id as item_id
-            totalWeight3dp,
+            totalForInsert,
             finalStatus,
-            notes || null,
+            combinedNotes,
             unit || "kg",
           ],
           single: true,
@@ -515,13 +520,14 @@ async function addWeightRecord(
         sample_name: sample
           ? `${sample.category} - ${sample.item}`
           : "Unknown Sample",
-        total_weight: totalWeight3dp,
+        total_weight: totalForInsert,
         iot_weight: iotWeightValue ?? null,
         expected_weight,
         iot_device_id,
         timestamp: result.timestamp || new Date(),
         status: finalStatus,
         variance: varianceInfo,
+        variance_reason: analysis?.reason || null,
       };
 
       return res.status(201).json({
@@ -571,9 +577,10 @@ async function addWeightRecord(
           data: {
             user_id: user.id,
             item_id: sampleItem.id,
-            total_weight: totalWeight3dp,
+            total_weight: totalForInsert,
             iot_weight: iotWeightValue ?? null,
             status: "pending",
+            notes: combinedNotes,
           },
           returning: "*",
         });
@@ -583,7 +590,7 @@ async function addWeightRecord(
             INSERT INTO weight_records (user_id, item_id, total_weight, status, notes)
             VALUES (?, ?, ?, 'pending', ?)
           `,
-          values: [user.id, sampleItem.id, totalWeight3dp, notes || ""],
+          values: [user.id, sampleItem.id, totalForInsert, combinedNotes || ""],
         });
       }
 
@@ -593,11 +600,11 @@ async function addWeightRecord(
         user_name: user.name,
         item_id: sampleItem.id,
         item_name: item_name || `${sampleItem.category} - ${sampleItem.item}`,
-        total_weight: totalWeight3dp,
+        total_weight: totalForInsert,
         timestamp: new Date(),
         status: "pending",
         delivery_id,
-        notes,
+        notes: combinedNotes,
       };
 
       return res.status(201).json({
@@ -612,7 +619,6 @@ async function addWeightRecord(
       const rfidRecord = {
         user_id: operator_id || user.id,
         rfid_device_id,
-        total_weight: totalWeight3dp,
         unit: unit || "kg",
         source,
         destination,
@@ -644,13 +650,13 @@ async function addWeightRecord(
           data: {
             user_id: rfidRecord.user_id,
             item_id: dummyItem[0]?.id || 1, // Use dummy item or fallback to 1
-            total_weight: totalWeight3dp,
-            iot_weight: totalWeight3dp,
+            total_weight: totalForInsert,
+            iot_weight: totalForInsert,
             iot_device_id: rfid_device_id,
             verification_required: true,
             status: rfidRecord.status,
             unit: rfidRecord.unit,
-            notes: null,
+            notes: combinedNotes,
           },
           returning: "*",
         });
@@ -660,7 +666,7 @@ async function addWeightRecord(
             INSERT INTO weight_records (user_id, item_id, total_weight, status)
             VALUES (?, 1, ?, 'pending')
           `,
-          values: [rfidRecord.user_id, totalWeight3dp],
+          values: [rfidRecord.user_id, totalForInsert],
         });
       }
 
@@ -669,7 +675,7 @@ async function addWeightRecord(
         record: {
           record_id: useSupabase ? result[0].record_id : result.insertId,
           user_id: rfidRecord.user_id,
-          total_weight: totalWeight3dp,
+          total_weight: totalForInsert,
           unit: rfidRecord.unit,
           source: rfidRecord.source,
           destination: rfidRecord.destination,
@@ -678,6 +684,7 @@ async function addWeightRecord(
           item_name: "RFID Entry",
           rfid_device_id,
           scan_time,
+          variance_reason: analysis?.reason || null,
         },
       });
     }
@@ -737,7 +744,7 @@ async function addWeightRecord(
         data: {
           user_id: user.id,
           item_id: item_id || items[0]?.id,
-          total_weight: totalWeight3dp,
+          total_weight: totalForInsert,
           iot_weight: iotWeightValue ?? null,
           manager_weight: null,
           weight_variance: varianceKg,
@@ -746,7 +753,7 @@ async function addWeightRecord(
           iot_device_id: iot_device_id ?? null,
           verification_required: finalStatus === "pending",
           status: finalStatus,
-          notes: notes || null,
+          notes: combinedNotes,
           unit: unit || "kg",
         },
         returning: "*",
@@ -781,12 +788,12 @@ async function addWeightRecord(
         values: [
           user.id,
           item_id || items[0]?.id,
-          totalWeight3dp,
+          totalForInsert,
           quantity || 1,
           unit || "kg",
           source,
           destination,
-          notes,
+          combinedNotes,
           finalStatus,
         ],
       });
@@ -798,9 +805,10 @@ async function addWeightRecord(
       user_name: user.name,
       item_id,
       item_name: `${items[0].category} - ${items[0].item}` || "Sample Item",
-      total_weight: totalWeight3dp,
+      total_weight: totalForInsert,
       timestamp: new Date(),
       status: finalStatus,
+      variance_reason: analysis?.reason || null,
     };
 
     return res.status(201).json({

@@ -41,20 +41,20 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
   // Handle ESC key press
   useEffect(() => {
     const handleEscPress = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isOpen) {
+      if (event.key === "Escape" && isOpen) {
         onClose();
       }
     };
 
     if (isOpen) {
-      document.addEventListener('keydown', handleEscPress);
+      document.addEventListener("keydown", handleEscPress);
       // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     }
 
     return () => {
-      document.removeEventListener('keydown', handleEscPress);
-      document.body.style.overflow = 'unset';
+      document.removeEventListener("keydown", handleEscPress);
+      document.body.style.overflow = "unset";
     };
   }, [isOpen, onClose]);
 
@@ -69,7 +69,7 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
 
   // Enhanced print function with better formatting
   const handlePrintReport = () => {
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
     const printContent = `
@@ -310,20 +310,25 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
               <div class="company-logo">🏭 VeroScale WeightTracker</div>
               <h1 class="report-title">Weight Record Report</h1>
               <p class="report-subtitle">${record.item_name}</p>
-              <p class="report-date">Generated on ${new Date().toLocaleDateString('id-ID', {
-                year: 'numeric',
-                month: 'long', 
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}</p>
+              <p class="report-date">Generated on ${new Date().toLocaleDateString(
+                "id-ID",
+                {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }
+              )}</p>
             </div>
 
             <!-- Basic Information -->
             <div class="info-grid">
               <div class="info-card">
                 <h3><span class="icon"></span>IoT Scale Measurement</h3>
-                <div class="weight-display">${record.total_weight} ${record.unit || 'kg'}</div>
+                <div class="weight-display">${record.total_weight} ${
+      record.unit || "kg"
+    }</div>
                 <p style="text-align: center; color: #6b7280; font-size: 14px;">
                   Automated measurement from IoT scale
                 </p>
@@ -339,32 +344,48 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
                   <tr>
                     <th>Status</th>
                     <td>
-                      <span class="status-badge ${record.status === 'approved' ? 'status-approved' : 'status-pending'}">
+                      <span class="status-badge ${
+                        record.status === "approved"
+                          ? "status-approved"
+                          : "status-pending"
+                      }">
                         ${record.status}
                       </span>
                     </td>
                   </tr>
                   <tr>
                     <th>Timestamp</th>
-                    <td>${new Date(record.timestamp).toLocaleString('id-ID')}</td>
+                    <td>${new Date(record.timestamp).toLocaleString(
+                      "id-ID"
+                    )}</td>
                   </tr>
-                  ${record.user_name ? `
+                  ${
+                    record.user_name
+                      ? `
                   <tr>
                     <th>Operator</th>
                     <td>${record.user_name}</td>
                   </tr>
-                  ` : ''}
-                  ${record.iot_device_id ? `
+                  `
+                      : ""
+                  }
+                  ${
+                    record.iot_device_id
+                      ? `
                   <tr>
                     <th>IoT Device</th>
                     <td style="font-family: monospace; font-size: 12px;">${record.iot_device_id}</td>
                   </tr>
-                  ` : ''}
+                  `
+                      : ""
+                  }
                 </table>
               </div>
             </div>
 
-            ${(record.iot_weight || record.manager_weight) ? `
+            ${
+              record.iot_weight || record.manager_weight
+                ? `
             <!-- Variance Analysis -->
             <div class="variance-section">
               <h3 style="margin-bottom: 20px; color: #374151; font-size: 18px;">
@@ -372,66 +393,99 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
               </h3>
               
               <div class="variance-grid">
-                ${record.iot_weight ? `
+                ${
+                  record.iot_weight
+                    ? `
                 <div class="variance-card">
                   <h4>IoT Scale Data</h4>
                   <div class="value" style="color: #059669;">${record.iot_weight} kg</div>
                   <p style="font-size: 11px; color: #6b7280; margin-top: 5px;">Same as recorded</p>
                 </div>
-                ` : ''}
+                `
+                    : ""
+                }
                 
-                ${record.manager_weight ? `
+                ${
+                  record.manager_weight
+                    ? `
                 <div class="variance-card">
                   <h4>Target Weight</h4>
                   <div class="value" style="color: #d97706;">${record.manager_weight} kg</div>
                   <p style="font-size: 11px; color: #6b7280; margin-top: 5px;">Expected delivery</p>
                 </div>
-                ` : ''}
+                `
+                    : ""
+                }
                 
-                ${record.weight_variance !== undefined ? `
+                ${
+                  record.weight_variance !== undefined
+                    ? `
                 <div class="variance-card variance-${record.variance_status}">
                   <h4>Variance</h4>
                   <div class="value" style="color: ${
-                    record.variance_status === 'critical' ? '#dc2626' : 
-                    record.variance_status === 'warning' ? '#d97706' : '#059669'
+                    record.variance_status === "critical"
+                      ? "#dc2626"
+                      : record.variance_status === "warning"
+                      ? "#d97706"
+                      : "#059669"
                   };">
-                    ${record.weight_variance > 0 ? '+' : ''}${record.weight_variance.toFixed(2)} kg
+                    ${
+                      record.weight_variance > 0 ? "+" : ""
+                    }${record.weight_variance.toFixed(2)} kg
                   </div>
                   <p style="font-size: 11px; color: #6b7280; margin-top: 5px;">
-                    ${record.weight_variance_percentage !== undefined ? 
-                      `${record.weight_variance_percentage > 0 ? '+' : ''}${record.weight_variance_percentage.toFixed(1)}%` 
-                      : ''}
+                    ${
+                      record.weight_variance_percentage !== undefined
+                        ? `${
+                            record.weight_variance_percentage > 0 ? "+" : ""
+                          }${record.weight_variance_percentage.toFixed(1)}%`
+                        : ""
+                    }
                   </p>
                 </div>
-                ` : ''}
+                `
+                    : ""
+                }
               </div>
 
               <!-- Analysis Summary -->
               <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 6px; border-left: 4px solid #2563eb;">
                 <h4 style="color: #374151; margin-bottom: 8px;">Analysis Summary:</h4>
                 <p style="font-size: 14px; color: #4b5563;">
-                  ${record.variance_status === 'critical' 
-                    ? '🔴 Critical variance detected (≥10%). Manual review and investigation recommended.'
-                    : record.variance_status === 'warning'
-                    ? '🟡 Warning variance detected (5-10%). Moderate difference within acceptable limits.'
-                    : '🟢 Normal variance detected (<5%). Good alignment between measurements.'}
+                  ${
+                    record.variance_status === "critical"
+                      ? "🔴 Critical variance detected (≥10%). The measured weight differs significantly from the expected target, suggesting a potential calibration, packaging/contents, or process issue. This record is automatically rejected. Please verify scale calibration, confirm item and packaging integrity, review recent process changes, and perform a reweigh if needed."
+                      : record.variance_status === "warning"
+                      ? "🟡 Warning variance detected (5–10%). The measured weight shows a moderate deviation from the expected target. For traceability, this record is automatically rejected. Check sampling method and tare (container/lining), ensure stable weighing conditions, and consider reweighing to confirm."
+                      : "🟢 Normal variance detected (<5%). The measured weight aligns well with the expected target and is within tolerance. No further action is required."
+                  }
                 </p>
-                ${record.verification_required ? `
+                ${
+                  record.verification_required
+                    ? `
                 <div style="margin-top: 10px; padding: 10px; background: #fef3c7; border-radius: 4px;">
                   <strong style="color: #92400e;">⚠️ Manual Verification Required</strong>
                 </div>
-                ` : ''}
+                `
+                    : ""
+                }
               </div>
             </div>
-            ` : ''}
+            `
+                : ""
+            }
 
-            ${record.notes ? `
+            ${
+              record.notes
+                ? `
             <!-- Notes -->
             <div class="notes-section">
               <h3>📝 Additional Notes</h3>
               <p style="color: #4b5563;">${record.notes}</p>
             </div>
-            ` : ''}
+            `
+                : ""
+            }
 
             <!-- Footer -->
             <div class="report-footer">
@@ -467,7 +521,7 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
   };
 
   return (
-    <div 
+    <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
       onClick={handleBackdropClick}
     >
@@ -480,8 +534,12 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
                 <Scale className="w-7 h-7 mr-3 text-blue-600" />
                 Weight Record Details
               </h2>
-              <p className="mt-1 text-lg font-medium text-blue-700">{record.item_name}</p>
-              <p className="text-sm text-gray-600">Record #{record.record_id}</p>
+              <p className="mt-1 text-lg font-medium text-blue-700">
+                {record.item_name}
+              </p>
+              <p className="text-sm text-gray-600">
+                Record #{record.record_id}
+              </p>
             </div>
             <button
               onClick={onClose}
@@ -547,12 +605,16 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
                 {record.user_name && (
                   <div className="flex justify-between">
                     <span className="text-gray-600 font-medium">Operator:</span>
-                    <span className="font-medium text-gray-900">{record.user_name}</span>
+                    <span className="font-medium text-gray-900">
+                      {record.user_name}
+                    </span>
                   </div>
                 )}
                 {record.iot_device_id && (
                   <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">IoT Device:</span>
+                    <span className="text-gray-600 font-medium">
+                      IoT Device:
+                    </span>
                     <span className="font-medium text-gray-900 font-mono text-xs bg-gray-200 px-2 py-1 rounded">
                       {record.iot_device_id}
                     </span>
@@ -626,13 +688,15 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
                     }`}
                   >
                     <div className="flex items-center mb-3">
-                      <div className={`p-2 rounded-lg mr-2 ${
-                        record.variance_status === "critical"
-                          ? "bg-red-600"
-                          : record.variance_status === "warning"
-                          ? "bg-yellow-600"
-                          : "bg-green-600"
-                      }`}>
+                      <div
+                        className={`p-2 rounded-lg mr-2 ${
+                          record.variance_status === "critical"
+                            ? "bg-red-600"
+                            : record.variance_status === "warning"
+                            ? "bg-yellow-600"
+                            : "bg-green-600"
+                        }`}
+                      >
                         <AlertTriangle className="w-4 h-4 text-white" />
                       </div>
                       <span
@@ -685,7 +749,9 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
                 </h4>
                 <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
                   <div className="bg-white p-3 rounded-lg shadow-sm">
-                    <span className="text-gray-600 font-medium">Absolute Difference:</span>
+                    <span className="text-gray-600 font-medium">
+                      Absolute Difference:
+                    </span>
                     <div className="text-lg font-bold text-gray-900 mt-1">
                       {record.weight_variance !== undefined
                         ? `${Math.abs(record.weight_variance).toFixed(2)} kg`
@@ -693,7 +759,9 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
                     </div>
                   </div>
                   <div className="bg-white p-3 rounded-lg shadow-sm">
-                    <span className="text-gray-600 font-medium">Percentage Variance:</span>
+                    <span className="text-gray-600 font-medium">
+                      Percentage Variance:
+                    </span>
                     <div className="text-lg font-bold text-gray-900 mt-1">
                       {record.weight_variance_percentage !== undefined
                         ? `${Math.abs(
@@ -703,7 +771,9 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
                     </div>
                   </div>
                   <div className="bg-white p-3 rounded-lg shadow-sm">
-                    <span className="text-gray-600 font-medium">Variance Status:</span>
+                    <span className="text-gray-600 font-medium">
+                      Variance Status:
+                    </span>
                     <div className="mt-1">
                       <span
                         className={`font-bold px-3 py-1 rounded-full text-sm ${
@@ -744,10 +814,10 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
                   </h5>
                   <p className="text-sm text-gray-700 leading-relaxed">
                     {record.variance_status === "critical"
-                      ? "🔴 Critical variance detected (≥10%). This indicates a significant difference between IoT measurement and expected delivery weight. Manual review and investigation recommended."
+                      ? "🔴 Critical variance detected (≥10%). The measured weight differs significantly from the expected target, suggesting a potential calibration, packaging/contents, or process issue. This record is automatically rejected. Please verify scale calibration, confirm item and packaging integrity, review recent process changes, and perform a reweigh if needed."
                       : record.variance_status === "warning"
-                      ? "🟡 Warning variance detected (5-10%). This indicates a moderate difference that may require attention but is within acceptable limits."
-                      : "🟢 Normal variance detected (<5%). This indicates good alignment between IoT measurement and expected delivery weight."}
+                      ? "🟡 Warning variance detected (5–10%). The measured weight shows a moderate deviation from the expected target. For traceability, this record is automatically rejected. Check sampling method and tare (container/lining), ensure stable weighing conditions, and consider reweighing to confirm."
+                      : "🟢 Normal variance detected (<5%). The measured weight aligns well with the expected target and is within tolerance. No further action is required."}
                   </p>
                 </div>
               </div>
@@ -772,9 +842,12 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
                       <AlertTriangle className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h4 className="font-bold text-yellow-800">Manual Verification Required</h4>
+                      <h4 className="font-bold text-yellow-800">
+                        Manual Verification Required
+                      </h4>
                       <p className="text-sm text-yellow-700 mt-1">
-                        Significant weight variance detected. Please review and investigate this measurement.
+                        Significant weight variance detected. Please review and
+                        investigate this measurement.
                       </p>
                     </div>
                   </div>
@@ -806,10 +879,13 @@ const WeightRecordDetailModal: React.FC<WeightRecordDetailModalProps> = ({
                   <AlertCircle className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-blue-800 mb-1">Limited Variance Data Available</h4>
+                  <h4 className="font-semibold text-blue-800 mb-1">
+                    Limited Variance Data Available
+                  </h4>
                   <p className="text-sm text-blue-600">
-                    Both IoT weight and expected weight from delivery are required for comprehensive
-                    variance analysis. Some analysis features may be limited.
+                    Both IoT weight and expected weight from delivery are
+                    required for comprehensive variance analysis. Some analysis
+                    features may be limited.
                   </p>
                 </div>
               </div>
